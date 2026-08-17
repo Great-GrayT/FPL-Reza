@@ -81,6 +81,8 @@ Runs the built CLI (`apps/cli`, still in progress) at `apps/cli/dist/bin.js`.
 
 ## Where the docs live
 
+- [How this project works](docs/ARCHITECTURE.md): the end to end explanation, from the public sources it reads through the models, the algorithms, and the packages, to a rendered page. The web app serves it at `/how-it-works`. Any change to what it describes updates it in the same commit.
+
 - [Docs index](docs/INDEX.md): the module map and the documentation format every file in `docs/` and every package's `CLAUDE.md`/`SKILL.md`/`SPEC.md` follows.
 - [Short term memory](docs/memory/short-term.md): current task state and known blockers.
 - [Long term memory](docs/memory/long-term.md): architecture decisions and why they were made.

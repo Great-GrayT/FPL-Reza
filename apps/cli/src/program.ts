@@ -30,6 +30,9 @@ import {
   summariseFixtureChange,
   rulesSource,
   runSync,
+  SofascoreClient,
+  sofascoreHttp,
+  sofascoreSpatialSource,
   type HttpClient,
   type RulesDocument,
   type Source,
@@ -107,6 +110,8 @@ interface SyncOptionsRaw {
   skipUnplayed?: boolean;
   continueOnError?: boolean;
   json?: boolean;
+  spatialMaxEvents?: number;
+  spatialSinceGameweek?: number;
 }
 
 function registerSync(program: Command, deps: CliDeps, streams: Streams, now: () => Date): void {
@@ -114,13 +119,26 @@ function registerSync(program: Command, deps: CliDeps, streams: Streams, now: ()
     .command('sync')
     .description('Fetch data from the FPL API and write snapshots to the store')
     .option('--season <season>', 'season to sync, e.g. 2025/26')
-    .option('--sources <names>', 'comma separated source names to run (default: all)')
+    .option(
+      '--sources <names>',
+      'comma separated source names to run (default: all but spatial-sofascore)',
+    )
     .addOption(
       new Option('--format <format>', 'snapshot storage format').choices(['jsonl', 'parquet']),
     )
     .option('--limit <n>', 'cap the number of players fetched for history', parseIntOption)
     .option('--skip-unplayed', 'skip players with no minutes played')
     .option('--continue-on-error', 'keep going after a source fails')
+    .option(
+      '--spatial-max-events <n>',
+      'cap the matches the spatial source pulls (opt in via --sources)',
+      parseIntOption,
+    )
+    .option(
+      '--spatial-since-gameweek <n>',
+      'skip matches before this gameweek in the spatial source',
+      parseIntOption,
+    )
     .option('--json', 'print machine readable JSON instead of a table')
     .action(async (options: SyncOptionsRaw) => {
       const season = resolveSeason(options.season, deps.config);
@@ -138,6 +156,16 @@ function registerSync(program: Command, deps: CliDeps, streams: Streams, now: ()
         rulesSource(deps.http),
         // Requires the teams dataset, so runSync orders it after bootstrap.
         footballDataOddsSource(deps.http),
+        // Its own HttpClient: the provider needs browser headers and a browser
+        // TLS cipher order, and a slower request interval than the FPL API.
+        sofascoreSpatialSource(new SofascoreClient(sofascoreHttp()), {
+          ...(options.spatialMaxEvents === undefined
+            ? {}
+            : { maxEvents: options.spatialMaxEvents }),
+          ...(options.spatialSinceGameweek === undefined
+            ? {}
+            : { sinceGameweek: options.spatialSinceGameweek }),
+        }),
       ];
 
       const sources = selectSources(available, options.sources);
@@ -277,8 +305,15 @@ function parseKinds(raw: string): AssetKind[] {
   return wanted as AssetKind[];
 }
 
+/**
+ * Sources a bare `sync` must not run. The spatial source costs one request per
+ * player per match against a provider throttled to 500 ms, so a whole season of
+ * it is hours of traffic: it is asked for by name or not at all.
+ */
+const OPT_IN_SOURCES = new Set(['spatial-sofascore']);
+
 function selectSources(available: readonly Source[], raw: string | undefined): Source[] {
-  if (raw === undefined) return [...available];
+  if (raw === undefined) return available.filter((source) => !OPT_IN_SOURCES.has(source.name));
   const wanted = new Set(
     raw
       .split(',')

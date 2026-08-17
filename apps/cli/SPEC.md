@@ -2,7 +2,7 @@
 title: CLI spec
 type: spec
 module: apps/cli
-updated: 2026-08-16
+updated: 2026-08-18
 status: active
 ---
 
@@ -26,6 +26,18 @@ bootstrap, fixtures, player history, rules, and odds sources in dependency
 order and prints a row per source with its datasets, rows, duration, and error.
 Errors: an unknown source name fails before anything runs. A failed source sets
 a non zero exit code.
+
+### sync, spatial source
+
+In: `--sources spatial-sofascore`, and optionally `--spatial-max-events <n>` and `--spatial-since-gameweek <n>`. Out: the same report row shape as any other source. Errors: as `sync`. Notes: `spatial-sofascore` is the one source excluded from a bare `fpl sync`, because it costs roughly one request per player per match against a client throttled to a 500 ms floor, so a whole season is hours of traffic. It is asked for by name or not at all, and `OPT_IN_SOURCES` in `program.ts` is what holds that rule. It requires teams, players, and fixtures, so run it after a normal sync has landed those.
+
+### fixtures refresh
+
+In: optional `--season`, `--format`, `--always`, `--json`. Out: what moved per fixture id (kickoff, gameweek, scores, difficulty), and whether a snapshot was written. Errors: as any store write. Notes: calls `refreshFixtures`, which writes only when the diff reports a change unless `--always` is set.
+
+### assets sync / assets list
+
+In: optional kinds to sync (see `ASSET_KINDS`), `--force` to refetch what is already stored, and `--json`. Out: per kind counts of downloaded, skipped, and absent objects, or the stored manifest. Errors: propagates a store error; an absent object upstream is reported, not thrown. Notes: the Premier League CDN answers a missing object with 403 rather than 404, and sometimes with a 200 and a placeholder body, so `syncAssets` enforces a minimum image size and falls through to the next candidate size. Blobs are gitignored: the web app hotlinks the CDN instead.
 
 ### rules refresh
 

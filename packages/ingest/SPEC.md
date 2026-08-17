@@ -2,13 +2,13 @@
 title: Ingest spec
 type: spec
 module: packages/ingest
-updated: 2026-08-16
+updated: 2026-08-18
 status: active
 ---
 
 ## Purpose
 
-Fetches Fantasy Premier League data over HTTP, maps it onto packages/core's domain schemas, and writes it through packages/store's Store port, via a set of independent Source implementations run in dependency order by a single sync runner. Also scrapes the published rules page (with a diff aware refresh path) and parses football-data.co.uk odds CSVs, both wired into the sync pipeline and both callable directly by a consuming app.
+Fetches Fantasy Premier League data over HTTP, maps it onto packages/core's domain schemas, and writes it through packages/store's Store port, via a set of independent Source implementations run in dependency order by a single sync runner. Also scrapes the published rules page (with a diff aware refresh path) and parses football-data.co.uk odds CSVs, both wired into the sync pipeline and both callable directly by a consuming app, refreshes the fixture list on its own with a per fixture diff, and ingests player movement from Sofascore (heatmaps, average positions, per player match statistics, shot coordinates) through its own transport and identity joins.
 
 ## Methods
 
@@ -108,6 +108,54 @@ In: the season's Team list. Out: a resolver function from a provider's free text
 
 In: an HttpClient and optional division / url. Out: a Source named odds-football-data, requiring the teams dataset, that yields one odds batch (partition "football-data") from one season CSV fetch. Errors: propagates parseFootballDataCsv's and the HTTP fetch's errors. Notes: reads the teams dataset from the store to build the team resolver, so it must run after whatever source produces teams; logs a count of quotes whose team could not be resolved, but does not fail the batch over them (they are written with a null team id).
 
+### refreshFixtures(deps): Promise<RefreshFixturesResult>
+
+In: an HttpClient, a Store, a Season, and optional logger, capturedAt, format, always, dryRun. Out: `{ fixtures, diff, written }`, where written is the SnapshotMeta just recorded or null if nothing changed. Errors: propagates FplClient.fixtures and Store.write errors. Notes: refetches the whole fixture list, maps it, reads the stored snapshot with readLatestFixtures, diffs with diffFixtures, and writes only when diff.changed is true unless always is set; dryRun returns the diff without writing at all, which is what a read only host (Vercel) needs so a scheduler still learns what moved.
+
+### readLatestFixtures(store, season): Promise<Fixture[] | undefined>
+
+In: a Store and a Season. Out: the newest stored fixtures for that season, or undefined if the dataset was never written. Errors: propagates any Store.read error other than NotFoundError, which it turns into undefined.
+
+### diffFixtures(before, after): FixturesDiff / summariseFixtureChange(change): string
+
+In: the previous fixture list (or undefined) and the fresh one, or one FixtureChange. Out: a FixturesDiff (changed, added, removed, updated, changes) keyed by fixture id, or a single human readable line. Errors: none. Notes: compares kickoff, gameweek, both scores, both difficulties, and the finished flag per fixture id, so the result names which fixture moved and how.
+
+### sofascoreFetch(input, init): Promise<Response>
+
+In: a URL (or string) and a RequestInit. Out: a Response. Errors: rejects on a socket error or an aborted signal; throws SourceError if handed a Request object rather than a URL. Notes: a `typeof fetch` transport over node:https that sets a browser cipher order, because the provider fingerprints the TLS handshake and answers node own fetch with 403 on every path. Compression is not requested, so no decoding step is needed. Retry, backoff, and throttling stay with HttpClient.
+
+### sofascoreHttp(options?): HttpClient
+
+In: partial HttpClientOptions. Out: an HttpClient pointed at SOFASCORE_BASE_URL (api.sofascore.com/api/v1) carrying the provider Referer and Origin headers, a browser user agent, and a 500 ms request floor, using sofascoreFetch as its transport. Errors: none. Notes: no key or account is involved; those two headers plus the cipher order are the whole of what the provider requires.
+
+### SofascoreClient.events(seasonId, page, tournamentId?) / event / lineups / shotmap / averagePositions / heatmap / tryHeatmap
+
+In: the provider season id and a listing page (page 0 is the most recent), or an event id, or an event id plus a provider player id. Out: one page of finished events, one event, the lineups with per player match statistics, the shot list, the average positions per side, or a player heatmap points. Errors: throws ValidationError (up to 10 issues) if a payload does not match its schema, and whatever HttpClient throws otherwise. Notes: tryHeatmap returns null instead of throwing when the provider answers 403 or 404, since a match without tracking has no heatmap for any of its players and one absent optional resource must not abort a sync run. PREMIER_LEAGUE_UNIQUE_TOURNAMENT is 17.
+
+### buildProviderTeamResolver(teams): (name: string) => TeamId | undefined
+
+In: the season Team list. Out: a resolver from the provider club name to a domain TeamId, or undefined. Errors: none. Notes: layers over the odds path buildTeamResolver rather than replacing it: the shared table handles abbreviating providers, a local alias table handles the registered names Sofascore prints (manchestercity, tottenhamhotspur, and so on), and a final rule treats a known domain name as a prefix of the provider longer one ("Newcastle" against "Newcastle United"), returning undefined when two teams match.
+
+### buildFixtureResolver(fixtures, teams, options?): (event) => FixtureId | undefined
+
+In: the season fixtures and teams, and an optional kickoff toleranceMs (default 4 hours). Out: a resolver from a provider event (home name, away name, kickoff) to a domain FixtureId, or undefined. Errors: none. Notes: matches on the resolved team pair plus the closest kickoff within tolerance; a tie between two candidates yields undefined rather than a guess, which is what stops a cup tie between the same clubs from stealing the league fixture.
+
+### buildPlayerResolver(players, teams?): PlayerResolver
+
+In: the season players. Out: a resolver from a provider player name plus a domain TeamId to a PlayerId, or undefined. Errors: none. Notes: names are normalised by stripping diacritics and every non alphanumeric character, then matched from most specific to least: strong forms (full name, web name, second name, first plus either family name) scoped to the club, then weak forms (a family name, an initial plus a family name) also scoped to the club, then an unambiguous full name across the whole league, which is the only way to reach a player who has since moved clubs. Any key shared by two players is marked ambiguous and resolves to undefined.
+
+### fromTeamFrame(point) / fromShotFrame(point)
+
+In: one provider coordinate pair. Out: a domain Point, clamped to the pitch bounds. Errors: none. Notes: fromTeamFrame flips y (average positions and heatmaps share a frame whose x already matches the domain); fromShotFrame flips x and leaves y (the shot frame is that same frame rotated 180 degrees). Both conventions were established from real payloads, not documentation.
+
+### toPlayerMatchSpatial(input) / toMatchEvent(input) / touchesByZone(points) / phaseOfSituation(situation)
+
+In: a resolved player, fixture, and team plus the provider lineup entry, heatmap, and average position, or a resolved shot; or normalised points; or a provider situation token. Out: a PlayerMatchSpatial, a MatchEvent, per zone counts, or a domain Phase. Errors: each mapper throws whatever the core schema throws, since both call schema.parse. Notes: a measure the provider does not carry stays null, never 0; minutes and the event minute are capped at 120; a shot keeps its raw situation token in outcome because the phase mapping flattens several situations into one bucket.
+
+### sofascoreSpatialSource(client, options?): Source
+
+In: a SofascoreClient and optional seasonId, maxEvents, sinceGameweek, maxPages (default 20). Out: a Source named spatial-sofascore, requiring teams, players, and fixtures, that yields one player-match-spatial batch and one match-events batch per gameweek partition (gwN). Errors: propagates the client errors; an unresolved event, player, or shot taker is counted and logged, never thrown. Notes: the provider season id comes from SOFASCORE_SEASON_IDS (2025/26 is 76986) unless passed in, and an unknown season logs a warning and yields nothing.
+
 ## Logic
 
 HttpClient distinguishes a terminal SourceError, already thrown for a non retryable status or the final attempt, from a network or timeout fault: only the latter is retried while attempts remain within the configured retries budget. Backoff without a Retry-After header doubles from a 250ms base per attempt (250, 500, 1000, and so on); a numeric Retry-After header, in seconds, takes precedence over that computed backoff.
@@ -132,6 +180,14 @@ parseFootballDataCsv iterates BOOKMAKER_COLUMNS (a fixed prefix to bookmaker nam
 
 DATASETS reserves six FPL adjacent dataset names, teams, players, gameweeks, fixtures, player-gameweeks, and now rules and odds, both of which have a Source (rulesSource, footballDataOddsSource). It also reserves ownership, club-transfers, player-match-spatial, and match-events, matching the new schemas in packages/core (transfers.ts, spatial.ts), but nothing in this package produces any of those four yet: they are reserved names, not implemented pipelines.
 
+refreshFixtures exists separately from a full sync because fixtures are the most volatile dataset in the lake: kickoff times shift for broadcast, a postponed match loses and later regains a gameweek, and scores land live. Writing only on a change keeps snapshot history meaningful for a list that can be polled every few minutes, and dryRun exists because Vercel filesystem is read only at runtime, where a caller still wants the diff.
+
+The spatial source resolves before it reads: without a provider season id there is nothing to ask for, so it warns and yields nothing rather than reading the store first. It then walks the provider listing pages (about 30 finished events each) until it has enough resolvable events, skipping anything not finished, anything whose fixture cannot be joined, and any fixture with no gameweek, since a fixture without a gameweek has no partition to land in and is left for a later run. Rows are grouped by gameweek in memory before anything is yielded, so each partition is written once, the same shape as playerHistorySource.
+
+Per match the source reads lineups, average positions, and the shotmap once each, then one heatmap per player who actually played, skipping the heatmap calls entirely when the event hasEventPlayerHeatMap flag is false. That per player call is the cost of this source: at a 500 ms floor a full season is hours of traffic, which is why the CLI keeps it opt in. A player who cannot be joined is counted and skipped; an unjoinable shot taker still lands its event row with a null player id, because the shot itself happened and is worth storing.
+
+Identity is the whole risk of this pipeline, so it is deliberately conservative: a key shared by two players at a club is marked ambiguous and resolves to nothing, and a fixture tie resolves to nothing. The source logs both counts at info level (unresolvedPlayers, unresolvedShotTakers) and warns on events without a fixture, because a low join rate is otherwise silent.
+
 ## Data flow
 
 fantasy.premierleague.com/api/bootstrap-static/ JSON -> FplClient.bootstrap -> toTeam/toGameweek/toPlayer -> bootstrapSource batches -> runSync -> Store.write for the teams, gameweeks, and players datasets.
@@ -146,11 +202,15 @@ fantasy.premierleague.com/en/help/rules HTML -> parseRules -> diffRules(previous
 
 football-data.co.uk season CSV text -> parseCsv/parseCsvObjects -> parseFootballDataCsv, resolving each row's club names through buildTeamResolver built from the stored teams dataset -> OddsQuote rows -> footballDataOddsSource yields one odds batch (partition "football-data") -> runSync -> Store.write for the odds dataset.
 
+fantasy.premierleague.com/api/fixtures/ JSON -> FplClient.fixtures -> toFixture -> diffFixtures(stored fixtures, fresh fixtures) -> refreshFixtures -> Store.write for the fixtures dataset when something moved, else a null written value. Called directly by the CLI fixtures refresh command, the API POST /fixtures/refresh route, and apps/web refresh endpoint.
+
+Store.read of teams, players, and fixtures -> buildFixtureResolver and buildPlayerResolver -> api.sofascore.com listing pages -> per event lineups, average positions, shotmap, and one heatmap per player -> fromTeamFrame and fromShotFrame -> toPlayerMatchSpatial and toMatchEvent -> rows grouped by gameweek -> sofascoreSpatialSource batches -> runSync -> Store.write for the player-match-spatial and match-events datasets, one partition per gameweek.
+
 ## Dependencies
 
 Internal: @fpl/core (errors, logger, the entity schemas, position and availability mapping, oddsQuoteSchema and the TeamId type for the odds path), @fpl/store (the Format and SnapshotMeta types, and the Store interface batches are written through).
 
-External: zod, cheerio, node's crypto module (for the rules page checksum).
+External: zod, cheerio, node's crypto module (for the rules page checksum), node's https module (the Sofascore transport, which needs its own cipher list).
 
 ## Related
 

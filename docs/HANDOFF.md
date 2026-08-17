@@ -8,10 +8,18 @@ status: active
 
 ## Read this first
 
-The repo does not currently build. One file has one error. Fix that before
-anything else, then run the gate. Everything else in this document is context.
+The build is green again and the first commit exists. What was outstanding at the top of this file is done: the `headersOf` type error is fixed by narrowing each branch, `pnpm verify` passes (format, lint, build, 291 tests), the Sofascore adapter is documented in the ingest `SKILL.md` and `SPEC.md`, `docs/INDEX.md` points at everything, and the spatial source is wired into the CLI as an opt in source. The rest of this file is still accurate as context.
 
-Blocker: `packages/ingest/src/spatial/sofascore/fetch.ts`
+New since: `docs/ARCHITECTURE.md` explains the whole platform end to end and is rendered by the web app at `/how-it-works` through `apps/web/lib/markdown.ts`. It is part of the definition of done, so any change to a source, schema, algorithm, package boundary, route, or page updates it in the same commit.
+
+Still outstanding: push to `origin` (the remote is set to `https://github.com/Great-GrayT/FPL-Reza.git`, the push itself needs a human), the live spatial smoke test with `--spatial-max-events 2` and a recorded player resolution hit rate, a web route that renders heatmaps and shotmaps, Vercel setup, and `SKILL.md`/`SPEC.md` for `packages/assets` and `apps/web`.
+
+## Original blocker, resolved
+
+Kept for the record. The repo did not build; one file had one error, fixed by
+narrowing each branch of `headersOf` as described below.
+
+Was: `packages/ingest/src/spatial/sofascore/fetch.ts`
 
 ```
 packages/ingest/src/spatial/sofascore/fetch.ts(80,3): error TS2322:
@@ -144,12 +152,11 @@ Saved payloads used as fixtures live in the session scratchpad under
 
 ## Remaining work, in order
 
-1. **Fix the build.** See the top of this file.
-2. **Document the spatial adapter.** `packages/ingest/SKILL.md` and `SPEC.md`
-   need the new source, and `docs/INDEX.md` needs to mention it. The docs
-   format rule in `~/.claude/rules/md-format.md` is not optional here: fixed
-   frontmatter field order, no H1, fixed section order per file type, every
-   file ends with `## Related`.
+1. ~~Fix the build.~~ Done: `headersOf` narrows per branch, gate is green.
+2. ~~Document the spatial adapter.~~ Done: the ingest `SKILL.md` and `SPEC.md`
+   cover the transport, the client, both resolvers, the coordinate frames, and
+   the source, and `docs/INDEX.md` lists every module plus
+   `docs/ARCHITECTURE.md`.
 3. **Smoke test the spatial source live** with a small bound (`maxEvents: 2`)
    and record the player resolution hit rate. Unresolved players are logged and
    skipped by design, not failed, so a low hit rate is silent and needs to be
@@ -160,9 +167,10 @@ Saved payloads used as fixtures live in the session scratchpad under
 5. **Vercel setup.** Root directory `apps/web`. Its build script is
    `tsc --build ../../tsconfig.json && next build`, which builds the workspace
    packages first. Set `REFRESH_TOKEN`, and `FPL_SEASON` if pinning a season.
-6. **Wire the spatial source into the CLI sync list** in
-   `apps/cli/src/program.ts` (`registerSync`, the `available` array), and add a
-   web route or section that renders heatmaps and shotmaps. Neither exists yet.
+6. Spatial source is wired into `registerSync` as an opt in source
+   (`--sources spatial-sofascore`, bounded by `--spatial-max-events` and
+   `--spatial-since-gameweek`). A web route rendering heatmaps and shotmaps
+   still does not exist.
 7. **Player photo gaps.** 208 of 590 have no published photo, concentrated in
    the promoted clubs (Coventry 23, Hull 21, Sunderland 20) and summer
    signings. That is genuine upstream absence, not a bug: rerun `fpl assets

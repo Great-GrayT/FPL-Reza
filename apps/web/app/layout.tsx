@@ -36,6 +36,7 @@ const NAV = [
   { href: '/', label: 'Season' },
   { href: '/players', label: 'Players' },
   { href: '/matches', label: 'Matches' },
+  { href: '/how-it-works', label: 'How it works' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

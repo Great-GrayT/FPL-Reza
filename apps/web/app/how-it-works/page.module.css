@@ -1,0 +1,167 @@
+.page {
+  padding-block: var(--s7) var(--s8);
+}
+
+.head {
+  max-width: var(--measure);
+}
+
+.title {
+  font-size: var(--step-5);
+  margin-top: var(--s2);
+}
+
+.standfirst {
+  font-size: var(--step-1);
+  line-height: 1.4;
+  color: var(--ink-soft);
+  margin: var(--s4) 0 0;
+}
+
+/* A print run stamp: what this page was set from, and when. */
+.stamp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s5);
+  margin: var(--s5) 0 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.stamp dt {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.stamp dd {
+  margin: var(--s1) 0 0;
+  font-size: var(--step--1);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: var(--s7);
+  margin-top: var(--s7);
+  align-items: start;
+}
+
+.doc {
+  max-width: var(--measure);
+}
+
+.doc h2 {
+  font-size: var(--step-3);
+  margin-top: var(--s8);
+  padding-top: var(--s3);
+  border-top: 2px solid var(--ink);
+  scroll-margin-top: var(--s8);
+}
+
+.doc h2:first-child {
+  margin-top: 0;
+}
+
+.doc h3 {
+  font-size: var(--step-1);
+  font-stretch: 100%;
+  letter-spacing: 0.02em;
+  margin-top: var(--s6);
+  scroll-margin-top: var(--s8);
+}
+
+.doc p {
+  margin: var(--s4) 0 0;
+}
+
+.doc ul {
+  margin: var(--s4) 0 0;
+  padding-left: var(--s5);
+}
+
+.doc li {
+  margin-top: var(--s2);
+}
+
+.doc li::marker {
+  color: var(--pitch);
+}
+
+.doc a {
+  text-decoration-color: var(--flare);
+}
+
+.doc code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.9em;
+  background: var(--paper-3);
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.doc pre {
+  margin: var(--s5) 0 0;
+  padding: var(--s4);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.doc pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--step--1);
+  line-height: 1.5;
+}
+
+/* Wide tables scroll inside their own box, so the page never scrolls sideways. */
+.doc :global(.docTableScroll) {
+  margin-top: var(--s5);
+  overflow-x: auto;
+}
+
+.doc table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--step--1);
+}
+
+.doc th,
+.doc td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--rule);
+}
+
+.doc th {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom-color: var(--rule-strong);
+  white-space: nowrap;
+}
+
+.doc tbody tr:hover {
+  background: var(--paper-2);
+}
+
+/* A repository path, not a link: the file is in git, not on this site. */
+.doc :global(.docPath) {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+@media (max-width: 60rem) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s5);
+  }
+}
