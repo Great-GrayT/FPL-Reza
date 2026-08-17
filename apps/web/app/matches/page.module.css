@@ -1,0 +1,156 @@
+.head {
+  padding-block: var(--s7) var(--s5);
+  border-bottom: 2px solid var(--ink);
+}
+
+.title {
+  font-size: var(--step-5);
+  margin-block: var(--s2) 0;
+}
+
+.weeks {
+  padding-block: var(--s5);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--s6);
+  overflow-x: auto;
+}
+
+.weeks ul {
+  display: flex;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.week,
+.weekOn,
+.weekNow {
+  display: grid;
+  place-items: center;
+  min-width: 2rem;
+  padding: var(--s2);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+}
+
+.week:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.weekNow {
+  border-color: var(--flare);
+  color: var(--flare-ink);
+}
+
+.weekOn {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  font-weight: 600;
+}
+
+.day {
+  margin-bottom: var(--s7);
+}
+
+.dayHeading {
+  font-size: var(--step-0);
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--s4);
+}
+
+.matches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+
+.match {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.homeSide {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.club {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result {
+  display: grid;
+  justify-items: center;
+  gap: var(--s1);
+  min-width: 7rem;
+}
+
+.score {
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.time {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.fdr {
+  display: flex;
+  gap: 2px;
+}
+
+.fdr i {
+  display: block;
+  width: 1.5rem;
+  height: 3px;
+  border-radius: 1px;
+}
+
+.empty {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}
+
+@media (max-width: 40rem) {
+  .match {
+    gap: var(--s2);
+    padding: var(--s3);
+  }
+
+  .club {
+    font-size: var(--step--1);
+  }
+
+  .result {
+    min-width: 5rem;
+  }
+}

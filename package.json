@@ -1,0 +1,47 @@
+{
+  "name": "fpl",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fantasy Premier League data platform: ingestion, analytics, CLI, API",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=22.9.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch",
+    "clean": "tsc --build --clean",
+    "typecheck": "tsc --build --force",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --import tsx --test \"packages/*/src/**/*.test.ts\" \"apps/*/src/**/*.test.ts\"",
+    "test:watch": "node --import tsx --test --watch \"packages/*/src/**/*.test.ts\"",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage \"packages/*/src/**/*.test.ts\" \"apps/*/src/**/*.test.ts\"",
+    "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm test",
+    "dev": "pnpm --filter @fpl/api dev",
+    "start": "pnpm --filter @fpl/api start",
+    "sync": "node apps/cli/dist/bin.js sync",
+    "fpl": "node apps/cli/dist/bin.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.20.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@tailwindcss/oxide",
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

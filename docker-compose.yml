@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    image: fpl-api:latest
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      FPL_SEASON: ${FPL_SEASON:-}
+      FPL_LOG_LEVEL: ${FPL_LOG_LEVEL:-info}
+      FPL_MIN_REQUEST_INTERVAL_MS: ${FPL_MIN_REQUEST_INTERVAL_MS:-250}
+      FPL_USER_AGENT: ${FPL_USER_AGENT:-fpl-platform/0.0.0}
+    volumes:
+      - fpl-data:/data
+
+  # Run on demand: docker compose run --rm sync
+  # The API serves whatever the last sync wrote, so this is the only writer.
+  sync:
+    build: .
+    image: fpl-api:latest
+    profiles: ['jobs']
+    environment:
+      FPL_SEASON: ${FPL_SEASON:-}
+      FPL_LOG_LEVEL: ${FPL_LOG_LEVEL:-info}
+      FPL_USER_AGENT: ${FPL_USER_AGENT:-fpl-platform/0.0.0}
+    volumes:
+      - fpl-data:/data
+    command: ['node', 'apps/cli/dist/bin.js', 'sync', '--skip-unplayed']
+
+volumes:
+  fpl-data:

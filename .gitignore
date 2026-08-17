@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# The row lake is committed on purpose: Vercel cannot write at runtime, so the
+# deployed site is built from these snapshots, and a scheduled job refreshes
+# them by committing. It is small (under a megabyte for a full season).
+# Blobs are the exception: 119MB of player photos do not belong in git, and
+# the site loads them from the Premier League CDN instead.
+data/assets/
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Next.js build output
+.next/
+next-env.d.ts

@@ -1,0 +1,121 @@
+.wrap {
+  margin: 0;
+}
+
+.ribbon {
+  display: grid;
+  /* 38 is fixed and known, so the strip can always be one row. */
+  grid-template-columns: repeat(38, minmax(0, 1fr));
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 5.5rem;
+}
+
+.cell {
+  display: flex;
+  min-width: 0;
+}
+
+.button {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  padding: 0;
+  border: 0;
+  border-radius: 1px;
+  cursor: pointer;
+  overflow: hidden;
+  animation: rise 340ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+}
+
+.button:hover::after,
+.active::after {
+  border-color: var(--ink);
+}
+
+.current::after {
+  border-color: var(--flare);
+  border-width: 2px;
+}
+
+.bar {
+  width: 100%;
+  background: var(--ink);
+  transition: height 160ms ease;
+}
+
+.current .bar {
+  background: var(--flare-ink);
+}
+
+@keyframes rise {
+  from {
+    transform: scaleY(0);
+    transform-origin: bottom;
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--s2);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s4);
+  margin: var(--s3) 0 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule);
+  min-height: 2.5rem;
+}
+
+.readoutIdle {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.readoutGw {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.readoutOpp {
+  color: var(--ink-soft);
+}
+
+.readoutPts {
+  font-weight: 600;
+  color: var(--flare-ink);
+}
+
+.readoutMin {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 40rem) {
+  .ribbon {
+    height: 4rem;
+    gap: 1px;
+  }
+}

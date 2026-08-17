@@ -1,0 +1,30 @@
+{
+  "name": "@fpl/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "fpl": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "node --import tsx src/bin.ts"
+  },
+  "dependencies": {
+    "@fpl/analytics": "workspace:*",
+    "@fpl/assets": "workspace:*",
+    "@fpl/config": "workspace:*",
+    "@fpl/core": "workspace:*",
+    "@fpl/ingest": "workspace:*",
+    "@fpl/store": "workspace:*",
+    "commander": "^13.1.0",
+    "zod": "^3.24.1"
+  }
+}

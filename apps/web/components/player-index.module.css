@@ -1,0 +1,137 @@
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s4);
+  margin-bottom: var(--s5);
+}
+
+.search {
+  flex: 1 1 18rem;
+}
+
+.search input {
+  width: 100%;
+  font: inherit;
+  padding: var(--s3) var(--s4);
+  background: var(--paper-2);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+}
+
+.search input::placeholder {
+  color: var(--ink-soft);
+}
+
+.filters {
+  display: flex;
+  gap: 2px;
+}
+
+.chip,
+.chipOn {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.chipOn {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.sort select {
+  font: inherit;
+  font-size: var(--step--1);
+  padding: var(--s2) var(--s3);
+  background: var(--paper-2);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+}
+
+.table th,
+.table td {
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table thead th {
+  position: sticky;
+  top: 4.25rem;
+  background: var(--paper);
+  font-family: var(--font-mono), monospace;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  border-bottom-color: var(--rule-strong);
+}
+
+.table tbody tr:hover {
+  background: var(--paper-2);
+}
+
+.link {
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.link:hover {
+  border-bottom-color: var(--flare);
+}
+
+.flag {
+  margin-left: var(--s2);
+  color: var(--flare-ink);
+  font-weight: 700;
+}
+
+.right {
+  text-align: right;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.dim {
+  color: var(--ink-soft);
+}
+
+.empty {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}

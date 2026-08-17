@@ -1,0 +1,28 @@
+.head {
+  padding-block: var(--s7) var(--s6);
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: var(--s6);
+}
+
+.title {
+  font-size: var(--step-5);
+  margin-block: var(--s2) 0;
+}
+
+.lede {
+  margin: var(--s4) 0 0;
+  max-width: var(--measure);
+  color: var(--ink-soft);
+}
+
+.empty {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}
+
+.empty code {
+  font-family: var(--font-mono), monospace;
+  background: var(--paper-3);
+  padding: 1px var(--s2);
+  border-radius: var(--radius);
+}

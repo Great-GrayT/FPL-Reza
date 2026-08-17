@@ -1,0 +1,70 @@
+.wrap {
+  display: grid;
+  gap: var(--s4);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.tab,
+.tabOn {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.tab:hover {
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+.tabOn {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.toggle,
+.toggleOff {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.toggleOff {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chart {
+  /* Recharts renders into an absolutely positioned box, so the parent needs
+     an explicit min height or it collapses on first paint. */
+  min-height: 280px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}

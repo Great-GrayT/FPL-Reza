@@ -1,0 +1,30 @@
+{
+  "name": "@fpl/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "tsc --build ../../tsconfig.json && next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@fpl/analytics": "workspace:*",
+    "@fpl/assets": "workspace:*",
+    "@fpl/config": "workspace:*",
+    "@fpl/core": "workspace:*",
+    "@fpl/ingest": "workspace:*",
+    "@fpl/store": "workspace:*",
+    "next": "^15.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "recharts": "^2.15.0",
+    "server-only": "^0.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0"
+  }
+}

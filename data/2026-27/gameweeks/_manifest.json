@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "gameweeks",
+      "partition": null,
+      "capturedAt": "2026-08-17T22:14:42.325Z",
+      "rows": 38,
+      "bytes": 7543,
+      "format": "jsonl",
+      "file": "2026-27/gameweeks/_all/2026-08-17T22-14-42-325Z.jsonl"
+    }
+  ]
+}

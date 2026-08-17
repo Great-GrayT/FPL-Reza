@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/config" },
+    { "path": "packages/store" },
+    { "path": "packages/assets" },
+    { "path": "packages/ingest" },
+    { "path": "packages/analytics" },
+    { "path": "apps/cli" },
+    { "path": "apps/api" }
+  ]
+}

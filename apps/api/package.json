@@ -1,0 +1,29 @@
+{
+  "name": "@fpl/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "node --import tsx --watch src/server.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fpl/analytics": "workspace:*",
+    "@fpl/assets": "workspace:*",
+    "@fpl/config": "workspace:*",
+    "@fpl/core": "workspace:*",
+    "@fpl/ingest": "workspace:*",
+    "@fpl/store": "workspace:*",
+    "fastify": "^5.2.1",
+    "zod": "^3.24.1"
+  }
+}

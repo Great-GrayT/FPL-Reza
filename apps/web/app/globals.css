@@ -1,0 +1,182 @@
+/*
+ * Tokens. The palette comes from printed football ephemera (Panini sticker
+ * stock, Subbuteo boxes) rather than from the dark-plus-neon look every sports
+ * dashboard defaults to. Flare is rationed: it marks live and current only,
+ * so it never becomes decoration.
+ */
+
+:root {
+  --paper: #edefe9;
+  --paper-2: #e3e6dd;
+  --paper-3: #d7dbd0;
+  --ink: #14181c;
+  --ink-soft: #4a5560;
+  --pitch: #2e5e3a;
+  --pitch-soft: #6f8f77;
+  --flare: #e8214f;
+  /* Darkened so flare can carry text at 4.5:1 against paper. */
+  --flare-ink: #b0173e;
+  --bonus: #f0b429;
+  --bonus-ink: #8a6108;
+  --chalk: #ffffff;
+
+  --rule: color-mix(in srgb, var(--ink) 14%, transparent);
+  --rule-strong: color-mix(in srgb, var(--ink) 30%, transparent);
+
+  /* Fixture difficulty, 1 easiest to 5 hardest. Sequential, not a rainbow. */
+  --fdr-1: #9ed4a8;
+  --fdr-2: #cfe3b4;
+  --fdr-3: #e8e4c9;
+  --fdr-4: #efb9a4;
+  --fdr-5: #d98a92;
+
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+  --s8: 4rem;
+  --s9: 6rem;
+
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+  --step-4: 3.5rem;
+  --step-5: clamp(3rem, 9vw, 6rem);
+
+  --radius: 2px;
+  --measure: 68ch;
+  --shell: 76rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #12161a;
+    --paper-2: #191e24;
+    --paper-3: #222932;
+    --ink: #e7eae4;
+    --ink-soft: #97a3ae;
+    --pitch: #7fae8b;
+    --pitch-soft: #3d5f47;
+    --flare: #ff3a66;
+    --flare-ink: #ff6d8c;
+    --bonus: #f0b429;
+    --bonus-ink: #f5c95e;
+    --chalk: #ffffff;
+
+    --rule: color-mix(in srgb, var(--ink) 16%, transparent);
+    --rule-strong: color-mix(in srgb, var(--ink) 34%, transparent);
+
+    --fdr-1: #2f6b3f;
+    --fdr-2: #4a7442;
+    --fdr-3: #6a6a44;
+    --fdr-4: #8a5340;
+    --fdr-5: #8c3a44;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: var(--step-0);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-stretch: 125%;
+  letter-spacing: -0.01em;
+  line-height: 1.02;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+a {
+  color: inherit;
+  text-decoration-color: var(--rule-strong);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+:focus-visible {
+  outline: 2px solid var(--flare);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Numbers align in columns, which is the whole point of a data table here. */
+.num {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell {
+  max-width: var(--shell);
+  margin-inline: auto;
+  padding-inline: var(--s5);
+}
+
+.eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.rule {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 0;
+}
+
+.card {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
