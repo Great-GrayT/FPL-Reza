@@ -40,13 +40,22 @@ jobs:
       - run: pnpm build
 
       # Fixtures move for broadcast, lose and regain a gameweek, and take scores
-      # live: the one dataset worth checking this often.
-      - run: node apps/cli/dist/bin.js fixtures refresh
+      # live: the one dataset worth checking this often. Both commands are
+      # allowed to fail so that a snapshot one of them wrote still gets
+      # committed; the job is failed at the end instead.
+      - name: Refresh fixtures
+        id: fixtures
+        continue-on-error: true
+        run: node apps/cli/dist/bin.js fixtures refresh
 
       # Cheap, and a mid season rules edit is exactly the thing nobody notices.
-      - run: node apps/cli/dist/bin.js rules refresh
+      - name: Refresh rules
+        id: rules
+        continue-on-error: true
+        run: node apps/cli/dist/bin.js rules refresh
 
       - name: Commit any new snapshots
+        if: always()
         run: |
           if [ -z "$(git status --porcelain data)" ]; then
             echo "lake unchanged, nothing to commit"
@@ -58,3 +67,9 @@ jobs:
           git commit -m "chore(data): refresh fixtures and rules"
           # A human push between fetch and push is normal, not an error.
           git push || (git pull --rebase && git push)
+
+      - name: Fail the job if a refresh failed
+        if: steps.fixtures.outcome == 'failure' || steps.rules.outcome == 'failure'
+        run: |
+          echo "a refresh failed; whatever landed has been committed above"
+          exit 1

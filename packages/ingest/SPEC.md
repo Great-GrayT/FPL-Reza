@@ -110,7 +110,7 @@ In: the season's Team list. Out: a resolver function from a provider's free text
 
 ### footballDataOddsSource(http, options?): Source
 
-In: an HttpClient and optional division / url. Out: a Source named odds-football-data, requiring the teams dataset, that yields one odds batch (partition "football-data") from one season CSV fetch. Errors: propagates parseFootballDataCsv's and the HTTP fetch's errors. Notes: reads the teams dataset from the store to build the team resolver, so it must run after whatever source produces teams; logs a count of quotes whose team could not be resolved, but does not fail the batch over them (they are written with a null team id).
+In: an HttpClient and optional division / url. Out: a Source named odds-football-data, requiring the teams dataset, that yields one odds batch (partition "football-data") from one season CSV fetch. Errors: propagates parseFootballDataCsv's errors, and any HTTP failure other than an absent season file (300, 403, 404, 410), which is logged as not published yet and yields no batch. Notes: reads the teams dataset from the store to build the team resolver, so it must run after whatever source produces teams; logs a count of quotes whose team could not be resolved, but does not fail the batch over them (they are written with a null team id).
 
 ### refreshFixtures(deps): Promise<RefreshFixturesResult>
 

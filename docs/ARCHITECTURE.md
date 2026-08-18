@@ -142,6 +142,8 @@ Decisions a reader could not infer from the code, and the reasons behind them.
 - **A missing join is better than a wrong one.** Every provider resolver refuses to guess and the caller counts the misses, because a wrong player id produces plausible, undetectable data.
 - **Rules constants mirror the published rules.** They were reconciled against the official page and are checked by tests. They are not a place to encode a preference.
 - **Tests are `node:test` plus `tsx`.** There is no vitest and no Vite in this repo, deliberately. TypeScript runs strict, with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `NodeNext` (so every relative import ends in `.js`), and `erasableSyntaxOnly` (no enums, no parameter properties, no namespaces).
+- **A missing season file is not a failure.** football-data.co.uk publishes a season CSV only once that season is under way, and answers a path it does not hold with 300 Multiple Choices, not 404, because of Apache content negotiation. The odds source treats 300, 403, 404, and 410 as absence and yields nothing.
+- **A partial sync still commits.** The scheduled workflows let a source fail, commit whatever the other sources wrote, and only then fail the job. One upstream having a bad morning must not discard a completed bootstrap, fixtures, and player history run.
 - **403 can mean absent.** The Premier League CDN answers a missing object with 403 rather than 404, and also returns 200 with a 263 byte body where a photo was pulled but the object was not removed, so `syncAssets` enforces a minimum image size and falls through to the next candidate.
 
 ## Data flow

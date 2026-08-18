@@ -46,7 +46,13 @@ jobs:
       # --skip-unplayed drops the request for every player with no minutes,
       # which early in a season is most of them. --continue-on-error keeps one
       # upstream having a bad morning from costing the other datasets.
+      # A source that fails must not discard the snapshots the others already
+      # wrote: the commit step below runs either way, and the job is failed at
+      # the end instead. Without this, one upstream having a bad morning throws
+      # away a completed bootstrap, fixtures, and player history run.
       - name: Sync
+        id: sync
+        continue-on-error: true
         run: |
           node apps/cli/dist/bin.js sync \
             --skip-unplayed \
@@ -56,6 +62,7 @@ jobs:
           SOURCES: ${{ inputs.sources }}
 
       - name: Commit the new snapshots
+        if: always()
         run: |
           if [ -z "$(git status --porcelain data)" ]; then
             echo "lake unchanged, nothing to commit"
@@ -66,3 +73,9 @@ jobs:
           git add data
           git commit -m "chore(data): daily sync"
           git push || (git pull --rebase && git push)
+
+      - name: Fail the job if a source failed
+        if: steps.sync.outcome == 'failure'
+        run: |
+          echo "a source failed; whatever landed has been committed above"
+          exit 1
