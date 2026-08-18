@@ -26,6 +26,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
-      - run: pnpm lint
+      # Build first: the type aware lint rules resolve @fpl/* through each
+      # package's built types, so on a clean checkout every cross package import
+      # in apps/web is an unresolved type and lint fails with hundreds of errors.
       - run: pnpm build
+      - run: pnpm lint
       - run: pnpm test

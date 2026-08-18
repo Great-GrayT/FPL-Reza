@@ -21,7 +21,7 @@
     "test": "node --import tsx --test \"packages/*/src/**/*.test.ts\" \"apps/*/src/**/*.test.ts\" \"apps/web/lib/**/*.test.ts\"",
     "test:watch": "node --import tsx --test --watch \"packages/*/src/**/*.test.ts\"",
     "test:coverage": "node --import tsx --test --experimental-test-coverage \"packages/*/src/**/*.test.ts\" \"apps/*/src/**/*.test.ts\"",
-    "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm test",
+    "verify": "pnpm format:check && pnpm build && pnpm lint && pnpm test",
     "dev": "pnpm --filter @fpl/api dev",
     "start": "pnpm --filter @fpl/api start",
     "sync": "node apps/cli/dist/bin.js sync",
