@@ -176,21 +176,19 @@ Saved payloads used as fixtures live in the session scratchpad under
 4. **First commit.** `git init` is done, branch `main`, **nothing is committed
    yet** and about 188 paths are staged or untracked. Commit only once the gate
    is green. The user creates the GitHub repo and adds the remote.
-5. Vercel: the project must build the site, not the API. `vercel.json` at the
-   repository root now pins `installCommand`, `buildCommand`
-   (`pnpm --filter @fpl/web build`), and `outputDirectory` (`apps/web/.next`),
-   so point the project root directory at the repository root and leave the
-   framework detection to that file. The first deployment of commit 52bf99f
-   built `apps/api` instead, reporting `Using src/app.ts as the root entrypoint`,
-   which is what that file prevents. Root directory `apps/web` also works only
-   if "include files outside the root directory" is on, because the site reads
-   `data/` and `docs/ARCHITECTURE.md`. Still set `REFRESH_TOKEN`, and
-   `FPL_SEASON` only to pin a season.
-
-   Superseded note, kept for context: root directory `apps/web`. Its build script is
-   `tsc --build ../../tsconfig.json && next build`, which builds the workspace
-   packages first. Set `REFRESH_TOKEN`, and `FPL_SEASON` if pinning a season.
-
+5. Vercel: set the project **Root Directory to `apps/web`** and leave "include
+   files outside the root directory" on. Nothing else. Two deployments of this
+   repository failed before that was understood: with the root at `apps/api` the
+   build reported `Using src/app.ts as the root entrypoint` and deployed the
+   Fastify server, and a repository root `vercel.json` pinning
+   `pnpm --filter @fpl/web build` then failed with
+   `No Next.js version detected`, because the root `package.json` does not declare
+   `next` either. Only `apps/web/package.json` does. That file was removed again;
+   the correct configuration is one dashboard setting, not a config file.
+   Vercel installs the whole workspace from the repository root and runs
+   `tsc --build ../../tsconfig.json && next build`. The outside files matter
+   because the site reads `data/` and `docs/ARCHITECTURE.md`. Still set
+   `REFRESH_TOKEN`, and `FPL_SEASON` only to pin a season.
 6. Spatial source is wired into `registerSync` as an opt in source
    (`--sources spatial-sofascore`, bounded by `--spatial-max-events` and
    `--spatial-since-gameweek`). A web route rendering heatmaps and shotmaps

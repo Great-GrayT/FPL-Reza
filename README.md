@@ -81,18 +81,11 @@ Runs the built CLI (`apps/cli`, still in progress) at `apps/cli/dist/bin.js`.
 
 ## Deploy the site
 
-The Vercel project points at the repository root, not at `apps/web`. `vercel.json` pins the build:
+One Vercel project, with **Root Directory set to `apps/web`**. That is where `next` is declared, and Vercel refuses to build a Next app it cannot find a `next` dependency for: pointed at `apps/api` it deploys the Fastify server, and pointed at the repository root it fails with `No Next.js version detected`, since the root `package.json` declares neither.
 
-```json
-{
-  "framework": "nextjs",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @fpl/web build",
-  "outputDirectory": "apps/web/.next"
-}
-```
+Nothing else needs configuring. Vercel installs the whole pnpm workspace from the repository root, then runs this package's own build script, `tsc --build ../../tsconfig.json && next build`, which builds every workspace package before the site.
 
-Root directory matters because the site reads two things from outside `apps/web`: the committed snapshots in `data/` and `docs/ARCHITECTURE.md`, which `/how-it-works` renders. A project whose root directory is `apps/web` has to have "include files outside the root directory" enabled, or both reads fail at build time. Without `vercel.json`, Vercel detects `apps/api` and deploys the Fastify server instead of the site.
+Leave "Include files outside the Root Directory in the Build Step" enabled. The site reads two things from outside `apps/web`: the committed snapshots in `data/`, which every page is built from, and `docs/ARCHITECTURE.md`, which `/how-it-works` renders. Both are found by walking up from the working directory, so both need the rest of the repository present at build time.
 
 Set `REFRESH_TOKEN` in the project before handing the refresh URLs to a scheduler: with it unset the refresh endpoints are open, and they say so in every response. Set `FPL_SEASON` only to pin a season; otherwise it is derived from the date.
 
