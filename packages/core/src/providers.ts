@@ -27,9 +27,38 @@ export const COVERAGE_KINDS = [
   'tracking',
   'odds',
   'club_transfers',
+  /** Referee appointments per match, and card and penalty rates. */
+  'referees',
+  /** Formation and lineup as set, per side per match. */
+  'lineups',
+  /** Who managed a club, and when. */
+  'managers',
+  /** Injury and fitness, either as a live status or as a history of spells. */
+  'injuries',
+  /** Club strength ratings over time. */
+  'team_ratings',
+  /** Conditions at a kickoff. */
+  'weather',
 ] as const;
 
 export type CoverageKind = (typeof COVERAGE_KINDS)[number];
+
+export const PROBE_VERDICTS = [
+  /** Reachable, terms permit collection, and an adapter exists. */
+  'built',
+  /** Reachable and permitted, no adapter yet. */
+  'available',
+  /** Reachable, but the terms ask us not to collect it. */
+  'refused_by_terms',
+  /** Terms permit it, but the endpoint blocks automated access. */
+  'blocked',
+  /** Reachable from elsewhere but not from the machine that probed it. */
+  'unreachable_here',
+  /** Never probed. */
+  'unprobed',
+] as const;
+
+export type ProbeVerdict = (typeof PROBE_VERDICTS)[number];
 
 export interface ProviderInfo {
   id: string;
@@ -37,17 +66,37 @@ export interface ProviderInfo {
   url: string;
   access: AccessMode;
   coverage: readonly CoverageKind[];
+  /**
+   * What happened when someone last hit it, and when. A reputation is not a
+   * verdict: this field only ever changes alongside a fresh probe.
+   */
+  verdict: ProbeVerdict;
+  /** ISO date of that probe. */
+  probedAt: string;
   /** Access terms and practical limits. Read this before writing an adapter. */
   notes: string;
 }
 
 export const PROVIDERS: readonly ProviderInfo[] = [
   {
+    id: 'pl-official-api',
+    name: 'Premier League official API',
+    url: 'https://footballapi.pulselive.com/football',
+    access: 'public',
+    coverage: ['match_results', 'lineups', 'referees', 'managers'],
+    verdict: 'available',
+    probedAt: '2026-08-18',
+    notes:
+      'The site own backing API, keyless, needing an Origin and Referer of premierleague.com. 13,546 fixtures across 35 seasons from 1992/93. Per fixture it carries matchOfficials (the referee, role MAIN), events with minutes (goals, bookings, substitutions), and teamLists with a formation label plus its positional rows of player ids, full lineups with shirt number, captain flag and positionInfo in words. teams/{id}/compseasons/{seasonId}/staff carries the manager. This one source covers referees, formations, and managers officially, and its ids need a stored mapping to playerCode like any other provider.',
+  },
+  {
     id: 'fpl-api',
     name: 'Fantasy Premier League API',
     url: 'https://fantasy.premierleague.com/api',
     access: 'public',
     coverage: ['fpl_core', 'match_results', 'aggregated_stats'],
+    verdict: 'built',
+    probedAt: '2026-08-18',
     notes:
       'Authoritative for prices, ownership, points, and deadlines. Carries no positional data. Unofficial in the sense that it is undocumented, so schemas must tolerate added fields.',
   },
@@ -57,6 +106,8 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://www.football-data.co.uk/englandm.php',
     access: 'public',
     coverage: ['match_results', 'odds'],
+    verdict: 'built',
+    probedAt: '2026-08-18',
     notes:
       'Free season CSVs with opening and closing odds from many bookmakers. Historical only, updated after matchdays, so it backfills a model but cannot price an upcoming fixture.',
   },
@@ -66,6 +117,8 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://the-odds-api.com',
     access: 'api_key',
     coverage: ['odds'],
+    verdict: 'unprobed',
+    probedAt: '2026-08-16',
     notes:
       'Live pre match and in play odds across bookmakers. Free tier is request capped, so poll on a schedule rather than on demand.',
   },
@@ -75,17 +128,10 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://developer.betfair.com',
     access: 'api_key',
     coverage: ['odds'],
+    verdict: 'unprobed',
+    probedAt: '2026-08-16',
     notes:
       'Exchange prices carry a much smaller margin than bookmaker prices, so implied probabilities need less correction. Requires an application key and a certificate login.',
-  },
-  {
-    id: 'understat',
-    name: 'Understat',
-    url: 'https://understat.com',
-    access: 'public',
-    coverage: ['shot_locations', 'aggregated_stats'],
-    notes:
-      'Shot level xG with coordinates. Data is embedded in page scripts, so ingestion means parsing HTML. Check the site terms before automating, and rate limit heavily.',
   },
   {
     id: 'fbref',
@@ -93,8 +139,10 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://fbref.com',
     access: 'public',
     coverage: ['aggregated_stats'],
+    verdict: 'blocked',
+    probedAt: '2026-08-18',
     notes:
-      'Per 90 detail including touches by third and penalty area, progressive carries and passes, and defensive actions. Zone aggregates only, not a true heatmap. Terms forbid heavy automated access, so cache and throttle.',
+      'Per 90 Opta derived detail. Every path, robots.txt included, answers a Cloudflare interactive challenge, so there is no adapter to write that does not defeat a bot check. Its aggregates overlap heavily with FPL and Sofascore anyway.',
   },
   {
     id: 'statsbomb-open',
@@ -102,6 +150,8 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://github.com/statsbomb/open-data',
     access: 'public',
     coverage: ['event_locations', 'shot_locations'],
+    verdict: 'available',
+    probedAt: '2026-08-18',
     notes:
       'Full event streams with coordinates under a free licence, but Premier League coverage is limited to selected competitions and seasons. Best used to build and validate the event pipeline before paying for full coverage.',
   },
@@ -111,6 +161,8 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://www.statsperform.com',
     access: 'licensed',
     coverage: ['event_locations', 'aggregated_stats', 'match_results'],
+    verdict: 'unprobed',
+    probedAt: '2026-08-16',
     notes:
       'The feed FPL itself scores from, including the BPS inputs and the clearances, blocks, interceptions, tackles and recoveries behind defensive contribution. Commercial licence required.',
   },
@@ -120,6 +172,8 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://skillcorner.com',
     access: 'licensed',
     coverage: ['tracking'],
+    verdict: 'unprobed',
+    probedAt: '2026-08-16',
     notes:
       'Broadcast derived tracking: positions, distance, sprints, and off ball runs. This is the only category that supports true movement analysis rather than on ball events.',
   },
@@ -129,6 +183,8 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://fc.pff.com',
     access: 'licensed',
     coverage: ['tracking', 'event_locations'],
+    verdict: 'unprobed',
+    probedAt: '2026-08-16',
     notes:
       'Tracking plus events from one provider, which removes the event to frame alignment step.',
   },
@@ -138,16 +194,57 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://www.hudl.com/products/wyscout',
     access: 'licensed',
     coverage: ['event_locations', 'aggregated_stats'],
+    verdict: 'unprobed',
+    probedAt: '2026-08-16',
     notes: 'Event data with coordinates and video. Common alternative to Opta for event coverage.',
   },
   {
     id: 'transfermarkt',
     name: 'Transfermarkt',
-    url: 'https://www.transfermarkt.co.uk',
-    access: 'manual_upload',
-    coverage: ['club_transfers'],
+    url: 'https://www.transfermarkt.com',
+    access: 'public',
+    coverage: ['club_transfers', 'injuries', 'managers', 'referees'],
+    verdict: 'available',
+    probedAt: '2026-08-18',
     notes:
-      'Fees, contract dates, and market values. Automated access is against the site terms, so treat this as a manual export rather than a scraped feed.',
+      'robots.txt allows * and disallows wget by name, so a real user agent and a courteous delay are the requirement. Per player injury history is server rendered and parses (2 tables on the page probed). Manager career history is on the same terms. The referee section path still needs finding: the guessed URL returned no table, so do not assume it.',
+  },
+];
+
+/** Sources probed and rejected, kept so nobody rediscovers them. */
+export const REJECTED_PROVIDERS: readonly ProviderInfo[] = [
+  {
+    id: 'understat',
+    name: 'Understat',
+    url: 'https://understat.com',
+    access: 'public',
+    coverage: ['shot_locations', 'aggregated_stats'],
+    verdict: 'refused_by_terms',
+    probedAt: '2026-08-18',
+    notes:
+      'Shot level xG with coordinates, embedded in page scripts. The page answers 200, but robots.txt is User-agent * with Disallow /, so the whole site asks not to be crawled. Excluded on the terms, not the technology. FPL carries xG from 2022/23 and Sofascore gives it per shot, so what is lost is a second opinion.',
+  },
+  {
+    id: 'worldfootball',
+    name: 'worldfootball.net',
+    url: 'https://www.worldfootball.net',
+    access: 'public',
+    coverage: ['referees', 'match_results'],
+    verdict: 'blocked',
+    probedAt: '2026-08-18',
+    notes:
+      'Referee appointments. Answers 403 to a browser user agent, and again with language and accept headers. Redundant in any case: the PL official API gives the referee per match.',
+  },
+  {
+    id: 'whoscored',
+    name: 'WhoScored',
+    url: 'https://www.whoscored.com',
+    access: 'public',
+    coverage: ['lineups', 'aggregated_stats'],
+    verdict: 'available',
+    probedAt: '2026-08-18',
+    notes:
+      'Formations per match, inside a matchCentreData payload on match pages; robots.txt disallows only account, prediction and user paths. Not worth building: the PL official API gives formations officially with the positional rows, and this site is heavily protected. Revisit only if that changes.',
   },
 ];
 

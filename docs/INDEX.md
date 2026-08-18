@@ -36,6 +36,7 @@ Links are relative and named after the destination's title, never "here". `CLAUD
 
 - [Root README](../README.md): what the project is, prerequisites, install, and how to build, test, lint, and run it.
 - [How this project works](ARCHITECTURE.md): the end to end explanation every other file here hangs off.
+- [Source catalogue, probed](SOURCES.md): every candidate source hit directly, with its verdict, the date it was probed, and the storage design for its data.
 - [Handoff, continue the build](HANDOFF.md): current blocker, decisions already made, and the ordered list of what is left.
 - [Short term memory](memory/short-term.md): current task state and blockers.
 - [Long term memory](memory/long-term.md): architecture decisions and their rationale.

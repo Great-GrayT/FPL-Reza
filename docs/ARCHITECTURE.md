@@ -26,7 +26,9 @@ Everything is a free public source. No paid feeds, no accounts, no API keys anyw
 | Sofascore (`api.sofascore.com/api/v1`)                                            | JSON   | Player heatmaps, average positions, per player match statistics, shot coordinates with expected goals, and national team competition records | Open, needs a browser user agent, a `Referer`, and a browser TLS cipher order |
 | Premier League image CDN (`resources.premierleague.com`)                          | Images | Player photos, club crests                                                                                                                   | Open, answers a missing object with 403                                       |
 
-Sources that were probed and rejected are recorded in [Handoff, continue the build](HANDOFF.md): Understat and FBref are unreachable, FotMob ships pre rendered SVG heatmaps, football-data.org and The Odds API want a key even on their free tier.
+Every candidate source, including the ones rejected, is recorded with its verdict and the date it was probed in [Source catalogue, probed](SOURCES.md), and as data in `packages/core/src/providers.ts`, where a verdict only changes alongside a fresh probe.
+
+In short, as of 2026-08-18: the Premier League runs its own open, keyless API (`footballapi.pulselive.com`) carrying 35 seasons of fixtures with referees, lineups, formations, and managers, which is the single most valuable source not yet ingested. Open-Meteo gives keyless historical weather, and a fixture already carries its ground, so no geocoding is needed beyond twenty hand recorded grounds. Premier Injuries and Transfermarkt both permit collection and render their tables server side. Understat is reachable but its `robots.txt` disallows everything, so it is excluded on the terms rather than the technology; FBref answers a Cloudflare challenge on every path including `robots.txt`; worldfootball.net answers 403; and ClubElo's API refuses connections from this network while its HTML renders, so the API is worth retrying from a runner before anyone parses the page.
 
 ### Models
 
