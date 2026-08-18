@@ -1,5 +1,5 @@
 import { ValidationError } from '@fpl/core';
-import type { ZodType } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import type { HttpClient } from '../http.js';
 import {
   bootstrapSchema,
@@ -32,7 +32,15 @@ export class FplClient {
     return this.parse(payload, elementSummarySchema, `element-summary/${playerId}`).history;
   }
 
-  private parse<T>(payload: unknown, schema: ZodType<T>, what: string): T {
+  /** The whole element summary: this season by gameweek, plus completed seasons. */
+  async playerSummary(playerId: number): Promise<ReturnType<typeof elementSummarySchema.parse>> {
+    const path = `element-summary/${String(playerId)}/`;
+    return this.parse(await this.http.getJson(path), elementSummarySchema, path);
+  }
+
+  // The input type is unknown, not T: a schema with a default has an input
+  // shape that differs from its output.
+  private parse<T>(payload: unknown, schema: ZodType<T, ZodTypeDef, unknown>, what: string): T {
     const result = schema.safeParse(payload);
     if (!result.success) {
       throw new ValidationError(

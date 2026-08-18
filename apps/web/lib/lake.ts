@@ -8,12 +8,18 @@ import {
   fixtureSchema,
   gameweekSchema,
   playerGameweekSchema,
+  playerSeasonSchema,
+  historicPlayerGameweekSchema,
+  careerTotals,
   playerSchema,
   teamSchema,
   type Fixture,
   type Gameweek,
   type Player,
   type PlayerGameweek,
+  type PlayerSeason,
+  type HistoricPlayerGameweek,
+  type CareerTotals,
   type Season,
   type Team,
 } from '@fpl/core';
@@ -42,7 +48,12 @@ function findLakeRoot(): string {
     if (parent === directory) break;
     directory = parent;
   }
-  return path.join(process.cwd(), 'data');
+  // Falling back to a path that does not exist would deploy a site that looks
+  // healthy and renders nothing. On Vercel this means the project root
+  // directory excludes the repository root, where data/ lives.
+  throw new Error(
+    `no data directory found walking up from ${process.cwd()}. Set FPL_DATA_DIR, or point the deployment at a root that contains data/.`,
+  );
 }
 
 export const lakeRoot = findLakeRoot();
@@ -57,7 +68,30 @@ export const season: Season = ((): Season => {
     : asSeason(configured);
 })();
 
-/** An absent dataset is an empty page, not a crash: the lake may be unseeded. */
+/**
+ * Datasets the site cannot be built without. A missing one is a deployment
+ * fault (wrong root directory, unseeded lake), and failing the build is the
+ * only way that does not ship as a blank page nobody can explain.
+ */
+async function readRequired<T>(
+  dataset: string,
+  schema: Parameters<typeof store.read<T>>[1],
+): Promise<T[]> {
+  try {
+    const rows = await store.read<T>({ season, dataset }, schema);
+    if (rows.length > 0) return rows;
+    throw new NotFoundError(`${dataset} snapshot for ${season}`);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      throw new Error(
+        `the ${dataset} dataset is missing or empty for ${season} at ${lakeRoot}. Run a sync, or check that the deployment can see the repository root.`,
+      );
+    }
+    throw error;
+  }
+}
+
+/** An absent dataset is an empty page, not a crash: this is for optional ones. */
 async function readOrEmpty<T>(
   dataset: string,
   schema: Parameters<typeof store.read<T>>[1],
@@ -75,19 +109,19 @@ async function readOrEmpty<T>(
 }
 
 export const getTeams = cache(async (): Promise<Team[]> =>
-  readOrEmpty<Team>(DATASETS.teams, teamSchema),
+  readRequired<Team>(DATASETS.teams, teamSchema),
 );
 
 export const getPlayers = cache(async (): Promise<Player[]> =>
-  readOrEmpty<Player>(DATASETS.players, playerSchema),
+  readRequired<Player>(DATASETS.players, playerSchema),
 );
 
 export const getGameweeks = cache(async (): Promise<Gameweek[]> =>
-  readOrEmpty<Gameweek>(DATASETS.gameweeks, gameweekSchema),
+  readRequired<Gameweek>(DATASETS.gameweeks, gameweekSchema),
 );
 
 export const getFixtures = cache(async (): Promise<Fixture[]> =>
-  readOrEmpty<Fixture>(DATASETS.fixtures, fixtureSchema),
+  readRequired<Fixture>(DATASETS.fixtures, fixtureSchema),
 );
 
 /**
@@ -110,6 +144,66 @@ export const getPlayerHistory = cache(async (playerId: number): Promise<PlayerGa
   return rows.filter((row) => row.playerId === playerId).sort((a, b) => a.gameweek - b.gameweek);
 });
 
+/**
+ * Completed seasons, keyed by the permanent player code. Optional: a lake that
+ * has never had a history backfill still builds, it just has no career to show.
+ */
+export const getPlayerSeasons = cache(async (): Promise<PlayerSeason[]> =>
+  readOrEmpty<PlayerSeason>('player-seasons', playerSeasonSchema),
+);
+
+export const getSeasonsByCode = cache(async (): Promise<Map<number, PlayerSeason[]>> => {
+  const rows = await getPlayerSeasons();
+  const byCode = new Map<number, PlayerSeason[]>();
+  for (const row of rows) {
+    const existing = byCode.get(row.playerCode);
+    if (existing === undefined) byCode.set(row.playerCode, [row]);
+    else existing.push(row);
+  }
+  // Newest first: a career reads backwards from what a manager last saw.
+  for (const seasons of byCode.values()) seasons.sort((a, b) => b.season.localeCompare(a.season));
+  return byCode;
+});
+
+export interface Career {
+  seasons: PlayerSeason[];
+  totals: CareerTotals;
+}
+
+export const getCareer = cache(async (playerCode: number): Promise<Career> => {
+  const seasons = (await getSeasonsByCode()).get(playerCode) ?? [];
+  return { seasons, totals: careerTotals(seasons) };
+});
+
+/**
+ * One archived season at the gameweek grain. Read per season rather than all at
+ * once: a season is about 27,000 rows, and a page that charts one season should
+ * not pay for ten.
+ */
+export const getArchivedSeason = cache(
+  async (archiveLabel: string): Promise<HistoricPlayerGameweek[]> =>
+    readOrEmpty<HistoricPlayerGameweek>(
+      'player-gameweeks-history',
+      historicPlayerGameweekSchema,
+      archiveLabel,
+    ),
+);
+
+export const getArchivedSeasonForPlayer = cache(
+  async (archiveLabel: string, playerCode: number): Promise<HistoricPlayerGameweek[]> => {
+    const rows = await getArchivedSeason(archiveLabel);
+    return rows
+      .filter((row) => row.playerCode === playerCode)
+      .sort((a, b) => a.gameweek - b.gameweek);
+  },
+);
+
+/** Archived seasons present in the lake, newest first, as "2024-25" labels. */
+export const getArchivedSeasonLabels = cache(async (): Promise<string[]> => {
+  const partitions = await store.partitions({ season, dataset: 'player-gameweeks-history' });
+  return [...partitions].sort((a, b) => b.localeCompare(a));
+});
+
 export const getTeamsById = cache(async (): Promise<Map<number, Team>> => {
   const teams = await getTeams();
   return new Map(teams.map((team) => [team.id, team]));
@@ -120,7 +214,10 @@ export const getPlayersById = cache(async (): Promise<Map<number, Player>> => {
   return new Map(players.map((player) => [player.id, player]));
 });
 
-/** True when the lake has never been seeded, which the UI states plainly. */
+/**
+ * Kept for callers that want to ask, but a build now fails before this could
+ * report true: the core datasets throw rather than resolve empty.
+ */
 export const isLakeEmpty = cache(async (): Promise<boolean> => {
   const teams = await getTeams();
   return teams.length === 0;

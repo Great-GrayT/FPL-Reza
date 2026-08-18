@@ -39,6 +39,14 @@ Sources that were probed and rejected are recorded in [Handoff, continue the bui
 - **Spatial.** A pitch normalised 0 to 100 on both axes, always from the perspective of the side attacking towards x 100 (the Opta convention). `THIRDS` and `CHANNELS` name zones, `PHASES` names game phases, and a heatmap is a 12 by 8 grid by default. `PlayerMatchSpatial` and `MatchEvent` hold one match per player and one event (today, one shot) respectively. Every measure past the identity block is nullable on purpose: null means the provider does not carry it, which is not the same as a measured zero.
 - **Odds, transfers, providers.** `OddsQuote` is one bookmaker's price for one selection in one market. `clubTransferSchema` keys on `playerCode`, not `playerId`, because FPL reassigns ids every season and codes survive. `PROVIDERS` is a hand maintained registry of candidate feeds with their access mode and coverage.
 
+### History
+
+FPL serves a career in two halves, and keeps only one. `element-summary/{id}` carries `history_past`, one row of totals per completed season, which is enough for a career table and costs nothing extra: the nightly sync already calls that endpoint for its per gameweek rows and used to discard the field. What FPL does not keep is the gameweek grain of a closed season, so that comes from the community archive, which captured it while it was live and publishes one merged file per season from 2016/17 onward.
+
+Both key on `playerCode` rather than `playerId`, because FPL reassigns element ids every summer. The archive files its rows by that season's element id, so every row is rekeyed through the same season's `players_raw.csv` before it is stored, and a row whose code cannot be resolved is counted and dropped rather than matched on name.
+
+Storage follows the grain. player-seasons is small and unpartitioned. player-gameweeks-history is partitioned by season and written as Parquet: one season is about 27,000 rows, which is 25 MB as JSONL and 400 KB as Parquet, so ten seasons is roughly 4 MB in a lake that lives in git. Neither is on a schedule, since a completed season does not change: `backfill-history.yml` runs them on dispatch.
+
 ### Algorithms
 
 Every algorithm below is pure: same input, same output, no I/O.
@@ -113,6 +121,8 @@ The HTTP client retries only 408, 425, 429, 500, 502, 503, and 504 plus network 
 
 - **`apps/api`** is Fastify over a `FileStore` built in `deps.ts`: `GET /health`, `/players`, `/players/:id`, `/players/:id/history`, `/fixtures`, `/gameweeks`, `/gameweeks/current`, `/gameweeks/next`, `/rules`, `/rules/deadlines`, `/assets`, `/assets/:kind/:key`, plus `POST /fixtures/refresh` and `POST /rules/refresh`. Asset blobs are served with an immutable cache header and an etag.
 - **`apps/cli`** is the `fpl` command: `sync`, `fixtures refresh`, `rules refresh`, `rules deadlines`, `assets sync`, `assets list`, `players`, `datasets`, `show player`. Every command reads or writes through a `FileStore` built in `bin.ts`, and every listing command can print JSON instead of a table.
+  The site refuses to build against a lake it cannot see. The four datasets every page needs (teams, players, gameweeks, fixtures) are read through a required reader that throws, naming the resolved lake root, rather than resolving empty. History is read through optional readers, so a clone with no backfill still builds and simply shows no career. This exists because the failure it replaces was silent: a deployment whose root directory excluded the repository root rendered a complete, blank site.
+
 - **`apps/web`** is Next.js 15 App Router, rendered at build time from the committed lake: `/`, `/players`, `/players/[id]`, `/matches`, `/how-it-works`, plus `/api/health`, `/api/refresh/fixtures`, and `/api/refresh/rules`. All 590 player profiles are prerendered. Player photos are hotlinked from the Premier League CDN through `next/image` rather than committed.
 
 Deployment is one Vercel project whose root directory is `apps/web`, because that is the only `package.json` declaring `next`: pointed at `apps/api` Vercel deploys the Fastify server, and pointed at the repository root it fails with `No Next.js version detected`. Vercel installs the workspace from the repository root and runs that package's build script, which builds every workspace package first. "Include files outside the Root Directory" has to stay on, since the site reads the committed lake in `data/` and reads this file for `/how-it-works`, both outside `apps/web`.

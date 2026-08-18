@@ -1,5 +1,5 @@
 import { Command, InvalidArgumentError, Option } from 'commander';
-import type { Config } from '@fpl/config';
+import { seasonForDate, type Config } from '@fpl/config';
 import {
   NotFoundError,
   POSITIONS,
@@ -30,11 +30,15 @@ import {
   summariseFixtureChange,
   rulesSource,
   runSync,
+  archiveHistorySource,
+  ARCHIVE_FIRST_SEASON,
+  playerSeasonsSource,
   SofascoreClient,
   sofascoreHttp,
   sofascoreSpatialSource,
   type HttpClient,
   type RulesDocument,
+  type SyncReport,
   type Source,
 } from '@fpl/ingest';
 import type { Format, Store } from '@fpl/store';
@@ -82,6 +86,7 @@ export function buildProgram(deps: CliDeps): Command {
   registerSync(program, deps, streams, now);
   registerAssets(program, deps, streams);
   registerFixtures(program, deps, streams, now);
+  registerHistory(program, deps, streams, now);
   registerRules(program, deps, streams, now);
   registerPlayers(program, deps, streams);
   registerDatasets(program, deps, streams);
@@ -96,6 +101,20 @@ function parseIntOption(value: string): number {
     throw new InvalidArgumentError(`expected an integer, got "${value}"`);
   }
   return parsed;
+}
+
+/** One row per source: what it wrote, how much, how long, and why not. */
+function writeSyncTable(streams: Streams, report: SyncReport): void {
+  writeTable(streams, {
+    columns: ['source', 'datasets', 'rows', 'duration (ms)', 'error'],
+    rows: report.runs.map((run) => [
+      run.source,
+      [...new Set(run.written.map((written) => written.dataset))].join(', ') || '-',
+      String(run.rows),
+      String(run.durationMs),
+      run.error ?? '-',
+    ]),
+  });
 }
 
 function resolveSeason(raw: string | undefined, config: Config): Season {
@@ -182,16 +201,7 @@ function registerSync(program: Command, deps: CliDeps, streams: Streams, now: ()
       if (options.json === true) {
         writeJson(streams, report);
       } else {
-        writeTable(streams, {
-          columns: ['source', 'datasets', 'rows', 'duration (ms)', 'error'],
-          rows: report.runs.map((run) => [
-            run.source,
-            [...new Set(run.written.map((written) => written.dataset))].join(', ') || '-',
-            String(run.rows),
-            String(run.durationMs),
-            run.error ?? '-',
-          ]),
-        });
+        writeSyncTable(streams, report);
       }
 
       if (report.failed > 0) process.exitCode = 1;
@@ -367,6 +377,109 @@ function registerFixtures(
         writeLine(streams, summariseFixtureChange(change));
       }
     });
+}
+
+interface HistorySeasonsOptionsRaw {
+  season?: string;
+  limit?: number;
+  json?: boolean;
+}
+
+interface HistoryArchiveOptionsRaw {
+  season?: string;
+  seasons?: string;
+  format?: string;
+  json?: boolean;
+}
+
+/**
+ * Completed seasons, which change once a year rather than nightly. Both
+ * commands are backfills: run them after a season rollover, not on a schedule.
+ */
+function registerHistory(program: Command, deps: CliDeps, streams: Streams, now: () => Date): void {
+  const history = program.command('history').description('Backfill completed season history');
+
+  history
+    .command('seasons')
+    .description("Fetch every player's past season totals from the FPL API")
+    .option('--season <season>', 'season whose player list to walk, e.g. 2026/27')
+    .option('--limit <n>', 'cap the players fetched, for a smoke run', parseIntOption)
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: HistorySeasonsOptionsRaw) => {
+      const season = resolveSeason(options.season, deps.config);
+      const client = new FplClient(deps.http);
+
+      const report = await runSync(
+        [
+          playerSeasonsSource(client, {
+            ...(options.limit === undefined ? {} : { limit: options.limit }),
+          }),
+        ],
+        { season, store: deps.store, logger: deps.logger, capturedAt: now() },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+    });
+
+  history
+    .command('archive')
+    .description('Backfill per gameweek history for completed seasons from the community archive')
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option(
+      '--seasons <labels>',
+      'comma separated seasons to pull, e.g. 2023/24,2024/25 (default: every season the archive publishes)',
+    )
+    .addOption(
+      new Option('--format <format>', 'snapshot storage format').choices(['jsonl', 'parquet']),
+    )
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: HistoryArchiveOptionsRaw) => {
+      const season = resolveSeason(options.season, deps.config);
+      const seasons = resolveArchiveSeasons(options.seasons, now());
+
+      const report = await runSync(
+        [archiveHistorySource(deps.http, { seasons })],
+        { season, store: deps.store, logger: deps.logger, capturedAt: now() },
+        // Parquet by default: a season is about 27,000 rows, and it stores in
+        // roughly a twentieth of the JSONL bytes, which matters for a lake
+        // that lives in git.
+        { format: (options.format as Format | undefined) ?? 'parquet' },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+    });
+}
+
+/**
+ * Every season the archive publishes, oldest first, ending with the one before
+ * the current season: the live season is not in the archive, it is in the lake.
+ */
+export function resolveArchiveSeasons(raw: string | undefined, now: Date): string[] {
+  if (raw !== undefined) {
+    return raw
+      .split(',')
+      .map((label) => label.trim())
+      .filter((label) => label !== '')
+      .map((label) => asSeason(label));
+  }
+
+  const first = Number(ARCHIVE_FIRST_SEASON.slice(0, 4));
+  // A season that starts in July belongs to the new campaign, so the last
+  // completed one is the year before whichever season today falls in.
+  const currentStart = Number(seasonForDate(now).slice(0, 4));
+  const seasons: string[] = [];
+  for (let year = first; year < currentStart; year += 1) {
+    seasons.push(asSeason(`${String(year)}/${String((year + 1) % 100).padStart(2, '0')}`));
+  }
+  return seasons;
 }
 
 function registerRules(program: Command, deps: CliDeps, streams: Streams, now: () => Date): void {

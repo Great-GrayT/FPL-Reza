@@ -39,6 +39,10 @@ In: optional `--season`, `--format`, `--always`, `--json`. Out: what moved per f
 
 In: optional kinds to sync (see `ASSET_KINDS`), `--force` to refetch what is already stored, and `--json`. Out: per kind counts of downloaded, skipped, and absent objects, or the stored manifest. Errors: propagates a store error; an absent object upstream is reported, not thrown. Notes: the Premier League CDN answers a missing object with 403 rather than 404, and sometimes with a 200 and a placeholder body, so `syncAssets` enforces a minimum image size and falls through to the next candidate size. Blobs are gitignored: the web app hotlinks the CDN instead.
 
+### history seasons / history archive
+
+In: `history seasons` takes optional `--season`, `--limit`, `--json`; `history archive` takes optional `--season`, `--seasons` (comma separated, default every season the archive publishes from 2016/17 to the last completed one), `--format`, `--json`. Out: the same per source report table as `sync`. Errors: as `sync`. Notes: both are backfills for completed seasons, which do not change, so neither belongs on a schedule. `history archive` defaults to Parquet rather than the store default, because one season is about 27,000 rows and Parquet stores it in roughly a twentieth of the JSONL bytes.
+
 ### rules refresh
 
 Flags: season, json. Scrapes the published rules page, diffs it against the

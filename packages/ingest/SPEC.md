@@ -160,6 +160,30 @@ In: a resolved player, fixture, and team plus the provider lineup entry, heatmap
 
 In: a SofascoreClient and optional seasonId, maxEvents, sinceGameweek, maxPages (default 20). Out: a Source named spatial-sofascore, requiring teams, players, and fixtures, that yields one player-match-spatial batch and one match-events batch per gameweek partition (gwN). Errors: propagates the client errors; an unresolved event, player, or shot taker is counted and logged, never thrown. Notes: the provider season id comes from SOFASCORE_SEASON_IDS (2025/26 is 76986, 2026/27 is 96668) unless passed in, and an unknown season logs a warning and yields nothing.
 
+### FplClient.playerSummary(playerId): Promise<ElementSummary>
+
+In: an FPL player id. Out: the whole element summary: `history` (this season by gameweek) and `history_past` (totals per completed season). Errors: throws ValidationError on schema mismatch. Notes: `playerHistory` returns only the first field, and existed first; this is what the past seasons source needs.
+
+### toPlayerSeason(raw): PlayerSeason
+
+In: one raw `history_past` row. Out: a PlayerSeason. Errors: whatever the core schema throws. Notes: FPL prints its ICT family as strings, so those are coerced; a measure the season did not record is set to null rather than kept as FPL's 0 (expected goals from 2022/23, defensive contribution from 2025/26).
+
+### playerSeasonsSource(client, options?): Source
+
+In: an FplClient and optional limit, progressEvery. Out: a Source named fpl-player-seasons, requiring the players dataset, yielding one player-seasons batch. Errors: propagates the client's. Notes: one request per player, the same cost as a full player history pass, which is why it is a backfill rather than part of the nightly sync.
+
+### buildCodeIndex(playersCsv): Map<number, number>
+
+In: a season's `players_raw.csv`. Out: permanent player code by that season's element id. Errors: none, an unparsable row is skipped.
+
+### parseArchiveSeason(season, gameweeksCsv, codeByElement): ArchiveParseResult
+
+In: a season label, that season's `merged_gw.csv`, and the code index. Out: `{ rows, unresolved }`. Errors: whatever the core schema throws on a row that parses but fails validation. Notes: a row whose element is not in the index, or which has no gameweek, is counted in `unresolved` and dropped; the archive's GK label maps to the domain's GKP; expected goals stay null for seasons before 2022/23, when the archive did not carry them.
+
+### archiveHistorySource(http, options): Source
+
+In: an HttpClient and the seasons to pull (plus an optional baseUrl for a mirror). Out: a Source named history-archive yielding one player-gameweeks-history batch per season, partitioned by the hyphenated season label. Errors: propagates the fetch. Notes: two requests per season, the player list and the merged gameweek file.
+
 ## Logic
 
 HttpClient distinguishes a terminal SourceError, already thrown for a non retryable status or the final attempt, from a network or timeout fault: only the latter is retried while attempts remain within the configured retries budget. Backoff without a Retry-After header doubles from a 250ms base per attempt (250, 500, 1000, and so on); a numeric Retry-After header, in seconds, takes precedence over that computed backoff.
@@ -183,6 +207,8 @@ rulesSource and refreshRules both call parseRules but serve different callers: r
 csv.ts's parser is a single pass character reader (a quoted state flag plus a running field and row buffer) rather than a dependency, since provider CSVs are small and well formed but still need correct quoted field handling for team names that contain commas.
 
 parseFootballDataCsv iterates BOOKMAKER_COLUMNS (a fixed prefix to bookmaker name map covering Bet365, Betway, Interwetten, Pinnacle, William Hill, VC Bet, plus the market best and market average columns) for every row, emitting up to three match_odds quotes (home, draw, away) and two over_under quotes (over, under, at line 2.5) per bookmaker present in that row; a bookmaker missing any one of the three 1X2 columns, or either of the 2.5 columns, is skipped for that market only, not for the whole row.
+
+The history datasets are separate because their grain and their lifetime differ. player-seasons is one row per player per completed season, unpartitioned, rewritten whole when the backfill runs. player-gameweeks-history is partitioned by season, so adding one season does not rewrite the others, and each partition is written once and never again. Both are read by apps/web through optional readers: a lake with no backfill still builds, it just shows no career.
 
 DATASETS reserves six FPL adjacent dataset names, teams, players, gameweeks, fixtures, player-gameweeks, and now rules and odds, both of which have a Source (rulesSource, footballDataOddsSource). It also reserves ownership, club-transfers, player-match-spatial, and match-events, matching the new schemas in packages/core (transfers.ts, spatial.ts), but nothing in this package produces any of those four yet: they are reserved names, not implemented pipelines.
 
@@ -211,6 +237,10 @@ football-data.co.uk season CSV text -> parseCsv/parseCsvObjects -> parseFootball
 fantasy.premierleague.com/api/fixtures/ JSON -> FplClient.fixtures -> toFixture -> diffFixtures(stored fixtures, fresh fixtures) -> refreshFixtures -> Store.write for the fixtures dataset when something moved, else a null written value. Called directly by the CLI fixtures refresh command, the API POST /fixtures/refresh route, and apps/web refresh endpoint.
 
 Store.read of teams, players, and fixtures -> buildFixtureResolver and buildPlayerResolver -> api.sofascore.com listing pages -> per event lineups, average positions, shotmap, and one heatmap per player -> fromTeamFrame and fromShotFrame -> toPlayerMatchSpatial and toMatchEvent -> rows grouped by gameweek -> sofascoreSpatialSource batches -> runSync -> Store.write for the player-match-spatial and match-events datasets, one partition per gameweek.
+
+FPL element-summary JSON -> FplClient.playerSummary -> toPlayerSeason per history_past row -> playerSeasonsSource batch -> Store.write for the player-seasons dataset.
+
+archive players_raw.csv -> buildCodeIndex -> archive merged_gw.csv -> parseArchiveSeason, rekeyed to playerCode -> archiveHistorySource batch per season -> Store.write for the player-gameweeks-history dataset, one Parquet partition per season.
 
 ## Dependencies
 

@@ -18,6 +18,8 @@ Also owns the fixtures refresh path (fixtures/refresh.ts, fixtures/diff.ts): a r
 
 Also owns the Sofascore spatial adapter (spatial/sofascore/): its own fetch transport with a browser TLS cipher order (fetch.ts), a typed client over the provider endpoints (client.ts, schemas.ts), the provider to domain identity joins (identity.ts), the coordinate frame normalisation and row mapping (map.ts), and the `spatial-sofascore` Source (source.ts) which produces the player-match-spatial and match-events datasets from teams, players, and fixtures.
 
+Also owns the history backfills (`history/`): `playerSeasonsSource` maps FPL's `history_past` into the player-seasons dataset, and `archiveHistorySource` reads per gameweek rows for completed seasons from the community archive at github.com/vaastav/Fantasy-Premier-League, rekeying each row from that season's element id to the permanent player code.
+
 Does not own: config loading (packages/config), snapshot storage mechanics (packages/store), scoring, squad rules, or the spatial/odds/transfer domain schemas (all packages/core).
 
 ## Skills used in this section
@@ -42,6 +44,9 @@ Does not own: config loading (packages/config), snapshot storage mechanics (pack
 - The spatial source costs roughly one request per player per match at a 500 ms floor, so it is opt in from the CLI (`--sources spatial-sofascore`) and never part of a bare sync. Bound a run with `maxEvents` or `sinceGameweek`.
 - Neither rules path stores an unusable document. `isUsableRulesDocument` requires at least one deadline, scoring row, or BPS row, and both refreshRules and rulesSource skip the write when it fails. As of 2026-08-18 the published page is rendered client side (no tables, no embedded payload, not even the word "Deadline" in the HTML), so every scrape currently fails that check. Storing the empty document would publish "no deadlines" as though it were measured. Fixing the scrape means finding the JSON the page fetches, not loosening this guard.
 - footballDataOddsSource treats 300, 403, 404, and 410 on the season CSV as "not published yet" and yields nothing. 300 is there because the provider serves a path it does not hold through Apache content negotiation, which is what a season file answers before that season starts. A scheduled sync must not fail over a file that does not exist.
+- Both history sources are backfills, not nightly work: completed seasons do not change. `playerSeasonsSource` deliberately does not piggyback on `playerHistorySource`, even though they call the same endpoint, because the nightly sync skips players with no minutes and a partial snapshot would shadow a complete one (a read takes the newest snapshot whole).
+- The archive keys rows by that season's element id, which FPL reassigns every summer. Every row is rekeyed through the same season's `players_raw.csv` before it is stored, and a row whose code cannot be resolved is counted and dropped. Never fall back to matching on name.
+- Archive snapshots are written as Parquet, not JSONL. One season is about 27,000 rows: 400 KB as Parquet against 25 MB as JSONL, and the lake lives in git.
 - refreshFixtures writes only when the diff reports a change, unless `always` is set. A fixture list polled every few minutes would otherwise fill the lake with identical snapshots.
 
 ## Related

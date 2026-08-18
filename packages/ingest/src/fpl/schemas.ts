@@ -130,6 +130,8 @@ export const rawHistorySchema = z.object({
 
 export const elementSummarySchema = z.object({
   history: z.array(rawHistorySchema),
+  /** Completed seasons. Kept unparsed here: the history package owns its shape. */
+  history_past: z.array(z.unknown()).default([]),
 });
 
 export type RawHistory = z.infer<typeof rawHistorySchema>;

@@ -17,4 +17,5 @@ export * from './csv.js';
 export * from './odds/football-data.js';
 export * from './odds/team-names.js';
 export * from './odds/source.js';
+export * from './history/index.js';
 export * from './spatial/index.js';

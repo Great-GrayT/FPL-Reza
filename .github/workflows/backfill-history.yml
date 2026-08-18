@@ -1,0 +1,95 @@
+name: Backfill history
+
+# Completed seasons do not change, so this is not on a schedule. Run it after a
+# season rollover, or once to seed a fresh clone. It writes the two history
+# datasets and commits them, and the push is what redeploys the site.
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: 'Which history to backfill'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - seasons
+          - archive
+      seasons:
+        description: 'Archive seasons, comma separated (default: every season the archive publishes)'
+        required: false
+        type: string
+      limit:
+        description: 'Cap the players fetched for past seasons, for a smoke run'
+        required: false
+        type: string
+
+concurrency:
+  group: fpl-lake
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    # Past seasons are one throttled request per player, and the archive is ten
+    # season files: minutes, not hours, but well past the default patience.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version pin here: package.json packageManager owns it, and setting
+      # both makes this action refuse to run.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # Every player's season by season totals, from the FPL API. One request
+      # per player, so this is the expensive half.
+      - name: Backfill past seasons
+        id: seasons
+        if: inputs.what == 'both' || inputs.what == 'seasons'
+        continue-on-error: true
+        run: |
+          node apps/cli/dist/bin.js history seasons ${LIMIT:+--limit "$LIMIT"}
+        env:
+          LIMIT: ${{ inputs.limit }}
+
+      # Per gameweek rows for completed seasons, from the community archive.
+      # Written as Parquet: a season is about 27,000 rows and stores in roughly
+      # 400 KB, where JSONL would be 25 MB.
+      - name: Backfill the gameweek archive
+        id: archive
+        if: inputs.what == 'both' || inputs.what == 'archive'
+        continue-on-error: true
+        run: |
+          node apps/cli/dist/bin.js history archive ${SEASONS:+--seasons "$SEASONS"}
+        env:
+          SEASONS: ${{ inputs.seasons }}
+
+      - name: Commit the history
+        if: always()
+        run: |
+          if [ -z "$(git status --porcelain data)" ]; then
+            echo "no new history to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "chore(data): backfill completed season history"
+          git push || (git pull --rebase && git push)
+
+      - name: Fail the job if a backfill step failed
+        if: steps.seasons.outcome == 'failure' || steps.archive.outcome == 'failure'
+        run: |
+          echo "a backfill step failed; whatever landed has been committed above"
+          exit 1

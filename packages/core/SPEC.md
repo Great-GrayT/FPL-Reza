@@ -2,7 +2,7 @@
 title: Core spec
 type: spec
 module: packages/core
-updated: 2026-08-16
+updated: 2026-08-18
 status: active
 ---
 
@@ -68,6 +68,14 @@ In: a list of Gameweek. Out: the entry with isCurrent or isNext true, or undefin
 
 In: a Fixture and a TeamId. Out: whether that team is home, the other team's ID, or the difficulty (1 to 5) that team faces. Errors: none.
 
+### careerTotals(seasons): CareerTotals
+
+In: a list of PlayerSeason. Out: seasons counted, points, minutes, goals, assists, clean sheets and bonus summed, plus the best season by points and that season's points. Errors: none. Notes: an empty list yields zeroes and a null best season; a tie on points keeps the first season read, so a caller that sorts newest first gets the most recent of two equal peaks.
+
+### toArchiveSeason(season) / fromArchiveSeason(label)
+
+In: a season label in either spelling. Out: the other one ("2024/25" to "2024-25" and back). Errors: none. Notes: the archives file seasons with a hyphen and the domain brands them with a slash, and the two must not be interchangeable by accident, which is why `playerSeasonSchema` rejects the hyphenated form.
+
 ### per90(total, minutes): number
 
 In: a raw total and minutes played. Out: the rate scaled to a 90 minute match, or 0 if minutes is 0 or less, avoiding a divide by zero for an unused player. Errors: none.
@@ -88,6 +96,8 @@ FplError is the base of every intentional error; each subclass fixes its own cod
 
 createLogger writes to stderr by default so stdout stays free for CLI output another tool might pipe; field values are stringified via a format helper that special cases Date (ISO string) and Error (message) before falling back to JSON.stringify.
 
+history.ts holds the two career grains. `PlayerSeason` is one player's totals for one completed season, exactly what FPL publishes on its element summary endpoint. `HistoricPlayerGameweek` is one player's return in one gameweek of a past season, which FPL stops serving once a season closes, so it comes from an archive instead and carries the player's name, club, and position as they were then. Both key on `playerCode`, and `gameweek` is bounded 1 to 47 rather than 38, because a season disrupted into replays and reschedules has run past 38 before.
+
 ## Data flow
 
 raw FPL element_type integer -> positionFromElementType -> Position, consumed by scoring, rules quotas, and formation checks.
@@ -99,6 +109,8 @@ per gameweek stat line -> scorePlayerGameweek -> PointsBreakdown, the basis for 
 price in tenths -> toMillions or formatPrice -> a display value; purchase and current price -> sellingPrice -> the tenths a squad would recoup.
 
 a list of Gameweek -> currentGameweek or nextGameweek -> the single entry consumers key off for this week logic.
+
+FPL history_past rows -> packages/ingest toPlayerSeason -> PlayerSeason -> careerTotals -> the career block on a player page.
 
 ## Dependencies
 

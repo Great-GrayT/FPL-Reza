@@ -8,6 +8,8 @@ export const DATASETS = {
   gameweeks: 'gameweeks',
   fixtures: 'fixtures',
   playerGameweeks: 'player-gameweeks',
+  playerSeasons: 'player-seasons',
+  playerGameweeksHistory: 'player-gameweeks-history',
   rules: 'rules',
   odds: 'odds',
   ownership: 'ownership',

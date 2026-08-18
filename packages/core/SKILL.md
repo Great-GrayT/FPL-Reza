@@ -2,7 +2,7 @@
 title: Core skill
 type: skill
 module: packages/core
-updated: 2026-08-16
+updated: 2026-08-18
 status: active
 ---
 
@@ -11,6 +11,8 @@ status: active
 Owns the domain: branded IDs (`PlayerId`, `TeamId`, `FixtureId`, `GameweekId`, `Season`), the entity schemas (team, player, gameweek, fixture, player gameweek), position and availability mapping, money as integer tenths of a million, squad and transfer rules constants, match scoring, BPS weights, a line oriented logger, and the shared error hierarchy (`FplError`, `ValidationError`, `NotFoundError`, `SourceError`).
 
 Also owns four newer modules: pitch geometry and per match spatial schemas including heatmaps (`spatial.ts`), bookmaker odds and the goal expectation math derived from them (`odds.ts`), club transfer and FPL ownership flow schemas (`transfers.ts`), and a static registry of candidate data providers with their access mode and coverage (`providers.ts`).
+
+Also owns the career layer (`history.ts`): `playerSeasonSchema` (one player, one completed season), `historicPlayerGameweekSchema` (one player, one gameweek of a past season), `careerTotals`, and the two spellings of a season label, since the archives write "2024-25" where the domain writes "2024/25".
 
 Does not own: storage or file I/O (`packages/store`), HTTP fetching or upstream FPL response shapes (`packages/ingest`), configuration loading (`packages/config`). Nothing in this package touches the filesystem or the network.
 
@@ -28,6 +30,9 @@ Does not own: storage or file I/O (`packages/store`), HTTP fetching or upstream 
 - Spatial coordinates follow the Opta convention: 0 to 100 on both axes, always from the perspective of the side attacking towards x = 100. A provider that ships metres or flips sides at half time must be normalised to this convention before its rows reach these schemas.
 - `clubTransferSchema` keys on `playerCode`, not `playerId`, because FPL ids are reassigned every season and codes are not.
 - `PROVIDERS` in `providers.ts` is hand maintained data, not a live lookup: adding or correcting an entry means editing the array directly, there is nothing to sync it against.
+
+- Everything in `history.ts` keys on `playerCode`, never `playerId`. FPL reassigns element ids every summer, so a career keyed by id is one season long. `historicPlayerGameweekSchema` also carries the name, club, and position as recorded at the time, because a player who has left the league cannot be joined to today's player list.
+- A measure that did not exist in a season is null, not 0. The expected goals family starts in 2022/23 and defensive contribution in 2025/26, and FPL reports 0 for both before then, which would otherwise read as "recorded none".
 
 ## Related
 

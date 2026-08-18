@@ -11,6 +11,7 @@ export * from './player.js';
 export * from './gameweek.js';
 export * from './fixture.js';
 export * from './player-gameweek.js';
+export * from './history.js';
 export * from './spatial.js';
 export * from './odds.js';
 export * from './transfers.js';
