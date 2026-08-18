@@ -90,6 +90,8 @@ export interface SofascoreEventIdentity {
   homeTeamName: string;
   awayTeamName: string;
   kickoff: Date;
+  /** The provider round, where it publishes one. Used as a second key. */
+  round?: number | null;
 }
 
 export interface FixtureResolverOptions {
@@ -148,7 +150,17 @@ export function buildFixtureResolver(
       }
     }
 
-    return tied || best === undefined ? undefined : best.id;
+    if (!tied && best !== undefined) return best.id;
+
+    // A reschedule the two sides disagree about can be days apart, well past any
+    // kickoff tolerance worth allowing on its own. The round is a second key: a
+    // league pair plays once per venue per season, so one candidate whose
+    // gameweek equals the provider round is the same match, whatever either
+    // side currently prints as the kickoff time.
+    const round = event.round;
+    if (round === null || round === undefined || candidates.length !== 1) return undefined;
+    const only = candidates[0];
+    return only?.gameweek === round ? only.id : undefined;
   };
 }
 

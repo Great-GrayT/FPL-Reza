@@ -138,7 +138,7 @@ In: the season Team list. Out: a resolver from the provider club name to a domai
 
 ### buildFixtureResolver(fixtures, teams, options?): (event) => FixtureId | undefined
 
-In: the season fixtures and teams, and an optional kickoff toleranceMs (default 4 hours). Out: a resolver from a provider event (home name, away name, kickoff) to a domain FixtureId, or undefined. Errors: none. Notes: matches on the resolved team pair plus the closest kickoff within tolerance; a tie between two candidates yields undefined rather than a guess, which is what stops a cup tie between the same clubs from stealing the league fixture.
+In: the season fixtures and teams, and an optional kickoff toleranceMs (default 4 hours). Out: a resolver from a provider event (home name, away name, kickoff, and the provider round where it publishes one) to a domain FixtureId, or undefined. Errors: none. Notes: matches on the resolved team pair plus the closest kickoff within tolerance; a tie between two candidates yields undefined rather than a guess, which is what stops a cup tie between the same clubs from stealing the league fixture. When no kickoff is close enough, one last rule applies: if the pair identifies exactly one fixture and the provider round equals that fixture gameweek, it is the same match. That covers a reschedule the two sides disagree about by days, which no kickoff tolerance worth allowing would reach.
 
 ### buildPlayerResolver(players, teams?): PlayerResolver
 
@@ -154,7 +154,7 @@ In: a resolved player, fixture, and team plus the provider lineup entry, heatmap
 
 ### sofascoreSpatialSource(client, options?): Source
 
-In: a SofascoreClient and optional seasonId, maxEvents, sinceGameweek, maxPages (default 20). Out: a Source named spatial-sofascore, requiring teams, players, and fixtures, that yields one player-match-spatial batch and one match-events batch per gameweek partition (gwN). Errors: propagates the client errors; an unresolved event, player, or shot taker is counted and logged, never thrown. Notes: the provider season id comes from SOFASCORE_SEASON_IDS (2025/26 is 76986) unless passed in, and an unknown season logs a warning and yields nothing.
+In: a SofascoreClient and optional seasonId, maxEvents, sinceGameweek, maxPages (default 20). Out: a Source named spatial-sofascore, requiring teams, players, and fixtures, that yields one player-match-spatial batch and one match-events batch per gameweek partition (gwN). Errors: propagates the client errors; an unresolved event, player, or shot taker is counted and logged, never thrown. Notes: the provider season id comes from SOFASCORE_SEASON_IDS (2025/26 is 76986, 2026/27 is 96668) unless passed in, and an unknown season logs a warning and yields nothing.
 
 ## Logic
 
@@ -186,7 +186,7 @@ The spatial source resolves before it reads: without a provider season id there 
 
 Per match the source reads lineups, average positions, and the shotmap once each, then one heatmap per player who actually played, skipping the heatmap calls entirely when the event hasEventPlayerHeatMap flag is false. That per player call is the cost of this source: at a 500 ms floor a full season is hours of traffic, which is why the CLI keeps it opt in. A player who cannot be joined is counted and skipped; an unjoinable shot taker still lands its event row with a null player id, because the shot itself happened and is worth storing.
 
-Identity is the whole risk of this pipeline, so it is deliberately conservative: a key shared by two players at a club is marked ambiguous and resolves to nothing, and a fixture tie resolves to nothing. The source logs both counts at info level (unresolvedPlayers, unresolvedShotTakers) and warns on events without a fixture, because a low join rate is otherwise silent.
+Identity is the whole risk of this pipeline, so it is deliberately conservative: a key shared by two players at a club is marked ambiguous and resolves to nothing, and a fixture tie resolves to nothing. The one loosening, the round fallback, needs the pair to identify a single fixture and the round to agree with its gameweek, so it cannot turn a right join into a wrong one. Measured against the provider on 2026-08-18, the fixture join rate over 60 scheduled 2026/27 matches is 60 of 60; without the round rule it was 29 of 30, the miss being a match FPL printed for 31 August and the provider for 29 August. The source logs both counts at info level (unresolvedPlayers, unresolvedShotTakers) and warns on events without a fixture, because a low join rate is otherwise silent.
 
 ## Data flow
 

@@ -79,6 +79,23 @@ pnpm fpl
 
 Runs the built CLI (`apps/cli`, still in progress) at `apps/cli/dist/bin.js`.
 
+## Deploy the site
+
+The Vercel project points at the repository root, not at `apps/web`. `vercel.json` pins the build:
+
+```json
+{
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @fpl/web build",
+  "outputDirectory": "apps/web/.next"
+}
+```
+
+Root directory matters because the site reads two things from outside `apps/web`: the committed snapshots in `data/` and `docs/ARCHITECTURE.md`, which `/how-it-works` renders. A project whose root directory is `apps/web` has to have "include files outside the root directory" enabled, or both reads fail at build time. Without `vercel.json`, Vercel detects `apps/api` and deploys the Fastify server instead of the site.
+
+Set `REFRESH_TOKEN` in the project before handing the refresh URLs to a scheduler: with it unset the refresh endpoints are open, and they say so in every response. Set `FPL_SEASON` only to pin a season; otherwise it is derived from the date.
+
 ## Where the docs live
 
 - [How this project works](docs/ARCHITECTURE.md): the end to end explanation, from the public sources it reads through the models, the algorithms, and the packages, to a rendered page. The web app serves it at `/how-it-works`. Any change to what it describes updates it in the same commit.

@@ -21,6 +21,8 @@ import type { SofascoreEvent, SofascoreHeatmapPoint } from './schemas.js';
  */
 export const SOFASCORE_SEASON_IDS: Readonly<Record<string, number>> = {
   '2025/26': 76986,
+  // Read from unique-tournament/17/seasons on 2026-08-18.
+  '2026/27': 96668,
 };
 
 export interface SofascoreSpatialOptions {
@@ -85,6 +87,7 @@ export function sofascoreSpatialSource(
           homeTeamName: event.homeTeam.name,
           awayTeamName: event.awayTeam.name,
           kickoff: new Date(event.startTimestamp * 1000),
+          round: event.roundInfo?.round ?? null,
         });
         if (fixtureId === undefined) return undefined;
         const fixture = fixtureById.get(fixtureId);

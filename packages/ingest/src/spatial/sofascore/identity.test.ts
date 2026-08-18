@@ -196,6 +196,53 @@ describe('buildFixtureResolver', () => {
     );
   });
 
+  it('falls back to the provider round when a reschedule puts the kickoffs days apart', () => {
+    // The 2026/27 Aston Villa versus Arsenal case: FPL printed 31 August, the
+    // provider 29 August. One candidate for the pair, and round 20 is that
+    // fixture's gameweek, so it is the same match.
+    assert.equal(
+      resolve({
+        homeTeamName: 'Arsenal',
+        awayTeamName: 'Crystal Palace',
+        kickoff: new Date('2026-01-06T19:00:00Z'),
+        round: 20,
+      }),
+      asFixtureId(1002),
+    );
+  });
+
+  it('refuses the round fallback when the round is not that fixture gameweek', () => {
+    assert.equal(
+      resolve({
+        homeTeamName: 'Arsenal',
+        awayTeamName: 'Crystal Palace',
+        kickoff: new Date('2026-01-06T19:00:00Z'),
+        round: 21,
+      }),
+      undefined,
+    );
+  });
+
+  it('refuses the round fallback when the pair does not identify one fixture', () => {
+    const replayed = buildFixtureResolver(
+      [
+        fixture(2001, 2, 1, '2026-03-01T15:00:00Z', 28),
+        fixture(2002, 2, 1, '2026-03-08T15:00:00Z', 28),
+      ],
+      teams,
+    );
+
+    assert.equal(
+      replayed({
+        homeTeamName: 'Crystal Palace',
+        awayTeamName: 'Arsenal',
+        kickoff: new Date('2026-04-20T15:00:00Z'),
+        round: 28,
+      }),
+      undefined,
+    );
+  });
+
   it('resolves the provider club names through the shared alias table', () => {
     const withKickoff = buildFixtureResolver(
       [fixture(1004, 3, 4, '2026-02-01T15:00:00Z', 25)],

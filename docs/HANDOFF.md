@@ -157,16 +157,40 @@ Saved payloads used as fixtures live in the session scratchpad under
    cover the transport, the client, both resolvers, the coordinate frames, and
    the source, and `docs/INDEX.md` lists every module plus
    `docs/ARCHITECTURE.md`.
-3. **Smoke test the spatial source live** with a small bound (`maxEvents: 2`)
+3. Smoke tested live on 2026-08-18, as far as the calendar allows. The
+   transport, client, and season listing all answer: `unique-tournament/17/seasons`
+   gave the 2026/27 season id, 96668, now in `SOFASCORE_SEASON_IDS`. The season
+   had not kicked off (gameweek 1 opens 2026-08-21, and the lake holds 0 finished
+   fixtures), so `events/last/0` answers 404 and there is nothing to ingest yet.
+   The fixture join rate was measured instead, against 60 scheduled matches: 29 of
+   30 before adding the round fallback, 60 of 60 after. The player resolution hit
+   rate still needs measuring once gameweek 1 has been played, with
+   `--sources spatial-sofascore --spatial-max-events 2`, reading the
+   `unresolvedPlayers` and `unresolvedShotTakers` counts the source logs.
+
+   Original instruction, still standing for the player rate: **smoke test live** with a small bound (`maxEvents: 2`)
    and record the player resolution hit rate. Unresolved players are logged and
    skipped by design, not failed, so a low hit rate is silent and needs to be
    measured deliberately.
+
 4. **First commit.** `git init` is done, branch `main`, **nothing is committed
    yet** and about 188 paths are staged or untracked. Commit only once the gate
    is green. The user creates the GitHub repo and adds the remote.
-5. **Vercel setup.** Root directory `apps/web`. Its build script is
+5. Vercel: the project must build the site, not the API. `vercel.json` at the
+   repository root now pins `installCommand`, `buildCommand`
+   (`pnpm --filter @fpl/web build`), and `outputDirectory` (`apps/web/.next`),
+   so point the project root directory at the repository root and leave the
+   framework detection to that file. The first deployment of commit 52bf99f
+   built `apps/api` instead, reporting `Using src/app.ts as the root entrypoint`,
+   which is what that file prevents. Root directory `apps/web` also works only
+   if "include files outside the root directory" is on, because the site reads
+   `data/` and `docs/ARCHITECTURE.md`. Still set `REFRESH_TOKEN`, and
+   `FPL_SEASON` only to pin a season.
+
+   Superseded note, kept for context: root directory `apps/web`. Its build script is
    `tsc --build ../../tsconfig.json && next build`, which builds the workspace
    packages first. Set `REFRESH_TOKEN`, and `FPL_SEASON` if pinning a season.
+
 6. Spatial source is wired into `registerSync` as an opt in source
    (`--sources spatial-sofascore`, bounded by `--spatial-max-events` and
    `--spatial-since-gameweek`). A web route rendering heatmaps and shotmaps
