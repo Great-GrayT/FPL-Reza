@@ -36,6 +36,9 @@ const NAV = [
   { href: '/', label: 'Season' },
   { href: '/players', label: 'Players' },
   { href: '/matches', label: 'Matches' },
+  { href: '/builder', label: 'Build a team' },
+  { href: '/scout', label: 'Scout' },
+  { href: '/glossary', label: 'Glossary' },
   { href: '/how-it-works', label: 'How it works' },
 ];
 

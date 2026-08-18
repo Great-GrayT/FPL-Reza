@@ -1,0 +1,641 @@
+.page {
+  padding-block: var(--s5) var(--s7);
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s5);
+}
+
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 var(--s2);
+}
+
+.title {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step-4);
+  font-stretch: expanded;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+.standfirst {
+  max-width: var(--measure);
+  margin: var(--s3) 0 0;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.layout {
+  display: grid;
+  gap: var(--s5);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (max-width: 62rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------- the meters */
+
+.meters {
+  display: grid;
+  gap: var(--s4);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  padding-bottom: var(--s4);
+  border-bottom: 1px solid var(--rule-strong);
+  margin-bottom: var(--s4);
+}
+
+@media (max-width: 46rem) {
+  .meters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.budgetHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.budgetHead p {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--step-0);
+}
+
+.of {
+  color: var(--ink-soft);
+}
+
+.over {
+  color: var(--flare-ink);
+}
+
+/* The bill: a ruled strip that fills as the money goes. */
+.gauge {
+  margin-top: var(--s2);
+  block-size: 0.75rem;
+  border: 1px solid var(--ink);
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(10% - 1px),
+    var(--rule) calc(10% - 1px) 10%
+  );
+}
+
+.gaugeFill {
+  display: block;
+  block-size: 100%;
+  background: var(--pitch);
+}
+
+.gaugeFill[data-over='true'] {
+  background: var(--flare);
+}
+
+.quotas {
+  display: flex;
+  gap: var(--s3);
+  margin: 0;
+}
+
+.quota dt {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+}
+
+.quota dd {
+  margin: 0;
+  font-size: var(--step-0);
+}
+
+.quota[data-full='true'] dd {
+  color: var(--pitch);
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------- teamsheet */
+
+.holding {
+  margin: 0 0 var(--s4);
+  padding: var(--s2) var(--s3);
+  border: 1px dashed var(--ink);
+  background: var(--paper-2);
+  font-size: var(--step--1);
+}
+
+.linkButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--flare-ink);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.line {
+  margin-bottom: var(--s4);
+}
+
+.lineHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: var(--step-0);
+  margin: 0 0 var(--s3);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* The position stamp: a printed form marks its sections, it does not colour them. */
+.stamp {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--ink);
+}
+
+.lineCount {
+  margin-inline-start: auto;
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+}
+
+.slot {
+  position: relative;
+  min-block-size: 4.5rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+}
+
+.slot[data-over='true'] {
+  border-color: var(--flare);
+  border-style: solid;
+  background: color-mix(in srgb, var(--flare) 8%, var(--paper));
+}
+
+.slot[data-filled='true'] {
+  border-color: var(--ink);
+}
+
+/* A starter is ruled solid, a bench player stays dashed: the sheet says who plays. */
+.slot[data-filled='true']:not([data-starter='true']) {
+  border-style: dashed;
+}
+
+.emptySlot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  justify-content: center;
+  align-items: flex-start;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 4.5rem;
+  padding: var(--s2);
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  font: inherit;
+  text-align: start;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.emptySlot:hover,
+.emptySlot:focus-visible {
+  border-left-color: var(--flare);
+  background: var(--paper-2);
+}
+
+.slotStamp {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.14em;
+}
+
+.slotHint {
+  font-size: var(--step--1);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: var(--s2);
+  block-size: 100%;
+}
+
+.cardClub {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+}
+
+.cardName {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.captain {
+  margin-inline-start: 0.35rem;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  border: 1px solid var(--bonus);
+  background: var(--bonus);
+  color: var(--ink);
+  padding: 0 0.25rem;
+  text-decoration: none;
+}
+
+.cardStats {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.benched {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.removeButton {
+  position: absolute;
+  inset-block-start: 0.15rem;
+  inset-inline-end: 0.15rem;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  background: none;
+  border: 0;
+  font-size: var(--step-0);
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.removeButton:hover,
+.removeButton:focus-visible {
+  color: var(--flare-ink);
+}
+
+/* --------------------------------------------------------------- readout */
+
+.readout {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 2px solid var(--ink);
+}
+
+.readoutHead {
+  font-size: var(--step-1);
+  margin: 0 0 var(--s3);
+}
+
+.legal {
+  margin: 0;
+  max-width: var(--measure);
+}
+
+.issues {
+  margin: 0;
+  padding-inline-start: var(--s4);
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.issues li {
+  margin-bottom: 0.2rem;
+}
+
+.transfers {
+  margin-top: var(--s4);
+}
+
+.transfersHead {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 var(--s2);
+}
+
+.transfers ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.swap {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  inline-size: 100%;
+  padding: var(--s2) var(--s2) var(--s2) 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-left: 3px solid transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.swap:hover,
+.swap:focus-visible {
+  border-left-color: var(--pitch);
+  padding-left: var(--s2);
+  background: var(--paper-2);
+}
+
+.actions {
+  display: flex;
+  gap: var(--s3);
+  margin-top: var(--s4);
+}
+
+.primary,
+.secondary {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: var(--s2) var(--s4);
+  cursor: pointer;
+  border: 1px solid var(--ink);
+}
+
+.primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.secondary {
+  background: none;
+  color: var(--ink);
+}
+
+.primary:hover,
+.primary:focus-visible {
+  background: var(--pitch);
+  border-color: var(--pitch);
+}
+
+.secondary:hover,
+.secondary:focus-visible {
+  border-color: var(--flare);
+  color: var(--flare-ink);
+}
+
+/* ----------------------------------------------------------------- panel */
+
+.panel {
+  border: 1px solid var(--rule-strong);
+  padding: var(--s4);
+  position: sticky;
+  inset-block-start: var(--s3);
+  max-block-size: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+@media (max-width: 62rem) {
+  .panel {
+    position: static;
+    max-block-size: none;
+  }
+}
+
+.panelHead {
+  font-size: var(--step-1);
+  margin: 0 0 var(--s3);
+}
+
+.filters {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  margin-bottom: var(--s3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.field input,
+.field select {
+  font-family: var(--font-body), sans-serif;
+  font-size: var(--step--1);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.field input[type='range'] {
+  padding: 0;
+  border: 0;
+  accent-color: var(--pitch);
+}
+
+.sorts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin-bottom: var(--s2);
+}
+
+.sortButton {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--rule-strong);
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.sortButton[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.count {
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+  margin: 0 0 var(--s2);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  border-bottom: 1px solid var(--rule);
+  border-left: 3px solid transparent;
+}
+
+.row[draggable='true'] {
+  cursor: grab;
+}
+
+.row:hover,
+.row:focus-within {
+  background: var(--paper-2);
+  border-left-color: var(--pitch);
+}
+
+.row[data-held='true'] {
+  border-left-color: var(--ink);
+  background: var(--paper-2);
+}
+
+.row[data-blocked='true'] {
+  opacity: 0.55;
+}
+
+.rowMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  inline-size: 100%;
+  padding: var(--s2);
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.rowName {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  min-inline-size: 0;
+}
+
+.rowClub {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+
+.flag {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--flare-ink);
+  border: 1px solid currentColor;
+  padding: 0 0.2rem;
+}
+
+.rowStats {
+  display: flex;
+  gap: var(--s2);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.rowPoints {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.why {
+  margin: 0;
+  padding: 0 var(--s2) var(--s2);
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+.empty {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+/* ------------------------------------------------------------ live, legend */
+
+.live {
+  margin: var(--s4) 0 0;
+  min-block-size: 1.5rem;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  color: var(--flare-ink);
+}
+
+.legend {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.legendHead {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 var(--s2);
+}
+
+.legendList {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin: 0;
+  padding: 0;
+  font-size: var(--step--1);
+}

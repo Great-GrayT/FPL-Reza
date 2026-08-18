@@ -1,0 +1,232 @@
+.page {
+  padding-block: var(--s5) var(--s7);
+}
+
+.masthead {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s5);
+}
+
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 var(--s2);
+}
+
+.title {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step-4);
+  font-stretch: expanded;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.standfirst {
+  max-width: var(--measure);
+  margin: var(--s3) 0 0;
+  color: var(--ink-soft);
+}
+
+/* Three blocks, each a question. Ruled apart rather than boxed. */
+.block {
+  padding-block: var(--s5);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.blockHead {
+  margin-bottom: var(--s4);
+}
+
+.blockTitle {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step-2);
+  font-stretch: expanded;
+  text-transform: uppercase;
+  margin: 0 0 var(--s2);
+}
+
+.blockNote {
+  max-width: var(--measure);
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.table {
+  border-collapse: collapse;
+  inline-size: 100%;
+  font-size: var(--step--1);
+}
+
+.table th,
+.table td {
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--rule);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table thead th {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border-bottom-color: var(--rule-strong);
+}
+
+.table th:first-child,
+.table thead th:first-child,
+.table td:nth-child(2),
+.table td:nth-child(3) {
+  text-align: left;
+}
+
+.table tbody tr:hover {
+  background: var(--paper-2);
+}
+
+.empty {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+  max-width: var(--measure);
+}
+
+/* ------------------------------------------------------------ swings list */
+
+.swings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: swing;
+}
+
+.swing {
+  display: grid;
+  grid-template-columns: 2rem minmax(7rem, 12rem) 3.5rem minmax(4rem, 1fr) auto;
+  gap: var(--s3);
+  align-items: center;
+  padding-block: var(--s2);
+  border-bottom: 1px solid var(--rule);
+}
+
+@media (max-width: 40rem) {
+  .swing {
+    grid-template-columns: 2rem 1fr 3.5rem;
+  }
+
+  .bars {
+    display: none;
+  }
+
+  .flags {
+    grid-column: 2 / -1;
+  }
+}
+
+.rank {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.club {
+  font-weight: 600;
+}
+
+.difficulty {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.bars {
+  display: block;
+  block-size: 0.5rem;
+  background: var(--paper-2);
+}
+
+/* Long bar means an easy run: the reader should not have to invert a scale. */
+.bar {
+  display: block;
+  block-size: 100%;
+  background: var(--pitch);
+}
+
+.flags {
+  display: flex;
+  gap: var(--s2);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.blank {
+  color: var(--flare-ink);
+}
+
+.double {
+  color: var(--pitch);
+}
+
+/* ---------------------------------------------------------- captain order */
+
+.captains {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.captain {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 3.5rem;
+  gap: var(--s3);
+  align-items: start;
+  padding-block: var(--s3);
+  border-bottom: 1px solid var(--rule);
+}
+
+.captainRank {
+  color: var(--ink-soft);
+}
+
+.captainName {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: baseline;
+  font-weight: 600;
+}
+
+.captainClub {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.captainWhy {
+  margin: var(--s1) 0 0;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+.captainPoints {
+  text-align: right;
+  font-size: var(--step-1);
+}
+
+.footnote {
+  margin: var(--s5) 0 0;
+  max-width: var(--measure);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}

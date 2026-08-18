@@ -1,0 +1,102 @@
+.page {
+  padding-block: var(--s5) var(--s7);
+}
+
+.masthead {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s5);
+}
+
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 var(--s2);
+}
+
+.title {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step-4);
+  font-stretch: expanded;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.standfirst {
+  max-width: var(--measure);
+  margin: var(--s3) 0 0;
+  color: var(--ink-soft);
+}
+
+.entries {
+  margin: 0;
+}
+
+/* Each entry is a ruled block, the way a printed glossary sets its columns. */
+.entry {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  padding-block: var(--s4);
+  border-bottom: 1px solid var(--rule);
+  scroll-margin-block-start: var(--s5);
+}
+
+@media (max-width: 46rem) {
+  .entry {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s2);
+  }
+}
+
+/* The anchored entry is marked, so arriving from a metric link lands visibly. */
+.entry:target {
+  border-left: 3px solid var(--flare);
+  padding-left: var(--s3);
+}
+
+.term {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step-1);
+  font-stretch: expanded;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.body {
+  margin: 0;
+  max-width: var(--measure);
+}
+
+.short {
+  margin: 0 0 var(--s2);
+}
+
+.formula,
+.source,
+.caveat {
+  margin: 0 0 var(--s2);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.caveat {
+  color: var(--ink);
+}
+
+.tag {
+  display: inline-block;
+  min-inline-size: 4.5rem;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.caveat .tag {
+  color: var(--flare-ink);
+}

@@ -10,6 +10,8 @@ export const DATASETS = {
   playerGameweeks: 'player-gameweeks',
   playerSeasons: 'player-seasons',
   playerGameweeksHistory: 'player-gameweeks-history',
+  playerProviderIds: 'player-provider-ids',
+  internationals: 'internationals',
   rules: 'rules',
   odds: 'odds',
   ownership: 'ownership',

@@ -3,3 +3,6 @@ export * from './fixtures.js';
 export * from './value.js';
 export * from './bonus.js';
 export * from './defence.js';
+export * from './squad.js';
+export * from './projection.js';
+export * from './glossary.js';

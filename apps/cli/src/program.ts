@@ -33,6 +33,8 @@ import {
   archiveHistorySource,
   ARCHIVE_FIRST_SEASON,
   playerSeasonsSource,
+  providerIdsSource,
+  internationalsSource,
   SofascoreClient,
   sofascoreHttp,
   sofascoreSpatialSource,
@@ -385,6 +387,13 @@ interface HistorySeasonsOptionsRaw {
   json?: boolean;
 }
 
+interface HistoryInternationalsOptionsRaw {
+  season?: string;
+  limit?: number;
+  onlyMissing?: boolean;
+  json?: boolean;
+}
+
 interface HistoryArchiveOptionsRaw {
   season?: string;
   seasons?: string;
@@ -423,6 +432,39 @@ function registerHistory(program: Command, deps: CliDeps, streams: Streams, now:
         return;
       }
       writeSyncTable(streams, report);
+    });
+
+  history
+    .command('internationals')
+    .description('Map players to the provider and read their national team records')
+    .option('--season <season>', 'season whose player list to walk, e.g. 2026/27')
+    .option('--limit <n>', 'cap the players processed, for a bounded run', parseIntOption)
+    .option('--only-missing', 'skip players who already have records')
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: HistoryInternationalsOptionsRaw) => {
+      const season = resolveSeason(options.season, deps.config);
+      // The provider fingerprints TLS, so it needs its own client, not deps.http.
+      const http = sofascoreHttp();
+
+      const report = await runSync(
+        [
+          providerIdsSource(http, {
+            ...(options.limit === undefined ? {} : { limit: options.limit }),
+          }),
+          internationalsSource(http, {
+            ...(options.limit === undefined ? {} : { limit: options.limit }),
+            ...(options.onlyMissing === true ? { onlyMissing: true } : {}),
+          }),
+        ],
+        { season, store: deps.store, logger: deps.logger, capturedAt: now() },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+      if (report.failed > 0) process.exitCode = 1;
     });
 
   history

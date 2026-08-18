@@ -6,10 +6,12 @@ import { Crest } from '@/components/crest';
 import { PlayerPhoto } from '@/components/player-photo';
 import { PlayerSeason, type GameweekRow } from '@/components/player-season';
 import { PlayerCareer } from '@/components/player-career';
+import { PlayerInternationals } from '@/components/player-internationals';
 import type { RibbonCell } from '@/components/gameweek-ribbon';
 import type { SeriesPoint } from '@/components/player-time-series';
 import {
   getCareer,
+  getInternationalCareer,
   getFixtures,
   getGameweeks,
   getPlayerHistory,
@@ -44,6 +46,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   // Keyed by code, not id: FPL reassigns ids every summer, so a career looked
   // up by id would be this season only.
   const career = await getCareer(player.code);
+  const international = await getInternationalCareer(player.code);
 
   const teams = await getTeamsById();
   const team = teams.get(player.teamId);
@@ -190,6 +193,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         <div className={styles.main}>
           <PlayerSeason cells={cells} series={series} rows={rows} />
           <PlayerCareer seasons={career.seasons} totals={career.totals} />
+          <PlayerInternationals seasons={international.seasons} totals={international.totals} />
         </div>
       </div>
     </div>

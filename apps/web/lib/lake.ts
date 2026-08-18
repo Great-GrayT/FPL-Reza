@@ -11,6 +11,8 @@ import {
   playerSeasonSchema,
   historicPlayerGameweekSchema,
   careerTotals,
+  internationalSeasonSchema,
+  internationalTotals,
   playerSchema,
   teamSchema,
   type Fixture,
@@ -20,6 +22,8 @@ import {
   type PlayerSeason,
   type HistoricPlayerGameweek,
   type CareerTotals,
+  type InternationalSeason,
+  type InternationalTotals,
   type Season,
   type Team,
 } from '@fpl/core';
@@ -223,6 +227,29 @@ export const getArchivedSeasonLabels = cache(async (): Promise<string[]> => {
   const partitions = await store.partitions({ season, dataset: 'player-gameweeks-history' });
   return [...partitions].sort((a, b) => b.localeCompare(a));
 });
+
+/**
+ * National team records, keyed by player code. Optional like the rest of the
+ * history: no backfill means no international block, not a broken page.
+ */
+export const getInternationals = cache(async (): Promise<InternationalSeason[]> =>
+  readOrEmpty<InternationalSeason>('internationals', internationalSeasonSchema),
+);
+
+export interface InternationalCareer {
+  seasons: InternationalSeason[];
+  totals: InternationalTotals;
+}
+
+export const getInternationalCareer = cache(
+  async (playerCode: number): Promise<InternationalCareer> => {
+    const rows = (await getInternationals()).filter((row) => row.playerCode === playerCode);
+    // Newest first. A youth tournament reads as what it is, because the provider
+    // names the team that way: France U20 rather than France.
+    rows.sort((a, b) => b.season.localeCompare(a.season));
+    return { seasons: rows, totals: internationalTotals(rows) };
+  },
+);
 
 export const getTeamsById = cache(async (): Promise<Map<number, Team>> => {
   const teams = await getTeams();
