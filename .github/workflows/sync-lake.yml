@@ -61,6 +61,16 @@ jobs:
         env:
           SOURCES: ${{ inputs.sources }}
 
+      # The official record for this season only. A match played yesterday
+      # gains its referee, its teamsheets, and its timeline here, which is
+      # everything the match centre prints that FPL does not carry. Bounded to
+      # one season of each so the daily cost stays at roughly the number of
+      # matches actually played since the last run.
+      - name: Refresh the official record
+        id: official
+        continue-on-error: true
+        run: node apps/cli/dist/bin.js official matches --seasons 1 --detail-seasons 1
+
       - name: Commit the new snapshots
         if: always()
         run: |
@@ -75,7 +85,7 @@ jobs:
           git push || (git pull --rebase && git push)
 
       - name: Fail the job if a source failed
-        if: steps.sync.outcome == 'failure'
+        if: steps.sync.outcome == 'failure' || steps.official.outcome == 'failure'
         run: |
           echo "a source failed; whatever landed has been committed above"
           exit 1

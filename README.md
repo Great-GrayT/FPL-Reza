@@ -105,8 +105,10 @@ pnpm fpl official weather      # conditions at every kickoff inside the forecast
 
 Two scheduled workflows own this, because the deployed host cannot write:
 
-- `.github/workflows/refresh-lake.yml`, hourly: `fpl fixtures refresh` and `fpl rules refresh`. Both diff first and write only on a change, so a quiet hour costs two requests and no commit.
-- `.github/workflows/sync-lake.yml`, daily at 02:15 UTC: the full sync, after FPL has settled its overnight price changes.
+- `.github/workflows/refresh-lake.yml`, hourly: `fpl fixtures refresh`, `fpl rules refresh`, and `fpl official weather`. The first two diff before writing, so a quiet hour costs two requests and no commit.
+- `.github/workflows/sync-lake.yml`, daily at 02:15 UTC: the full sync after FPL has settled its overnight price changes, then this season's official record, which is what gives a match played yesterday its referee, its teamsheets, and its timeline.
+
+Ground photographs are not scheduled. A stadium does not change, so `fpl official grounds` is run by hand.
 
 Each commits `data/` and pushes, and the push is what redeploys the site. They share one concurrency group, since the store assumes a single writer per dataset. Both can be run by hand from the Actions tab, and the sync accepts a `sources` input for a partial run.
 
