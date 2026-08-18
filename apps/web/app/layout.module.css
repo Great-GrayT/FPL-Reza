@@ -24,10 +24,11 @@
 
 .headerInner {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--s5);
-  padding-block: var(--s4);
+  gap: var(--s4);
+  padding-block: var(--s3);
+  flex-wrap: wrap;
 }
 
 .wordmark {
@@ -38,32 +39,146 @@
   letter-spacing: -0.02em;
   font-size: var(--step-1);
   text-decoration: none;
+  /* Stays on its own line beside the nav rather than being pushed under it. */
+  flex: none;
 }
 
 .wordmarkTail {
   color: var(--flare-ink);
 }
 
+.navWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .nav {
   display: flex;
-  gap: var(--s5);
+  gap: var(--s4);
   list-style: none;
   margin: 0;
   padding: 0;
   font-family: var(--font-mono), monospace;
   font-size: var(--step--1);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  flex-wrap: wrap;
 }
 
 .nav a {
   text-decoration: none;
-  padding-block: var(--s1);
+  display: inline-flex;
+  align-items: center;
+  /* A 44px target: this is the one control on every page, and on a phone it
+     is reached with a thumb rather than a cursor. */
+  min-height: 2.75rem;
   border-bottom: 2px solid transparent;
 }
 
 .nav a:hover {
   border-bottom-color: var(--flare);
+}
+
+.more {
+  position: relative;
+}
+
+.moreSummary {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 2.75rem;
+  color: var(--ink-soft);
+}
+
+.moreSummary::-webkit-details-marker {
+  display: none;
+}
+
+.moreSummary::after {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-0.1rem);
+}
+
+.more[open] .moreSummary {
+  color: var(--ink);
+}
+
+.more[open] .moreSummary::after {
+  transform: rotate(-135deg) translateY(-0.1rem);
+}
+
+.moreList {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 6;
+  flex-direction: column;
+  gap: 0;
+  min-width: 12rem;
+  padding: var(--s2) var(--s4);
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+/*
+ * On a wide screen there is room for all twelve, so the disclosure stops being
+ * a disclosure: the summary is hidden and the panel is laid out inline, which
+ * means it shows whether or not the details element happens to be open.
+ */
+@media (min-width: 78rem) {
+  .moreSummary {
+    display: none;
+  }
+
+  .moreList {
+    position: static;
+    flex-direction: row;
+    gap: var(--s4);
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+    min-width: 0;
+    display: flex;
+  }
+}
+
+@media (max-width: 40rem) {
+  .headerInner {
+    padding-block: var(--s2);
+  }
+
+  .nav {
+    gap: var(--s3);
+  }
+
+  .navWrap {
+    gap: var(--s3);
+    width: 100%;
+  }
+
+  .moreList {
+    /* Full width on a phone, where a floating panel pinned to the right edge
+       would sit half off screen. */
+    left: 0;
+    right: 0;
+  }
 }
 
 .footer {

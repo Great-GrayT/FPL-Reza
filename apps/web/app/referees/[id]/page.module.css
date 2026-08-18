@@ -1,0 +1,132 @@
+.crumb {
+  padding-top: var(--s5);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  padding-block: var(--s5);
+  border-bottom: 2px solid var(--ink);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: var(--step-3);
+  margin-block: var(--s2) var(--s1);
+}
+
+.meta {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.block {
+  padding-block: var(--s6);
+  border-bottom: 1px solid var(--rule);
+}
+
+.h2 {
+  font-size: var(--step-2);
+  margin-bottom: var(--s4);
+}
+
+.note {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: var(--s4) 0 0;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--s4);
+  margin: 0;
+}
+
+.totals dt {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.totals dd {
+  margin: var(--s1) 0 0;
+  font-size: var(--step-2);
+  font-weight: 600;
+}
+
+.clubs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--s1) var(--s5);
+}
+
+.clubs li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding-block: var(--s2);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--step--1);
+  min-width: 0;
+}
+
+.clubLink {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clubCount {
+  color: var(--ink-soft);
+  white-space: nowrap;
+  font-size: 0.6875rem;
+}
+
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.results li {
+  display: flex;
+  gap: var(--s4);
+  padding-block: var(--s2);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--step--1);
+  flex-wrap: wrap;
+}
+
+.resultDate {
+  font-family: var(--font-mono), monospace;
+  color: var(--ink-soft);
+  flex: none;
+  min-width: 12rem;
+}
+
+.resultTeams {
+  min-width: 0;
+}
+
+@media (max-width: 34rem) {
+  .resultDate {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+}

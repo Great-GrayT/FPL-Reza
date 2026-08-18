@@ -80,6 +80,26 @@ In: a season label in either spelling. Out: the other one ("2024/25" to "2024-25
 
 In: a player's international season rows. Out: the country, distinct competitions counted, and caps, goals, assists, and minutes summed, plus the competition names. Errors: none. Notes: an absent measure adds nothing rather than failing, and the caps total is a floor: friendlies and any competition the provider does not track are simply absent.
 
+### headToHead(matches, teamCode, opponentCode): HeadToHead
+
+In: every stored match, and two club codes. Out: the record between them, read from the first club's point of view rather than the venue's, plus the meetings themselves newest first. Errors: none. Notes: a match with no score is not counted, so an unplayed fixture between the two never inflates the record.
+
+### teamRecord(matches, teamCode) / recentForm(matches, teamCode, count?)
+
+In: matches and a club code. Out: played, won, drawn, lost, goals for and against, and points at three for a win; or the last `count` results as W, D, or L, newest first. Errors: none.
+
+### refereeRecord(matches, details): RefereeRecord[]
+
+In: every stored match, and the detail rows keyed by match id. Out: one record per referee, most appointments first: matches, the outcome split, goals per match, and the card and penalty rates. Errors: none. Notes: appointments count every match on record, but card rates average only over the matches whose detail is stored, and are null rather than 0 where none is. The detail dataset covers fewer seasons than the results do, so this distinction is the difference between a rate and a fabrication.
+
+### describeWeatherCode(code): string | null
+
+In: a WMO weather interpretation code. Out: a word a reader recognises. Errors: none. Notes: null in, null out, rather than reporting clear skies for an absent reading.
+
+### distanceMetres(a, b): number
+
+In: two coordinates. Out: the great circle distance in metres, which at these scales is exact enough to decide whether two records describe the same ground. Errors: none. Notes: `GROUND_MATCH_METRES` (1,500) is the tolerance a join may use, generous enough to survive an article's coordinate sitting on a corner of a stadium and tight enough that no two Premier League grounds fall inside it.
+
 ### per90(total, minutes): number
 
 In: a raw total and minutes played. Out: the rate scaled to a 90 minute match, or 0 if minutes is 0 or less, avoiding a divide by zero for an unused player. Errors: none.

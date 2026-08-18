@@ -1,0 +1,82 @@
+.head {
+  padding-block: var(--s7) var(--s5);
+  border-bottom: 2px solid var(--ink);
+}
+
+.title {
+  font-size: var(--step-5);
+  margin-block: var(--s2) 0;
+}
+
+.lede {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: var(--s3) 0 0;
+  font-size: var(--step--1);
+}
+
+.empty {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  padding-block: var(--s6);
+}
+
+.scroll {
+  overflow-x: auto;
+  margin-top: var(--s6);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+  min-width: 46rem;
+}
+
+.table th,
+.table td {
+  text-align: right;
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.table thead th {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.nameCell,
+.table thead th:first-child {
+  text-align: left;
+}
+
+.nameLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  text-decoration: none;
+  min-height: 2.5rem;
+}
+
+.nameLink:hover span {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.dim {
+  color: var(--ink-soft);
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.6875rem;
+}
+
+.footnote {
+  margin-top: var(--s5);
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  font-size: var(--step--1);
+}

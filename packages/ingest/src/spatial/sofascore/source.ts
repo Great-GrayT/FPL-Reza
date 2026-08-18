@@ -1,9 +1,13 @@
 import {
+  asFixtureId,
+  asGameweekId,
   fixtureSchema,
+  matchSchema,
   playerSchema,
   teamSchema,
   type Fixture,
   type FixtureId,
+  type Match,
   type Player,
   type PlayerId,
   type Team,
@@ -34,6 +38,20 @@ export interface SofascoreSpatialOptions {
   sinceGameweek?: number;
   /** Listing pages to walk. Each page holds about 30 events. */
   maxPages?: number;
+  /**
+   * Backfill a completed season instead of the one the lake is filed under.
+   *
+   * FPL serves fixtures for the live season only, so a past season has no
+   * `fixtures` dataset to resolve against. The official record does have it,
+   * as `matches`, and carries the same clubs by code, so those rows stand in
+   * as the fixture spine. Partitions are then written as `{season}-gw{n}`
+   * rather than `gw{n}`, because two seasons of gameweek 3 are not the same
+   * partition and writing both to `gw3` would silently replace one with the
+   * other.
+   */
+  backfillSeason?: string;
+  /** Stop after this gameweek. With `sinceGameweek`, bounds a run to a window. */
+  untilGameweek?: number;
 }
 
 const EVENTS_PER_PAGE = 30;
@@ -65,18 +83,35 @@ export function sofascoreSpatialSource(
     async *run(context: SourceContext): AsyncIterable<SourceBatch> {
       // Resolved before anything is read, since without it there is nothing to
       // ask the provider for and the reads would be wasted.
-      const seasonId = options.seasonId ?? SOFASCORE_SEASON_IDS[context.season];
+      // A backfill asks the provider for the season being backfilled, not the
+      // one the lake is filed under: the two differ by exactly one season, and
+      // asking for the wrong one answers 404 rather than answering wrongly.
+      const targetSeason = options.backfillSeason ?? context.season;
+      const seasonId = options.seasonId ?? SOFASCORE_SEASON_IDS[targetSeason];
       if (seasonId === undefined) {
-        context.logger.warn('no sofascore season id for this season', { season: context.season });
+        context.logger.warn('no sofascore season id for this season', { season: targetSeason });
         return;
       }
 
       const key = { season: context.season };
-      const [teams, players, fixtures] = await Promise.all([
+      const [teams, players] = await Promise.all([
         context.store.read<Team>({ ...key, dataset: DATASETS.teams }, teamSchema),
         context.store.read<Player>({ ...key, dataset: DATASETS.players }, playerSchema),
-        context.store.read<Fixture>({ ...key, dataset: DATASETS.fixtures }, fixtureSchema),
       ]);
+
+      const backfill = options.backfillSeason;
+      const fixtures =
+        backfill === undefined
+          ? await context.store.read<Fixture>({ ...key, dataset: DATASETS.fixtures }, fixtureSchema)
+          : await fixturesFromMatches(context, teams, backfill);
+
+      if (fixtures.length === 0) {
+        context.logger.warn('no fixture spine to resolve against', {
+          season: backfill ?? context.season,
+        });
+        return;
+      }
+      const partitionPrefix = backfill === undefined ? '' : `${backfill.replace('/', '-')}-`;
 
       const resolveFixture = buildFixtureResolver(fixtures, teams);
       const resolvePlayer = buildPlayerResolver(players, teams);
@@ -128,13 +163,81 @@ export function sofascoreSpatialSource(
       });
 
       for (const [gameweek, rows] of sorted(spatialByGameweek)) {
-        yield { dataset: DATASETS.playerMatchSpatial, partition: `gw${gameweek}`, rows };
+        yield {
+          dataset: DATASETS.playerMatchSpatial,
+          partition: `${partitionPrefix}gw${String(gameweek)}`,
+          rows,
+        };
       }
       for (const [gameweek, rows] of sorted(eventsByGameweek)) {
-        yield { dataset: DATASETS.matchEvents, partition: `gw${gameweek}`, rows };
+        yield {
+          dataset: DATASETS.matchEvents,
+          partition: `${partitionPrefix}gw${String(gameweek)}`,
+          rows,
+        };
       }
     },
   };
+}
+
+/**
+ * A fixture spine for a completed season, built from the official record.
+ *
+ * A club that has since left the division has no current FPL team id, so its
+ * matches cannot be joined and are dropped with a count. That is the right
+ * outcome rather than a widened match: half a season of Sunderland attributed
+ * to whoever replaced them would be undetectable downstream.
+ */
+async function fixturesFromMatches(
+  context: SourceContext,
+  teams: readonly Team[],
+  seasonLabel: string,
+): Promise<Fixture[]> {
+  const teamIdByCode = new Map(teams.map((team) => [team.code, team.id]));
+  const matches = await context.store.read<Match>(
+    {
+      season: context.season,
+      dataset: DATASETS.matches,
+      partition: seasonLabel.replace('/', '-'),
+    },
+    matchSchema,
+  );
+
+  const fixtures: Fixture[] = [];
+  let dropped = 0;
+  for (const match of matches) {
+    const home = teamIdByCode.get(match.homeTeamCode);
+    const away = teamIdByCode.get(match.awayTeamCode);
+    if (home === undefined || away === undefined || match.round === null) {
+      dropped += 1;
+      continue;
+    }
+    fixtures.push({
+      id: asFixtureId(match.matchId),
+      gameweek: asGameweekId(Math.min(38, match.round)),
+      kickoff: match.kickoff,
+      homeTeam: home,
+      awayTeam: away,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      finished: match.status === 'completed',
+      started: match.status !== 'upcoming',
+      // The official record carries no fantasy difficulty, and this spine is
+      // only ever used to resolve an identity, never to rate a fixture.
+      homeDifficulty: 3,
+      awayDifficulty: 3,
+    });
+  }
+
+  context.logger.info('fixture spine from the official record', {
+    season: seasonLabel,
+    fixtures: fixtures.length,
+    dropped,
+    note: 'dropped matches involve a club no longer in the division',
+  });
+  // Parsed once at the end so a malformed spine fails here rather than inside
+  // the resolver, where it would look like a join failure.
+  return fixtures.map((fixture) => fixtureSchema.parse(fixture));
 }
 
 function bucket(
@@ -175,6 +278,7 @@ async function collectEvents(
         continue;
       }
       if (options.sinceGameweek !== undefined && target.gameweek < options.sinceGameweek) continue;
+      if (options.untilGameweek !== undefined && target.gameweek > options.untilGameweek) continue;
       collected.push(target);
       if (collected.length >= wanted) break;
     }

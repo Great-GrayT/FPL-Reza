@@ -1,0 +1,9 @@
+.wrap {
+  margin-block: var(--s4);
+  min-width: 0;
+}
+
+.empty {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}

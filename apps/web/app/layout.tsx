@@ -32,12 +32,28 @@ export const metadata: Metadata = {
   description: 'Fantasy Premier League players, gameweek by gameweek, and the fixtures around them',
 };
 
-const NAV = [
+/*
+ * Twelve destinations do not fit one row on a phone, and a horizontally
+ * scrolling strip of twelve hides most of them behind a gesture nobody
+ * discovers. So the nav is grouped: the six a manager uses every week stay
+ * visible, and the reference sections sit behind a disclosure that is a real
+ * <details> element, which means it opens from the keyboard and works with
+ * JavaScript disabled. Above the wide breakpoint both groups render as one row.
+ */
+const PRIMARY = [
   { href: '/', label: 'Season' },
   { href: '/players', label: 'Players' },
+  { href: '/teams', label: 'Clubs' },
   { href: '/matches', label: 'Matches' },
-  { href: '/builder', label: 'Build a team' },
+  { href: '/builder', label: 'Build' },
   { href: '/scout', label: 'Scout' },
+];
+
+const SECONDARY = [
+  { href: '/managers', label: 'Managers' },
+  { href: '/referees', label: 'Referees' },
+  { href: '/grounds', label: 'Grounds' },
+  { href: '/stats', label: 'Analysis' },
   { href: '/glossary', label: 'Glossary' },
   { href: '/how-it-works', label: 'How it works' },
 ];
@@ -54,14 +70,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className={styles.wordmark}>
               FPL<span className={styles.wordmarkTail}>Lake</span>
             </Link>
-            <nav aria-label="Sections">
+
+            <nav aria-label="Sections" className={styles.navWrap}>
               <ul className={styles.nav}>
-                {NAV.map((item) => (
+                {PRIMARY.map((item) => (
                   <li key={item.href}>
                     <Link href={item.href}>{item.label}</Link>
                   </li>
                 ))}
               </ul>
+
+              <details className={styles.more}>
+                <summary className={styles.moreSummary}>More</summary>
+                <ul className={`${styles.nav} ${styles.moreList}`}>
+                  {SECONDARY.map((item) => (
+                    <li key={item.href}>
+                      <Link href={item.href}>{item.label}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             </nav>
           </div>
         </header>

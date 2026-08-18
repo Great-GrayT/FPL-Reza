@@ -16,4 +16,6 @@ export * from './internationals.js';
 export * from './spatial.js';
 export * from './odds.js';
 export * from './transfers.js';
+export * from './matches.js';
+export * from './grounds.js';
 export * from './providers.js';

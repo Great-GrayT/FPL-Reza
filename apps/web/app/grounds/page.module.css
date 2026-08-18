@@ -1,0 +1,52 @@
+.head {
+  padding-block: var(--s7) var(--s5);
+  border-bottom: 2px solid var(--ink);
+}
+
+.title {
+  font-size: var(--step-5);
+  margin-block: var(--s2) 0;
+}
+
+.lede {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: var(--s3) 0 0;
+  font-size: var(--step--1);
+}
+
+.empty {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  padding-block: var(--s6);
+}
+
+.grid {
+  list-style: none;
+  margin: var(--s6) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--s5);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.club {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--step--1);
+  text-decoration: none;
+  min-height: 2.5rem;
+}
+
+.club:hover span {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

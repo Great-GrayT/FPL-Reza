@@ -1,5 +1,5 @@
 import type { Logger, Season } from '@fpl/core';
-import type { Store } from '@fpl/store';
+import type { Format, Store } from '@fpl/store';
 
 /** Canonical dataset names. One source may write several of them. */
 export const DATASETS = {
@@ -18,6 +18,12 @@ export const DATASETS = {
   clubTransfers: 'club-transfers',
   playerMatchSpatial: 'player-match-spatial',
   matchEvents: 'match-events',
+  matches: 'matches',
+  matchDetails: 'match-details',
+  managers: 'managers',
+  grounds: 'grounds',
+  groundImages: 'ground-images',
+  matchWeather: 'match-weather',
 } as const;
 
 export type DatasetName = (typeof DATASETS)[keyof typeof DATASETS];
@@ -35,6 +41,15 @@ export interface SourceBatch {
   dataset: string;
   partition?: string;
   rows: readonly Record<string, unknown>[];
+  /**
+   * Codec this batch needs, overriding the run's default. A deeply nested row
+   * (a teamsheet, a rules document) has to be JSONL, because the Parquet codec
+   * flattens nested values to JSON text that cannot be read back through the
+   * schema. A wide flat row of 13,000 results has to be Parquet, because the
+   * lake is committed to git. Neither is a preference the caller should have
+   * to know, so the source that produces the row states it.
+   */
+  format?: Format;
 }
 
 /**

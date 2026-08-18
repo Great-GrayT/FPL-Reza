@@ -40,6 +40,16 @@ export const playerPhotoUrl = (playerCode: number, size: PhotoSize = '250x250'):
   `${RESOURCES}/photos/players/${size}/p${String(playerCode)}.png`;
 
 /**
+ * A manager's published portrait. The CDN keys these by the Opta person id
+ * with a `man` prefix rather than the `p` a player takes, and the Premier
+ * League's own API publishes that id, so nothing has to be guessed. A manager
+ * with no published photograph answers 403, the same as an unphotographed
+ * player, which the component treats as absence rather than failure.
+ */
+export const managerPhotoUrl = (photoCode: number, size: PhotoSize = '250x250'): string =>
+  `${RESOURCES}/photos/players/${size}/man${String(photoCode)}.png`;
+
+/**
  * Outfield shirt. FPL serves kits from its own bundle rather than from the
  * resources CDN, and the goalkeeper kit is a separate file suffixed `_1`.
  */

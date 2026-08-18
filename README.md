@@ -89,6 +89,18 @@ Leave "Include files outside the Root Directory in the Build Step" enabled. The 
 
 Set `REFRESH_TOKEN` in the project before handing the refresh URLs to a scheduler: with it unset the refresh endpoints are open, and they say so in every response. Set `FPL_SEASON` only to pin a season; otherwise it is derived from the date.
 
+## Load the official record
+
+The Premier League publishes its own keyless API, and it is where the referees, managers, teamsheets, grounds, and 35 seasons of results come from. These are backfills rather than nightly work:
+
+```sh
+pnpm fpl official matches      # results, teamsheets, officials, managers, grounds
+pnpm fpl official grounds      # a licensed photograph per ground, with its credit
+pnpm fpl official weather      # conditions at every kickoff inside the forecast window
+```
+
+`official matches` is the long one: about four requests per season of results and one per played match of teamsheets, so the defaults cover 35 seasons of results and three of detail in a few minutes. Bound it with `--seasons`, `--detail-seasons`, or `--max-detail`. Weather is worth running on the same schedule as the fixture refresh, since a forecast a fortnight out is not the forecast on the day.
+
 ## Keep the data fresh
 
 Two scheduled workflows own this, because the deployed host cannot write:

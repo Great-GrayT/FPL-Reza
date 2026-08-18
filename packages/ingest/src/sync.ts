@@ -54,7 +54,13 @@ export async function runSync(
           batch.rows,
           {
             capturedAt: context.capturedAt,
-            ...(options.format === undefined ? {} : { format: options.format }),
+            // The batch wins: a source that names a codec does so because its
+            // row shape only survives that one.
+            ...(batch.format !== undefined
+              ? { format: batch.format }
+              : options.format === undefined
+                ? {}
+                : { format: options.format }),
           },
         );
         written.push(meta);

@@ -114,3 +114,96 @@
   min-width: 2.5rem;
   text-align: right;
 }
+
+/* The whole fixture row is the target, since a five item list of matches is
+   read with a thumb as often as with a cursor. */
+.fixtureLink {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--s3);
+  text-decoration: none;
+  min-height: 2.75rem;
+  width: 100%;
+}
+
+.fixtureLink:hover .fixtureTeams {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.chance {
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  text-decoration: none;
+  min-height: 2.5rem;
+  min-width: 0;
+}
+
+.person:hover span {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.person span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explore {
+  padding-block: var(--s7);
+  border-top: 1px solid var(--rule);
+  margin-top: var(--s7);
+}
+
+.exploreList {
+  list-style: none;
+  margin: var(--s5) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--s3);
+}
+
+.exploreList a {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  height: 100%;
+  padding: var(--s4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  text-decoration: none;
+}
+
+.exploreList a:hover {
+  border-color: var(--rule-strong);
+}
+
+.exploreList a:hover .exploreTitle {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.exploreTitle {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+  font-stretch: 110%;
+  text-transform: uppercase;
+  font-size: var(--step-0);
+}
+
+.exploreNote {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}

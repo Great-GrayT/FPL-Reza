@@ -13,6 +13,13 @@ import {
   careerTotals,
   internationalSeasonSchema,
   internationalTotals,
+  groundSchema,
+  groundImageSchema,
+  managerSchema,
+  matchSchema,
+  matchDetailSchema,
+  matchWeatherSchema,
+  playerMatchSpatialSchema,
   playerSchema,
   teamSchema,
   type Fixture,
@@ -24,6 +31,13 @@ import {
   type CareerTotals,
   type InternationalSeason,
   type InternationalTotals,
+  type Ground,
+  type GroundImage,
+  type Manager,
+  type Match,
+  type MatchDetail,
+  type MatchWeather,
+  type PlayerMatchSpatial,
   type Season,
   type Team,
 } from '@fpl/core';
@@ -268,4 +282,216 @@ export const getPlayersById = cache(async (): Promise<Map<number, Player>> => {
 export const isLakeEmpty = cache(async (): Promise<boolean> => {
   const teams = await getTeams();
   return teams.length === 0;
+});
+
+/**
+ * The Premier League's own record, which FPL does not carry. Every one of
+ * these is optional: a clone that has never run `fpl official matches` still
+ * builds, and the pages that need them say so rather than rendering a blank.
+ *
+ * Everything here joins on `teamCode` and `playerCode`, which are the Opta ids
+ * the provider publishes beside its own, so no name is ever matched.
+ */
+
+const seasonPartition = (label: string): string => label.replace('/', '-');
+
+/** Every season of results the lake holds, newest first, as "2025-26" labels. */
+export const getMatchSeasons = cache(async (): Promise<string[]> => {
+  const partitions = await store.partitions({ season, dataset: 'matches' });
+  return [...partitions].sort((a, b) => b.localeCompare(a));
+});
+
+/** One season of results. Read per season: 35 of them is 13,500 rows. */
+export const getMatchesForSeason = cache(async (label: string): Promise<Match[]> =>
+  readOrEmpty<Match>('matches', matchSchema, label),
+);
+
+/**
+ * Every result the lake holds, across every season. Used by the strength model
+ * and by a head to head record, both of which are meaningless on one season.
+ */
+export const getAllMatches = cache(async (): Promise<Match[]> => {
+  const labels = await getMatchSeasons();
+  const perSeason = await Promise.all(labels.map((label) => getMatchesForSeason(label)));
+  return perSeason.flat();
+});
+
+/** This season's results and fixtures from the official record. */
+export const getSeasonMatches = cache(async (): Promise<Match[]> =>
+  getMatchesForSeason(seasonPartition(season)),
+);
+
+export const getMatchDetails = cache(async (label: string): Promise<MatchDetail[]> =>
+  readOrEmpty<MatchDetail>('match-details', matchDetailSchema, label),
+);
+
+export const getMatchDetailsById = cache(
+  async (label: string): Promise<Map<number, MatchDetail>> => {
+    const rows = await getMatchDetails(label);
+    return new Map(rows.map((row) => [row.matchId as number, row]));
+  },
+);
+
+/** Every detail row the lake holds, keyed by match. Card rates need all of it. */
+export const getAllMatchDetailsById = cache(async (): Promise<Map<number, MatchDetail>> => {
+  const labels = await getMatchSeasons();
+  const perSeason = await Promise.all(labels.map((label) => getMatchDetails(label)));
+  return new Map(perSeason.flat().map((row) => [row.matchId as number, row]));
+});
+
+export const getManagers = cache(async (): Promise<Manager[]> =>
+  readOrEmpty<Manager>('managers', managerSchema),
+);
+
+export const getGrounds = cache(async (): Promise<Ground[]> =>
+  readOrEmpty<Ground>('grounds', groundSchema),
+);
+
+export const getGroundsById = cache(async (): Promise<Map<number, Ground>> => {
+  const grounds = await getGrounds();
+  return new Map(grounds.map((ground) => [ground.groundId, ground]));
+});
+
+export const getWeatherByMatch = cache(async (): Promise<Map<number, MatchWeather>> => {
+  const rows = await readOrEmpty<MatchWeather>(
+    'match-weather',
+    matchWeatherSchema,
+    seasonPartition(season),
+  );
+  return new Map(rows.map((row) => [row.matchId as number, row]));
+});
+
+/** FPL teams keyed by the code that joins them to the official record. */
+export const getTeamsByCode = cache(async (): Promise<Map<number, Team>> => {
+  const teams = await getTeams();
+  return new Map(teams.map((team) => [team.code, team]));
+});
+
+export const getPlayersByCode = cache(async (): Promise<Map<number, Player>> => {
+  const players = await getPlayers();
+  return new Map(players.map((player) => [player.code, player]));
+});
+
+/**
+ * Where a player actually moved, per match. Optional and, before a season has
+ * been played, empty: the provider publishes a heatmap once a match has been
+ * tracked, so a pre season page has nothing to draw and says exactly that.
+ */
+export interface SpatialRow {
+  spatial: PlayerMatchSpatial;
+  /** From the partition name, since the row itself is keyed by fixture. */
+  season: string;
+  gameweek: number | null;
+}
+
+/**
+ * Partitions are named `{season}-gw{n}`, so the season and the gameweek a row
+ * belongs to are read back off the partition rather than stored on every row.
+ */
+function parseSpatialPartition(partition: string): { season: string; gameweek: number | null } {
+  const match = /^(\d{4}-\d{2})-gw(\d{1,2})$/.exec(partition);
+  if (match?.[1] !== undefined && match[2] !== undefined) {
+    return { season: match[1], gameweek: Number(match[2]) };
+  }
+  // The original convention, written before seasons were kept apart: a bare
+  // `gwN` belongs to whichever season the lake is filed under.
+  const legacy = /^gw(\d{1,2})$/.exec(partition);
+  if (legacy?.[1] !== undefined) {
+    return { season: seasonPartition(season), gameweek: Number(legacy[1]) };
+  }
+  return { season: partition, gameweek: null };
+}
+
+export const getAllPlayerSpatial = cache(async (): Promise<SpatialRow[]> => {
+  const partitions = await store.partitions({ season, dataset: DATASETS.playerMatchSpatial });
+  const perPartition = await Promise.all(
+    partitions.map(async (partition) => {
+      const rows = await readOrEmpty<PlayerMatchSpatial>(
+        DATASETS.playerMatchSpatial,
+        playerMatchSpatialSchema,
+        partition,
+      );
+      const meta = parseSpatialPartition(partition);
+      return rows.map((spatial) => ({ spatial, ...meta }));
+    }),
+  );
+  return perPartition.flat();
+});
+
+export const getPlayerSpatial = cache(async (playerId: number): Promise<SpatialRow[]> => {
+  const rows = await getAllPlayerSpatial();
+  return rows
+    .filter((row) => (row.spatial.playerId as number) === playerId)
+    .sort((a, b) => (a.gameweek ?? 0) - (b.gameweek ?? 0));
+});
+
+/** Spatial rows for one match, both sides, so a match page can draw a pitch. */
+export const getSpatialForFixture = cache(async (fixtureId: number): Promise<SpatialRow[]> => {
+  const rows = await getAllPlayerSpatial();
+  return rows.filter((row) => (row.spatial.fixtureId as number) === fixtureId);
+});
+
+/**
+ * The official record for one FPL fixture. The two providers number matches
+ * differently, so they are joined on the club pair plus the round, both of
+ * which either agree or the fixture is not the same fixture. Nothing is
+ * matched on kickoff, because a rescheduled match moves by days and the pair
+ * plus the round already identifies it uniquely inside one season.
+ */
+export const getOfficialByFixture = cache(async (): Promise<Map<number, Match>> => {
+  const [fixtures, matches, teams] = await Promise.all([
+    getFixtures(),
+    getSeasonMatches(),
+    getTeamsById(),
+  ]);
+
+  const key = (home: number, away: number, round: number | null): string =>
+    `${String(home)}|${String(away)}|${String(round ?? 0)}`;
+
+  const officialByKey = new Map<string, Match>();
+  for (const match of matches) {
+    officialByKey.set(key(match.homeTeamCode, match.awayTeamCode, match.round), match);
+  }
+
+  const joined = new Map<number, Match>();
+  for (const fixture of fixtures) {
+    const home = teams.get(fixture.homeTeam)?.code;
+    const away = teams.get(fixture.awayTeam)?.code;
+    if (home === undefined || away === undefined) continue;
+    const match = officialByKey.get(key(home, away, fixture.gameweek));
+    if (match !== undefined) joined.set(fixture.id, match);
+  }
+  return joined;
+});
+
+/** Managers of one club, newest season first. */
+export const getManagersByTeamCode = cache(async (): Promise<Map<number, Manager[]>> => {
+  const managers = await getManagers();
+  const byTeam = new Map<number, Manager[]>();
+  for (const manager of managers) {
+    const existing = byTeam.get(manager.teamCode);
+    if (existing === undefined) byTeam.set(manager.teamCode, [manager]);
+    else existing.push(manager);
+  }
+  for (const list of byTeam.values()) {
+    list.sort((a, b) => b.season.localeCompare(a.season) || a.role.localeCompare(b.role));
+  }
+  return byTeam;
+});
+
+/** The club's current manager, which is the newest season's head coach. */
+export const getCurrentManager = cache(async (teamCode: number): Promise<Manager | undefined> =>
+  (await getManagersByTeamCode())
+    .get(teamCode)
+    ?.find((manager) => manager.role.toLowerCase() === 'manager'),
+);
+
+/**
+ * A licensed photograph per ground, keyed by ground id. Every one carries its
+ * credit and licence, and the component that renders it prints both, because
+ * almost all of these are Creative Commons with an attribution condition.
+ */
+export const getGroundImages = cache(async (): Promise<Map<number, GroundImage>> => {
+  const rows = await readOrEmpty<GroundImage>('ground-images', groundImageSchema);
+  return new Map(rows.map((row) => [row.groundId, row]));
 });

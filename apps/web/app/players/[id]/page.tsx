@@ -3,8 +3,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GAMEWEEKS_PER_SEASON, playerFullName } from '@fpl/core';
 import { Crest } from '@/components/crest';
-import { PlayerPhoto } from '@/components/player-photo';
+import { PersonPhoto } from '@/components/person-photo';
 import { PlayerSeason, type GameweekRow } from '@/components/player-season';
+import type { HeatmapMatch } from '@/components/player-heatmap';
 import { PlayerCareer } from '@/components/player-career';
 import { PlayerInternationals } from '@/components/player-internationals';
 import type { RibbonCell } from '@/components/gameweek-ribbon';
@@ -17,7 +18,10 @@ import {
   getPlayerHistory,
   getPlayers,
   getPlayersById,
+  getPlayerSpatial,
   getTeamsById,
+  getTeamsByCode,
+  getAllMatches,
 } from '@/lib/lake';
 import { POSITION_LABEL, opponentFor, price, signed } from '@/lib/display';
 import styles from './page.module.css';
@@ -50,10 +54,13 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
   const teams = await getTeamsById();
   const team = teams.get(player.teamId);
-  const [history, fixtures, gameweeks] = await Promise.all([
+  const [history, fixtures, gameweeks, spatial, teamsByCode, allMatches] = await Promise.all([
     getPlayerHistory(playerId),
     getFixtures(),
     getGameweeks(),
+    getPlayerSpatial(playerId),
+    getTeamsByCode(),
+    getAllMatches(),
   ]);
 
   const currentGameweek = gameweeks.find((week) => week.isCurrent)?.id;
@@ -116,6 +123,41 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     };
   });
 
+  // A tracked match is keyed by the fixture it happened in, and for a
+  // backfilled season that fixture is an official match id, so the opponent is
+  // read off the official record rather than off this season's fixture list.
+  const matchById = new Map(allMatches.map((match) => [match.matchId as number, match]));
+  const heatmapMatches: HeatmapMatch[] = spatial
+    .filter((row) => row.spatial.heatmap !== null)
+    .map((row) => {
+      const match = matchById.get(row.spatial.fixtureId);
+      const teamCode = teams.get(row.spatial.teamId)?.code ?? null;
+      const home =
+        match === undefined || teamCode === null ? null : match.homeTeamCode === teamCode;
+      const opponentCode =
+        match === undefined ? null : home === true ? match.awayTeamCode : match.homeTeamCode;
+      const opponent =
+        opponentCode === null
+          ? null
+          : (teamsByCode.get(opponentCode)?.shortName ??
+            (home === true ? (match?.awayTeamName ?? null) : (match?.homeTeamName ?? null)));
+
+      return {
+        season: row.season,
+        gameweek: row.gameweek,
+        fixtureId: row.spatial.fixtureId,
+        opponent,
+        home,
+        minutes: row.spatial.minutes,
+        touches: row.spatial.touches,
+        cols: row.spatial.heatmap?.cols ?? 12,
+        rows: row.spatial.heatmap?.rows ?? 8,
+        counts: [...(row.spatial.heatmap?.counts ?? [])],
+        averageX: row.spatial.averagePosition?.x ?? null,
+        averageY: row.spatial.averagePosition?.y ?? null,
+      };
+    });
+
   const drift = player.price - player.startPrice;
 
   return (
@@ -170,7 +212,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
       <div className={styles.body}>
         <aside className={styles.aside}>
-          <PlayerPhoto code={player.code} name={playerFullName(player)} />
+          <PersonPhoto kind="player" code={player.code} name={playerFullName(player)} size="xl" />
           <dl className={styles.totals}>
             <Total label="Minutes" value={String(player.minutes)} />
             <Total label="Goals" value={String(player.goals)} />
@@ -182,16 +224,16 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
             <Total label="xA" value={player.expectedAssists.toFixed(2)} />
             <Total label="Points per game" value={player.pointsPerGame.toFixed(1)} />
             {team !== undefined && (
-              <div className={styles.club}>
+              <Link className={styles.club} href={`/teams/${String(team.code)}`}>
                 <Crest code={team.code} name={team.name} size={20} />
                 <span>{team.name}</span>
-              </div>
+              </Link>
             )}
           </dl>
         </aside>
 
         <div className={styles.main}>
-          <PlayerSeason cells={cells} series={series} rows={rows} />
+          <PlayerSeason cells={cells} series={series} rows={rows} heatmap={heatmapMatches} />
           <PlayerCareer seasons={career.seasons} totals={career.totals} />
           <PlayerInternationals seasons={international.seasons} totals={international.totals} />
         </div>

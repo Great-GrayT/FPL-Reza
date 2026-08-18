@@ -1,16 +1,23 @@
 import Link from 'next/link';
+import { estimateStrength, forecastMatch } from '@fpl/analytics';
 import { Crest } from '@/components/crest';
-import { getFixtures, getGameweeks, getPlayers, getTeamsById } from '@/lib/lake';
+import { PersonPhoto } from '@/components/person-photo';
+import { getAllMatches, getFixtures, getGameweeks, getPlayers, getTeamsById } from '@/lib/lake';
 import { kickoff, price } from '@/lib/display';
 import styles from './page.module.css';
 
 export default async function HomePage() {
-  const [players, gameweeks, fixtures, teams] = await Promise.all([
+  const [players, gameweeks, fixtures, teams, allMatches] = await Promise.all([
     getPlayers(),
     getGameweeks(),
     getFixtures(),
     getTeamsById(),
+    getAllMatches(),
   ]);
+
+  // One model for the page: estimating the division's strengths once and
+  // reading five fixtures off it, rather than once per fixture.
+  const model = estimateStrength(allMatches);
 
   if (players.length === 0) {
     return (
@@ -60,6 +67,7 @@ export default async function HomePage() {
         <p className={styles.cta}>
           <Link href="/players">Browse players</Link>
           <Link href="/matches">See the fixtures</Link>
+          <Link href="/stats">Read the analysis</Link>
         </p>
       </section>
 
@@ -75,16 +83,35 @@ export default async function HomePage() {
               {nextMatches.map((match) => {
                 const home = teams.get(match.homeTeam);
                 const away = teams.get(match.awayTeam);
+                const forecast =
+                  home === undefined || away === undefined
+                    ? null
+                    : forecastMatch(model, home.code, away.code);
                 return (
                   <li key={match.id} className={styles.fixture}>
-                    <span className={styles.fixtureTeams}>
-                      {home !== undefined && <Crest code={home.code} name={home.name} size={22} />}
-                      <span>{home?.shortName ?? '???'}</span>
-                      <span className={styles.dim}>v</span>
-                      <span>{away?.shortName ?? '???'}</span>
-                      {away !== undefined && <Crest code={away.code} name={away.name} size={22} />}
-                    </span>
-                    <span className={`num ${styles.dim}`}>{kickoff(match.kickoff)}</span>
+                    <Link className={styles.fixtureLink} href={`/matches/${String(match.id)}`}>
+                      <span className={styles.fixtureTeams}>
+                        {home !== undefined && (
+                          <Crest code={home.code} name={home.name} size={22} />
+                        )}
+                        <span>{home?.shortName ?? '???'}</span>
+                        <span className={styles.dim}>v</span>
+                        <span>{away?.shortName ?? '???'}</span>
+                        {away !== undefined && (
+                          <Crest code={away.code} name={away.name} size={22} />
+                        )}
+                      </span>
+                      <span className={`num ${styles.dim}`}>{kickoff(match.kickoff)}</span>
+                      {forecast !== null && (
+                        <span className={`num ${styles.chance}`}>
+                          {(forecast.homeWin * 100).toFixed(0)}
+                          <span className={styles.dim}>/</span>
+                          {(forecast.draw * 100).toFixed(0)}
+                          <span className={styles.dim}>/</span>
+                          {(forecast.awayWin * 100).toFixed(0)}
+                        </span>
+                      )}
+                    </Link>
                   </li>
                 );
               })}
@@ -99,7 +126,10 @@ export default async function HomePage() {
           <ol className={styles.list}>
             {topScorers.map((player) => (
               <li key={player.id} className={styles.rank}>
-                <Link href={`/players/${String(player.id)}`}>{player.webName}</Link>
+                <Link className={styles.person} href={`/players/${String(player.id)}`}>
+                  <PersonPhoto kind="player" code={player.code} name={player.webName} size="xs" />
+                  <span>{player.webName}</span>
+                </Link>
                 <span className={`num ${styles.dim}`}>{price(player.price)}</span>
                 <span className={`num ${styles.strong}`}>{player.totalPoints}</span>
               </li>
@@ -114,7 +144,10 @@ export default async function HomePage() {
           <ol className={styles.list}>
             {inForm.map((player) => (
               <li key={player.id} className={styles.rank}>
-                <Link href={`/players/${String(player.id)}`}>{player.webName}</Link>
+                <Link className={styles.person} href={`/players/${String(player.id)}`}>
+                  <PersonPhoto kind="player" code={player.code} name={player.webName} size="xs" />
+                  <span>{player.webName}</span>
+                </Link>
                 <span className={`num ${styles.dim}`}>{price(player.price)}</span>
                 <span className={`num ${styles.strong}`}>{player.form.toFixed(1)}</span>
               </li>
@@ -122,6 +155,63 @@ export default async function HomePage() {
           </ol>
         </section>
       </div>
+
+      <section className={styles.explore} aria-labelledby="explore-heading">
+        <h2 id="explore-heading" className={styles.h2}>
+          Everything else on record
+        </h2>
+        <ul className={styles.exploreList}>
+          <li>
+            <Link href="/teams">
+              <span className={styles.exploreTitle}>Clubs</span>
+              <span className={styles.exploreNote}>
+                Squad, staff, strength, and a record for every season the club has played.
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link href="/managers">
+              <span className={styles.exploreTitle}>Managers</span>
+              <span className={styles.exploreNote}>
+                Who is in charge, where, and what their side has done under them.
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link href="/referees">
+              <span className={styles.exploreTitle}>Referees</span>
+              <span className={styles.exploreNote}>
+                Appointments, and how freely each one books, with the caveat attached.
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link href="/grounds">
+              <span className={styles.exploreTitle}>Grounds</span>
+              <span className={styles.exploreNote}>
+                Where the season is played, photographed and credited.
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link href="/stats">
+              <span className={styles.exploreTitle}>Analysis</span>
+              <span className={styles.exploreNote}>
+                What {allMatches.length.toLocaleString('en-GB')} matches say about home advantage
+                and goals.
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link href="/glossary">
+              <span className={styles.exploreTitle}>Glossary</span>
+              <span className={styles.exploreNote}>
+                Every metric this site shows, defined by its exact operation.
+              </span>
+            </Link>
+          </li>
+        </ul>
+      </section>
     </div>
   );
 }

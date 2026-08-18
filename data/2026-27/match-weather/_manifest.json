@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-18T21:05:56.056Z",
+      "rows": 16,
+      "bytes": 3827,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-18T21-05-56-056Z.jsonl"
+    }
+  ]
+}

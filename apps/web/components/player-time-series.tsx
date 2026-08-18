@@ -7,6 +7,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -54,7 +55,14 @@ const METRICS: readonly Metric[] = [
   { key: 'price', label: 'Price', format: (v) => `${(v / 10).toFixed(1)}m`, shape: 'line' },
 ];
 
-export function PlayerTimeSeries({ data }: { data: readonly SeriesPoint[] }) {
+export function PlayerTimeSeries({
+  data,
+  highlight = null,
+}: {
+  data: readonly SeriesPoint[];
+  /** Gameweek the rest of the page is narrowed to, marked rather than isolated. */
+  highlight?: number | null;
+}) {
   const [active, setActive] = useState<MetricKey>('points');
   const [cumulative, setCumulative] = useState(false);
 
@@ -147,6 +155,19 @@ export function PlayerTimeSeries({ data }: { data: readonly SeriesPoint[] }) {
                 labelFormatter={(value) => `Gameweek ${String(value)}`}
                 formatter={(value: number) => [metric.format(value), metric.label]}
               />
+              {highlight !== null && (
+                <ReferenceLine
+                  x={highlight}
+                  stroke="var(--flare)"
+                  strokeWidth={1.5}
+                  label={{
+                    value: `GW${String(highlight)}`,
+                    position: 'top',
+                    fill: 'var(--flare-ink)',
+                    fontSize: 11,
+                  }}
+                />
+              )}
               <Area
                 type="monotone"
                 dataKey="value"
@@ -184,6 +205,9 @@ export function PlayerTimeSeries({ data }: { data: readonly SeriesPoint[] }) {
                 labelFormatter={(value) => `Gameweek ${String(value)}`}
                 formatter={(value: number) => [metric.format(value), metric.label]}
               />
+              {highlight !== null && (
+                <ReferenceLine x={highlight} stroke="var(--flare)" strokeWidth={1.5} />
+              )}
               <Line
                 type="stepAfter"
                 dataKey="value"

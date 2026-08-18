@@ -230,3 +230,26 @@
   font-size: var(--step--1);
   color: var(--ink-soft);
 }
+
+/* Every person and every club on this page carries its face or its crest, so
+   a scan down the column recognises rather than reads. */
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  text-decoration: none;
+  min-height: 2.5rem;
+  min-width: 0;
+}
+
+.person:hover span {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.person span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

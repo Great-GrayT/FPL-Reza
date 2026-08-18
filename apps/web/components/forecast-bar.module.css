@@ -1,0 +1,102 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.bar {
+  display: flex;
+  height: 2.25rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+}
+
+.bar > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Home and away read as two sides; the draw is the neutral ground between. */
+.home {
+  background: var(--pitch);
+  color: var(--chalk);
+}
+
+.draw {
+  background: var(--paper-3);
+  color: var(--ink-soft);
+}
+
+.away {
+  background: var(--flare-ink);
+  color: var(--chalk);
+}
+
+.keys {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  gap: var(--s2);
+}
+
+.keys span:nth-child(2) {
+  text-align: center;
+}
+
+.keys span:last-child {
+  text-align: right;
+}
+
+.likelihood {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem 3rem;
+  align-items: center;
+  gap: var(--s3);
+  padding-block: var(--s1);
+}
+
+.likelihoodLabel {
+  font-size: var(--step--1);
+  min-width: 0;
+}
+
+.meter {
+  display: block;
+  height: 0.5rem;
+  background: var(--paper-3);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.meterFill {
+  display: block;
+  height: 100%;
+  background: var(--pitch);
+}
+
+.likelihoodValue {
+  text-align: right;
+  font-size: var(--step--1);
+}
+
+@media (max-width: 30rem) {
+  .likelihood {
+    grid-template-columns: minmax(0, 1fr) 3.5rem;
+  }
+
+  .meter {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

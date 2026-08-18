@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "ground-images",
+      "partition": null,
+      "capturedAt": "2026-08-18T20:44:37.115Z",
+      "rows": 16,
+      "bytes": 7424,
+      "format": "jsonl",
+      "file": "2026-27/ground-images/_all/2026-08-18T20-44-37-115Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "ground-images",
+      "partition": null,
+      "capturedAt": "2026-08-18T20:45:18.070Z",
+      "rows": 16,
+      "bytes": 7424,
+      "format": "jsonl",
+      "file": "2026-27/ground-images/_all/2026-08-18T20-45-18-070Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "ground-images",
+      "partition": null,
+      "capturedAt": "2026-08-18T20:46:36.102Z",
+      "rows": 16,
+      "bytes": 7472,
+      "format": "jsonl",
+      "file": "2026-27/ground-images/_all/2026-08-18T20-46-36-102Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "ground-images",
+      "partition": null,
+      "capturedAt": "2026-08-18T20:48:33.909Z",
+      "rows": 16,
+      "bytes": 7472,
+      "format": "jsonl",
+      "file": "2026-27/ground-images/_all/2026-08-18T20-48-33-909Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "ground-images",
+      "partition": null,
+      "capturedAt": "2026-08-18T20:51:43.269Z",
+      "rows": 18,
+      "bytes": 8923,
+      "format": "jsonl",
+      "file": "2026-27/ground-images/_all/2026-08-18T20-51-43-269Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "ground-images",
+      "partition": null,
+      "capturedAt": "2026-08-18T20:54:18.992Z",
+      "rows": 19,
+      "bytes": 9522,
+      "format": "jsonl",
+      "file": "2026-27/ground-images/_all/2026-08-18T20-54-18-992Z.jsonl"
+    }
+  ]
+}

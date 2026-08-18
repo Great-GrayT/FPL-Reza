@@ -1,0 +1,76 @@
+/*
+ * The pitch reads as a printed diagram rather than a screenshot of grass: flat
+ * ground, chalk lines, no gradient and no texture. The heat ramp is sequential
+ * from the palette's own pitch green through its flare, so it stays in the
+ * same world as the rest of the site and remains ordered when read in grey.
+ */
+
+.pitch {
+  --heat-1: #cfe3b4;
+  --heat-2: #9ed4a8;
+  --heat-3: #f0b429;
+  --heat-4: #e8834a;
+  --heat-5: #e8214f;
+
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pitch {
+    --heat-1: #2f6b3f;
+    --heat-2: #4f8a52;
+    --heat-3: #b58a24;
+    --heat-4: #c96a3c;
+    --heat-5: #ff3a66;
+  }
+}
+
+.turf {
+  fill: color-mix(in srgb, var(--pitch) 10%, var(--paper));
+}
+
+.lines {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 26%, transparent);
+  stroke-width: 0.35;
+}
+
+.lines .spot {
+  fill: color-mix(in srgb, var(--ink) 26%, transparent);
+  stroke: none;
+}
+
+.heat rect {
+  /* Cells overlap by a hair so the grid does not read as tiles. */
+  shape-rendering: crispEdges;
+}
+
+.markerInk circle {
+  fill: var(--ink);
+}
+.markerInk text {
+  fill: var(--paper);
+  font-family: var(--font-mono), monospace;
+  font-weight: 600;
+}
+
+.markerFlare circle {
+  fill: var(--flare);
+}
+.markerFlare text {
+  fill: var(--chalk);
+  font-family: var(--font-mono), monospace;
+  font-weight: 600;
+}
+
+.markerBonus circle {
+  fill: var(--bonus);
+}
+.markerBonus text {
+  fill: var(--ink);
+  font-family: var(--font-mono), monospace;
+  font-weight: 600;
+}

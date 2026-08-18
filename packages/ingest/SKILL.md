@@ -18,6 +18,12 @@ Also owns the fixtures refresh path (fixtures/refresh.ts, fixtures/diff.ts): a r
 
 Also owns the Sofascore spatial adapter (spatial/sofascore/): its own fetch transport with a browser TLS cipher order (fetch.ts), a typed client over the provider endpoints (client.ts, schemas.ts), the provider to domain identity joins (identity.ts), the coordinate frame normalisation and row mapping (map.ts), and the `spatial-sofascore` Source (source.ts) which produces the player-match-spatial and match-events datasets from teams, players, and fixtures.
 
+Also owns the Premier League official record (`pl/`): a typed client over its keyless API (`client.ts`, `schemas.ts`), the raw to domain mapping including the Opta id extraction that makes the join exact (`map.ts`), and the `pl-official` Source (`source.ts`) which produces the matches, match-details, managers, and grounds datasets.
+
+Also owns match conditions (`weather/source.ts`): `weatherSource` reads Open-Meteo for every match inside the forecast horizon, one request per ground per matchday, choosing between the forecast and the archive endpoints by kickoff date.
+
+Also owns ground photographs (`grounds/wikimedia.ts`): `groundImagesSource` resolves a licensed photograph per ground through Wikipedia search, Wikidata coordinates, and the Commons `imageinfo` API, and refuses any file whose credit cannot be read.
+
 Also owns the history backfills (`history/`): `playerSeasonsSource` maps FPL's `history_past` into the player-seasons dataset, and `archiveHistorySource` reads per gameweek rows for completed seasons from the community archive at github.com/vaastav/Fantasy-Premier-League, rekeying each row from that season's element id to the permanent player code.
 
 Also owns the internationals pipeline (`internationals/source.ts`): `providerIdsSource` maps FPL player codes onto Sofascore player ids one search at a time, and `internationalsSource` reads national team competition records for every mapped player.
@@ -51,6 +57,14 @@ Does not own: config loading (packages/config), snapshot storage mechanics (pack
 - Archive snapshots are written as Parquet, not JSONL. One season is about 27,000 rows: 400 KB as Parquet against 25 MB as JSONL, and the lake lives in git.
 - The internationals pipeline is two sources on purpose. The mapping is expensive (one search per player) and permanent, so it is never redone for a player already mapped; the records change only when a tournament is played. Both yield the whole dataset, existing rows included, because a snapshot read takes the newest file whole and a partial write would erase everyone else.
 - A provider category flag of "international" is not sufficient evidence of a cap: the provider files club friendlies such as the Emirates Cup under that category, and the first real run duly credited an Arsenal player with Arsenal "caps". The team on the statistics payload must itself carry `national: true`. Youth sides are kept and named as the provider names them, so France U20 is not France.
+- `plMatchesSource` never matches on a name. Both joins come from the Opta ids the provider publishes with `altIds=true`, and a row that cannot produce one is dropped and counted. Do not add a name fallback: this source's whole value over the Sofascore one is that it needs no ambiguity budget.
+- A batch may now name its own `format`, and `pl-official` uses both: matches must be Parquet, since 13,546 rows are 432 KB there against roughly 20 MB as JSONL in a lake that lives in git; match-details must be JSONL, since a teamsheet is a nested array that Parquet flattens into JSON text unreadable through its schema. Neither is a preference.
+- `plMatchesSource` skips an unplayed match in the detail pass. There is no teamsheet, no timeline, and no referee appointed until the week of a match, so a request would buy nothing.
+- `groundImagesSource` refuses a photograph whose photographer or licence cannot be read from Commons, and falls through to the next candidate rather than storing it. Attribution is a licence condition, so an unattributable file is not a partial result, it is an unpublishable one.
+- The ground join is by coordinates, not by name, and takes the closest qualifying candidate rather than the first. Searching "Selhurst Park" ranks the suburb of Selhurst above the ground and both sit inside any usable tolerance, so first past the post picked a photograph of a residential street. Where a ground has no published coordinates, the fallback checks the article is a stadium and the stored row records that the weaker rule was used.
+- `weatherSource` defaults to a 14 day window because the forecast reaches about 16 days and answers anything beyond with 400. Widening it spends a request per ground per matchday to be told no.
+- `sofascoreSpatialSource` takes a `backfillSeason`, which resolves fixtures from the official `matches` dataset instead of FPL's live `fixtures`, and partitions as `{season}-gw{n}`. Two seasons of gameweek 3 are not the same partition, and writing both to `gw3` would silently replace one with the other.
+
 - refreshFixtures writes only when the diff reports a change, unless `always` is set. A fixture list polled every few minutes would otherwise fill the lake with identical snapshots.
 
 ## Related

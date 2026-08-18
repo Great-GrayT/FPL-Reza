@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { GameweekRibbon, type RibbonCell } from './gameweek-ribbon';
+import { PlayerHeatmap, type HeatmapMatch } from './player-heatmap';
 import { PlayerTimeSeries, type SeriesPoint } from './player-time-series';
 import styles from './player-season.module.css';
 
@@ -21,19 +22,22 @@ export interface GameweekRow {
 }
 
 /**
- * Holds the one piece of state the ribbon, the chart, and the table all share:
- * which gameweek the reader is looking at. Selecting a cell narrows the table
- * to that week rather than opening a separate view, so the season stays on
- * screen while a single week is inspected.
+ * Holds the one piece of state the ribbon, the chart, the pitch, and the table
+ * all share: which gameweek the reader is looking at. Selecting a cell narrows
+ * every one of them rather than opening a separate view, so the season stays
+ * on screen while a single week is inspected, and the reader never has to
+ * remember which week they were reading in the panel above.
  */
 export function PlayerSeason({
   cells,
   series,
   rows,
+  heatmap = [],
 }: {
   cells: readonly RibbonCell[];
   series: readonly SeriesPoint[];
   rows: readonly GameweekRow[];
+  heatmap?: readonly HeatmapMatch[];
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const shown = selected === null ? rows : rows.filter((row) => row.gameweek === selected);
@@ -61,11 +65,19 @@ export function PlayerSeason({
       </section>
 
       <section className={styles.chartSection} aria-labelledby="trend-heading">
-        <h2 id="trend-heading" className={styles.h2}>
-          Trend
-        </h2>
-        <PlayerTimeSeries data={series} />
+        <div className={styles.sectionHead}>
+          <h2 id="trend-heading" className={styles.h2}>
+            Trend
+          </h2>
+          {selected !== null && <p className="eyebrow">Gameweek {selected} marked</p>}
+        </div>
+        {/* The chart marks the selection rather than filtering to it: one point
+            is not a trend, and losing the surrounding weeks is what a reader
+            comparing a week to its neighbours least wants. */}
+        <PlayerTimeSeries data={series} highlight={selected} />
       </section>
+
+      <PlayerHeatmap matches={heatmap} selectedGameweek={selected} onSelectGameweek={setSelected} />
 
       <section aria-labelledby="rows-heading">
         <div className={styles.sectionHead}>

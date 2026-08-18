@@ -80,7 +80,10 @@
   margin: var(--s5) 0 0;
   padding: var(--s3) var(--s4);
   background: color-mix(in srgb, var(--bonus) 22%, var(--paper));
-  border-left: 3px solid var(--bonus);
+  /* A full rule under the notice rather than a coloured tab down its left
+     edge: this palette comes from printed matter, where a warning is set off
+     by a rule and a tint, not by a bar in the margin. */
+  border-bottom: 2px solid var(--bonus);
   border-radius: var(--radius);
 }
 

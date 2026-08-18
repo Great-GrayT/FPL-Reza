@@ -192,6 +192,38 @@ In: a Sofascore HttpClient and optional limit, progressEvery. Out: a Source name
 
 In: a Sofascore HttpClient and optional limit, onlyMissing, progressEvery. Out: a Source named sofascore-internationals, requiring player-provider-ids, yielding the whole internationals dataset. Errors: propagates the fetch. Notes: two requests per player plus one per international tournament season. Rows for a player being refreshed are replaced wholesale and every other player's rows are carried through, since a snapshot is read whole.
 
+### PremierLeagueClient.compSeasons() / teams / fixturesPage / allFixtures / fixtureDetail / staff
+
+In: nothing, or a provider season id, or a fixture id, or a team and season id. Out: the 35 season list, that season's clubs with their grounds, one page or all pages of fixtures, one fixture with its officials, teamsheets and events, or a club's players and staff. Errors: throws ValidationError (up to 10 issues) on a payload that does not match its schema. Notes: `plHttp` sets the `premierleague.com` Origin and Referer, which is the entire access barrier: no key, no account. Every call passes `altIds=true`, since the Opta ids are what make the rows joinable.
+
+### optaDigits(altId, prefix) / teamCodeOf / playerCodeOf
+
+In: an Opta alt id and its prefix. Out: the digits as a number, or null. Errors: none. Notes: this three line function is the whole identity layer for this provider. `t3` is FPL's `Team.code` 3 and `p231416` is `Player.code` 231416, exactly.
+
+### normaliseSeasonLabel(label): Season | null
+
+In: either spelling the provider uses. Out: the domain's. Errors: none. Notes: the current season reads "English Premier League Season 2026/2027" and every past one reads "2025/26"; both become "2026/27" and "2025/26".
+
+### toMatch(raw, fallbackSeason?) / toMatchDetail(raw, fallbackSeason?) / toGrounds(teams) / toManagers(staff, season, teamCode)
+
+In: one raw fixture, fixture detail, team list, or staff payload. Out: the domain row, or null where the row cannot be joined. Errors: whatever the core schema throws. Notes: `toMatch` returns null unless both clubs carry an Opta code, since a row that cannot be joined is worse than an absent one. `toMatchDetail` resolves the timeline's player codes from the teamsheets it just parsed, because the events carry only the provider's own person id and any other route would be a name match.
+
+### plMatchesSource(http, options?): Source
+
+In: a Premier League HttpClient and optional seasons, detailSeasons, maxDetail, progressEvery. Out: a Source named `pl-official` yielding grounds and managers once, then per season a matches batch (Parquet) and, for the detail seasons, a match-details batch (JSONL). Errors: propagates the client's; a club with no published staff for a season is logged and skipped. Notes: about four listing requests per season and one detail request per played match, so 35 seasons of results and two of teamsheets is roughly 900 requests.
+
+### weatherSource(http, options?): Source
+
+In: an Open-Meteo HttpClient and optional windowDays, maxRequests, now. Out: a Source named `weather-open-meteo` yielding one match-weather batch for the season partition. Errors: a failed request is logged and skipped, never thrown, since one ground's forecast must not fail a run. Notes: requests are grouped by ground and day, then each kickoff reads its own hour out of the returned block.
+
+### endpointFor(kickoff, now): string
+
+In: a kickoff and the current time. Out: the forecast base URL, or the archive one for a match more than 60 days old. Errors: none.
+
+### groundImagesSource(http, options?): Source
+
+In: a Wikimedia HttpClient and optional thumbnailWidth, candidates, toleranceMetres. Out: a Source named `grounds-wikimedia` yielding one ground-images batch. Errors: propagates the fetch. Notes: per ground it runs two searches (with and without the city), reads each candidate's Wikidata entity for coordinates and image, keeps only candidates inside the tolerance, sorts them by distance, and walks them until one has a readable credit. On 2026-08-18 this resolved 19 of 20 grounds; the twentieth's only candidate file carries no Artist, Credit, or Attribution field at all and is therefore refused.
+
 ### isInternationalCategory(flag): boolean
 
 In: the provider category flag. Out: whether it reads "international". Errors: none. Notes: necessary but not sufficient. The provider files club friendlies under an international category, so the source also requires the team on the statistics payload to carry `national: true`.

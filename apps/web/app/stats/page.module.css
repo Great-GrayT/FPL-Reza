@@ -1,0 +1,132 @@
+.head {
+  padding-block: var(--s7) var(--s5);
+  border-bottom: 2px solid var(--ink);
+}
+
+.title {
+  font-size: var(--step-5);
+  margin-block: var(--s2) 0;
+}
+
+.lede {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: var(--s3) 0 0;
+  font-size: var(--step--1);
+}
+
+.empty {
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  padding-block: var(--s6);
+}
+
+.block {
+  padding-block: var(--s6);
+  border-bottom: 1px solid var(--rule);
+}
+
+.h2 {
+  font-size: var(--step-2);
+  margin-bottom: var(--s3);
+}
+
+.note {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: 0 0 var(--s3);
+}
+
+/* The reading under a chart is set off by a rule above it, the way a printed
+   caption is, rather than by a coloured bar down its left edge. */
+.readout {
+  font-size: var(--step--1);
+  max-width: var(--measure);
+  margin: var(--s4) 0 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--s6);
+  padding-block: var(--s6);
+  border-bottom: 1px solid var(--rule);
+}
+
+.rank {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: rank;
+}
+
+.rank li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding-block: var(--s2);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--step--1);
+  min-width: 0;
+}
+
+.rankLink {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.rankLink:hover .rankName {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.rankName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dim {
+  color: var(--ink-soft);
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+  min-width: 44rem;
+}
+
+.table th,
+.table td {
+  text-align: right;
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.table thead th {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.table tbody th,
+.table thead th:first-child {
+  text-align: left;
+}

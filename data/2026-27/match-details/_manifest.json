@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2025-26",
+      "capturedAt": "2026-08-18T20:22:44.126Z",
+      "rows": 380,
+      "bytes": 4876611,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2025-26/2026-08-18T20-22-44-126Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2024-25",
+      "capturedAt": "2026-08-18T20:22:44.126Z",
+      "rows": 380,
+      "bytes": 4959156,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2024-25/2026-08-18T20-22-44-126Z.jsonl"
+    }
+  ]
+}

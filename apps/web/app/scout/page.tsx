@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { currentGameweek, formatPrice, nextGameweek, type Player } from '@fpl/core';
 import { differentials, fixtureSwings, projectPoints } from '@fpl/analytics';
 import { MetricTip } from '@/components/metric-tip';
+import { Crest } from '@/components/crest';
+import { PersonPhoto } from '@/components/person-photo';
 import { classes } from '@/lib/classes';
 import { getFixtures, getGameweeks, getPlayerHistory, getPlayers, getTeams } from '@/lib/lake';
 import styles from './page.module.css';
@@ -133,9 +135,28 @@ export default async function ScoutPage() {
               {overlooked.map((row) => (
                 <tr key={row.player.id}>
                   <th scope="row">
-                    <Link href={`/players/${String(row.player.id)}`}>{row.player.webName}</Link>
+                    <Link className={styles.person} href={`/players/${String(row.player.id)}`}>
+                      <PersonPhoto
+                        kind="player"
+                        code={row.player.code}
+                        name={row.player.webName}
+                        size="xs"
+                      />
+                      <span>{row.player.webName}</span>
+                    </Link>
                   </th>
-                  <td>{teamById.get(row.player.teamId)?.shortName ?? '???'}</td>
+                  <td>
+                    {((): React.ReactNode => {
+                      const club = teamById.get(row.player.teamId);
+                      if (club === undefined) return '???';
+                      return (
+                        <Link className={styles.person} href={`/teams/${String(club.code)}`}>
+                          <Crest code={club.code} name={club.name} size={18} />
+                          <span>{club.shortName}</span>
+                        </Link>
+                      );
+                    })()}
+                  </td>
                   <td>{row.player.position}</td>
                   <td className="num">{formatPrice(row.player.price)}</td>
                   <td className="num">{row.ownership.toFixed(1)}%</td>
@@ -175,7 +196,16 @@ export default async function ScoutPage() {
             return (
               <li key={swing.teamId} className={styles.swing}>
                 <span className={classes(styles.rank, 'num')}>{index + 1}</span>
-                <span className={styles.club}>{club?.name ?? `club ${String(swing.teamId)}`}</span>
+                <span className={styles.club}>
+                  {club === undefined ? (
+                    `club ${String(swing.teamId)}`
+                  ) : (
+                    <Link className={styles.person} href={`/teams/${String(club.code)}`}>
+                      <Crest code={club.code} name={club.name} size={20} />
+                      <span>{club.name}</span>
+                    </Link>
+                  )}
+                </span>
                 <span className={classes(styles.difficulty, 'num')}>
                   {average === null ? 'no fixtures' : average.toFixed(2)}
                 </span>
@@ -220,7 +250,10 @@ export default async function ScoutPage() {
               <span className={classes(styles.captainRank, 'num')}>{index + 1}</span>
               <div className={styles.captainBody}>
                 <p className={styles.captainName}>
-                  <Link href={`/players/${String(player.id)}`}>{player.webName}</Link>
+                  <Link className={styles.person} href={`/players/${String(player.id)}`}>
+                    <PersonPhoto kind="player" code={player.code} name={player.webName} size="sm" />
+                    <span>{player.webName}</span>
+                  </Link>
                   <span className={styles.captainClub}>
                     {teamById.get(player.teamId)?.shortName ?? '???'} · {player.position} ·{' '}
                     {formatPrice(player.price)}

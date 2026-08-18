@@ -38,6 +38,12 @@ import {
   SofascoreClient,
   sofascoreHttp,
   sofascoreSpatialSource,
+  plHttp,
+  plMatchesSource,
+  openMeteoHttp,
+  weatherSource,
+  wikimediaHttp,
+  groundImagesSource,
   type HttpClient,
   type RulesDocument,
   type SyncReport,
@@ -89,6 +95,7 @@ export function buildProgram(deps: CliDeps): Command {
   registerAssets(program, deps, streams);
   registerFixtures(program, deps, streams, now);
   registerHistory(program, deps, streams, now);
+  registerOfficial(program, deps, streams, now);
   registerRules(program, deps, streams, now);
   registerPlayers(program, deps, streams);
   registerDatasets(program, deps, streams);
@@ -133,6 +140,8 @@ interface SyncOptionsRaw {
   json?: boolean;
   spatialMaxEvents?: number;
   spatialSinceGameweek?: number;
+  spatialUntilGameweek?: number;
+  spatialBackfillSeason?: string;
 }
 
 function registerSync(program: Command, deps: CliDeps, streams: Streams, now: () => Date): void {
@@ -160,6 +169,15 @@ function registerSync(program: Command, deps: CliDeps, streams: Streams, now: ()
       'skip matches before this gameweek in the spatial source',
       parseIntOption,
     )
+    .option(
+      '--spatial-until-gameweek <n>',
+      'skip matches after this gameweek in the spatial source',
+      parseIntOption,
+    )
+    .option(
+      '--spatial-backfill-season <season>',
+      'backfill a completed season, resolving fixtures from the official record, e.g. 2025/26',
+    )
     .option('--json', 'print machine readable JSON instead of a table')
     .action(async (options: SyncOptionsRaw) => {
       const season = resolveSeason(options.season, deps.config);
@@ -186,6 +204,12 @@ function registerSync(program: Command, deps: CliDeps, streams: Streams, now: ()
           ...(options.spatialSinceGameweek === undefined
             ? {}
             : { sinceGameweek: options.spatialSinceGameweek }),
+          ...(options.spatialUntilGameweek === undefined
+            ? {}
+            : { untilGameweek: options.spatialUntilGameweek }),
+          ...(options.spatialBackfillSeason === undefined
+            ? {}
+            : { backfillSeason: asSeason(options.spatialBackfillSeason) }),
         }),
       ];
 
@@ -497,6 +521,136 @@ function registerHistory(program: Command, deps: CliDeps, streams: Streams, now:
         return;
       }
       writeSyncTable(streams, report);
+    });
+}
+
+interface OfficialOptionsRaw {
+  season?: string;
+  seasons?: number;
+  detailSeasons?: number;
+  maxDetail?: number;
+  json?: boolean;
+}
+
+interface WeatherOptionsRaw {
+  season?: string;
+  windowDays?: number;
+  maxRequests?: number;
+  json?: boolean;
+}
+
+/**
+ * The Premier League's own record, which FPL does not carry: referees,
+ * managers, teamsheets, formations, grounds, and 35 seasons of results. Its
+ * cost is entirely in the detail pass, one request per played match, so the
+ * season counts are separate options rather than one.
+ */
+function registerOfficial(
+  program: Command,
+  deps: CliDeps,
+  streams: Streams,
+  now: () => Date,
+): void {
+  const official = program
+    .command('official')
+    .description('Ingest the Premier League official record and match conditions');
+
+  official
+    .command('matches')
+    .description(
+      'Results, teamsheets, officials, managers, and grounds from the Premier League API',
+    )
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option('--seasons <n>', 'how many seasons of results to pull, newest first', parseIntOption)
+    .option(
+      '--detail-seasons <n>',
+      'how many seasons to pull teamsheets and timelines for, newest first',
+      parseIntOption,
+    )
+    .option(
+      '--max-detail <n>',
+      'cap the per match detail requests, for a bounded run',
+      parseIntOption,
+    )
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: OfficialOptionsRaw) => {
+      const season = resolveSeason(options.season, deps.config);
+      // The provider checks the calling origin and nothing else, so it needs
+      // its own client rather than the FPL one.
+      const http = plHttp({ logger: deps.logger });
+
+      const report = await runSync(
+        [
+          plMatchesSource(http, {
+            ...(options.seasons === undefined ? {} : { seasons: options.seasons }),
+            ...(options.detailSeasons === undefined
+              ? {}
+              : { detailSeasons: options.detailSeasons }),
+            ...(options.maxDetail === undefined ? {} : { maxDetail: options.maxDetail }),
+          }),
+        ],
+        { season, store: deps.store, logger: deps.logger, capturedAt: now() },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+      if (report.failed > 0) process.exitCode = 1;
+    });
+
+  official
+    .command('grounds')
+    .description('Find a licensed photograph of every ground on Wikimedia Commons')
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: { season?: string; json?: boolean }) => {
+      const season = resolveSeason(options.season, deps.config);
+      const http = wikimediaHttp({ logger: deps.logger });
+
+      const report = await runSync([groundImagesSource(http)], {
+        season,
+        store: deps.store,
+        logger: deps.logger,
+        capturedAt: now(),
+      });
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+      if (report.failed > 0) process.exitCode = 1;
+    });
+
+  official
+    .command('weather')
+    .description('Read conditions at kickoff for matches near today, from Open-Meteo')
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option('--window-days <n>', 'how far either side of today to cover', parseIntOption)
+    .option('--max-requests <n>', 'cap the requests, for a bounded run', parseIntOption)
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: WeatherOptionsRaw) => {
+      const season = resolveSeason(options.season, deps.config);
+      const http = openMeteoHttp({ logger: deps.logger });
+
+      const report = await runSync(
+        [
+          weatherSource(http, {
+            ...(options.windowDays === undefined ? {} : { windowDays: options.windowDays }),
+            ...(options.maxRequests === undefined ? {} : { maxRequests: options.maxRequests }),
+          }),
+        ],
+        { season, store: deps.store, logger: deps.logger, capturedAt: now() },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+      if (report.failed > 0) process.exitCode = 1;
     });
 }
 

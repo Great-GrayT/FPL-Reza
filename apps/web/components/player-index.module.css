@@ -34,6 +34,8 @@
   font-family: var(--font-mono), monospace;
   font-size: var(--step--1);
   letter-spacing: 0.06em;
+  /* A position filter is a thumb target on a phone, so it clears 44px. */
+  min-height: 2.75rem;
   padding: var(--s2) var(--s3);
   border: 1px solid var(--rule);
   background: transparent;
@@ -103,16 +105,6 @@
   background: var(--paper-2);
 }
 
-.link {
-  font-weight: 600;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-.link:hover {
-  border-bottom-color: var(--flare);
-}
-
 .flag {
   margin-left: var(--s2);
   color: var(--flare-ink);
@@ -134,4 +126,41 @@
 .empty {
   color: var(--ink-soft);
   max-width: var(--measure);
+}
+
+/* A name with a face beside it, which is how a person is recognised faster
+   than by reading. The photo is decorative: the name carries the link text. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  text-decoration: none;
+  min-height: 2.5rem;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.link:hover .linkName {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.linkName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.club {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.club:hover span {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }

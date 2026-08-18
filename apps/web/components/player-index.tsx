@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { Crest } from './crest';
+import { PersonPhoto } from './person-photo';
 import styles from './player-index.module.css';
 
 export interface IndexRow {
@@ -153,7 +155,8 @@ export function PlayerIndex({ rows }: { rows: readonly IndexRow[] }) {
                 <tr key={row.id}>
                   <th scope="row">
                     <Link href={`/players/${String(row.id)}`} className={styles.link}>
-                      {row.name}
+                      <PersonPhoto kind="player" code={row.code} name={row.fullName} size="xs" />
+                      <span className={styles.linkName}>{row.name}</span>
                     </Link>
                     {!row.available && (
                       <span className={styles.flag} title="Not fully available">
@@ -161,7 +164,12 @@ export function PlayerIndex({ rows }: { rows: readonly IndexRow[] }) {
                       </span>
                     )}
                   </th>
-                  <td className={styles.dim}>{row.team}</td>
+                  <td className={styles.dim}>
+                    <Link className={styles.club} href={`/teams/${String(row.teamCode)}`}>
+                      <Crest code={row.teamCode} name={row.team} size={18} />
+                      <span>{row.team}</span>
+                    </Link>
+                  </td>
                   <td className={styles.dim}>{row.position}</td>
                   <td className={`num ${styles.right}`}>{(row.price / 10).toFixed(1)}</td>
                   <td className={`num ${styles.right} ${styles.strong}`}>{row.points}</td>

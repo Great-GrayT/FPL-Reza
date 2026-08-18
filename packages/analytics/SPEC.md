@@ -97,6 +97,18 @@ In: the pool, a projection, and optional maxOwnership, minProjected, limit. Out:
 
 In: the fixture list, the clubs to rank, a start, and a horizon. Out: each club's average difficulty over the horizon, easiest first, with its blank and double gameweeks. Errors: none. Notes: a club with no fixture in the horizon has a null average and sorts last, rather than ranking as the easiest run available.
 
+### estimateStrength(matches, options?): StrengthModel
+
+In: every match on record, and optional latestSeason, halfLifeSeasons, shrinkageMatches. Out: the division's baseline goals per team per match, its home advantage, and per club an attack and a defence as ratios to that baseline, with the raw counts and a `shrunk` flag. Errors: none; an empty sample yields a sensible baseline rather than NaN. Notes: only completed matches count. Seasons decay by half every `HALF_LIFE_SEASONS` (1.5), so last season outweighs one three years ago; a club under `SHRINKAGE_MATCHES` (10) is blended towards the average in proportion to how little is known.
+
+### forecastMatch(model, homeTeamCode, awayTeamCode): MatchForecast
+
+In: a strength model and two club codes. Out: both goal expectations, the three outcome probabilities, both clean sheet probabilities, both to score, over 2.5, the five likeliest scorelines, and a `provisional` flag. Errors: none; an unknown club is treated as exactly average and marks the forecast provisional. Notes: home advantage is split either side of the fixture (its square root each way) so the total stays on the league's scale rather than inflating with it. Every probability is read off the same independent Poisson grid `fitGoalExpectations` inverts, which is what lets a model forecast and a market price be compared directly.
+
+### explainForecast(model, forecast): string[]
+
+In: the model and one forecast. Out: the sentences a page prints beside the numbers: the sample size, the baseline, both clubs' ratios, a warning where a club is barely known, and the independence assumption. Errors: none.
+
 ### GLOSSARY / glossaryEntry(id)
 
 In: an id. Out: the entry, or undefined. Errors: none. Notes: 21 entries, each with a definition, the exact operation where one applies, the source, and a caveat where the metric misleads. Ids are page anchors, so they are stable and unique, which a test enforces.

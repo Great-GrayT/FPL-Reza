@@ -14,6 +14,10 @@ Also owns four newer modules: pitch geometry and per match spatial schemas inclu
 
 Also owns the career layer (`history.ts`): `playerSeasonSchema` (one player, one completed season), `historicPlayerGameweekSchema` (one player, one gameweek of a past season), `careerTotals`, and the two spellings of a season label, since the archives write "2024-25" where the domain writes "2024/25".
 
+Also owns the official record (`matches.ts`): `Match` (one match as the Premier League publishes it, keyed on `teamCode`, with the referee denormalised onto the row), `MatchDetail` (officiating team by role, both teamsheets with the formation as rows of person ids, and a timeline), `Ground`, `Manager`, `MatchWeather`, and the pure functions over them: `headToHead`, `teamRecord`, `recentForm`, `refereeRecord`, `describeWeatherCode`.
+
+Also owns ground imagery (`grounds.ts`): `GroundImage`, which holds a photograph's URL together with its photographer, its licence, and the link back to its file page, plus `distanceMetres` and the tolerance a coordinate join is allowed.
+
 Also owns the international layer (`internationals.ts`): `playerProviderIdSchema` (the stored identity mapping from a player code to a provider id, with the evidence it was matched on) and `internationalSeasonSchema` (one player, one national team competition season), plus `internationalTotals`.
 
 Does not own: storage or file I/O (`packages/store`), HTTP fetching or upstream FPL response shapes (`packages/ingest`), configuration loading (`packages/config`). Nothing in this package touches the filesystem or the network.
@@ -31,6 +35,10 @@ Does not own: storage or file I/O (`packages/store`), HTTP fetching or upstream 
 - Every field beyond the identity block in `playerMatchSpatialSchema` and `matchEventSchema` is nullable on purpose: null means the provider does not carry that measure, which is distinct from a measured zero. Never default a missing measure to 0.
 - Spatial coordinates follow the Opta convention: 0 to 100 on both axes, always from the perspective of the side attacking towards x = 100. A provider that ships metres or flips sides at half time must be normalised to this convention before its rows reach these schemas.
 - `clubTransferSchema` keys on `playerCode`, not `playerId`, because FPL ids are reassigned every season and codes are not.
+- Everything in `matches.ts` keys on `teamCode` and `playerCode`, never on a provider id. The Premier League API publishes the Opta id beside its own (`t3`, `p231416`) and those digits are exactly FPL's `Team.code` and `Player.code`, so the join is a substring: never reintroduce a name match here.
+- A referee's card rate is `number | null`, and null means the seasons whose timelines are stored did not cover those matches. Never default it to 0: "not measured" and "never booked anyone" are different claims, and the second one is a slander.
+- `groundImageSchema` requires a non empty `credit` and `licence`. That is not validation for its own sake: these files are Creative Commons with an attribution condition, so a row that cannot be attributed must not exist, and the schema is where that becomes impossible to forget.
+
 - `PROVIDERS` in `providers.ts` is hand maintained data, not a live lookup: adding or correcting an entry means editing the array directly, there is nothing to sync it against. Every entry carries a `verdict` and the `probedAt` date that produced it, and those two fields only change alongside a fresh probe: a reputation is not a verdict. A source that refused collection moves to `REJECTED_PROVIDERS` rather than being deleted, so nobody rediscovers it, and a test enforces that no refused source is listed as a candidate.
 
 - Everything in `history.ts` keys on `playerCode`, never `playerId`. FPL reassigns element ids every summer, so a career keyed by id is one season long. `historicPlayerGameweekSchema` also carries the name, club, and position as recorded at the time, because a player who has left the league cannot be joined to today's player list.

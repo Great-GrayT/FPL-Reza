@@ -1,0 +1,110 @@
+.pitchWrap {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  padding: var(--s2);
+}
+
+.pitch {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.turf {
+  fill: color-mix(in srgb, var(--pitch) 10%, var(--paper));
+}
+
+.lines {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 22%, transparent);
+  stroke-width: 0.3;
+}
+
+.node circle {
+  fill: var(--ink);
+}
+
+.shirt {
+  fill: var(--paper);
+  font-family: var(--font-mono), monospace;
+  font-size: 3px;
+  font-weight: 600;
+}
+
+.label {
+  fill: var(--ink);
+  font-family: var(--font-body), sans-serif;
+  font-size: 2.8px;
+}
+
+.listWrap {
+  min-width: 0;
+}
+
+.people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.person + .person {
+  border-top: 1px solid var(--rule);
+}
+
+.personInner {
+  display: grid;
+  grid-template-columns: 1.75rem auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s2);
+  padding-block: var(--s2);
+  text-decoration: none;
+  min-height: 2.75rem;
+}
+
+.personLink:hover .personName {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.shirtNumber {
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+  text-align: right;
+}
+
+.personName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--step--1);
+}
+
+.personName abbr {
+  color: var(--flare-ink);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.personRole {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.subsHeading {
+  margin: var(--s4) 0 var(--s1);
+}
+
+@media (max-width: 34rem) {
+  .personRole {
+    display: none;
+  }
+
+  .personInner {
+    grid-template-columns: 1.75rem auto minmax(0, 1fr);
+  }
+}

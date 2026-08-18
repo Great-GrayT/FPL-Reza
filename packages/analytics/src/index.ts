@@ -5,4 +5,5 @@ export * from './bonus.js';
 export * from './defence.js';
 export * from './squad.js';
 export * from './projection.js';
+export * from './strength.js';
 export * from './glossary.js';

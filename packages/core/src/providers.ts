@@ -39,6 +39,8 @@ export const COVERAGE_KINDS = [
   'team_ratings',
   /** Conditions at a kickoff. */
   'weather',
+  /** Grounds themselves: where they are, how many they hold, what they look like. */
+  'grounds',
 ] as const;
 
 export type CoverageKind = (typeof COVERAGE_KINDS)[number];
@@ -84,10 +86,10 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     url: 'https://footballapi.pulselive.com/football',
     access: 'public',
     coverage: ['match_results', 'lineups', 'referees', 'managers'],
-    verdict: 'available',
+    verdict: 'built',
     probedAt: '2026-08-18',
     notes:
-      'The site own backing API, keyless, needing an Origin and Referer of premierleague.com. 13,546 fixtures across 35 seasons from 1992/93. Per fixture it carries matchOfficials (the referee, role MAIN), events with minutes (goals, bookings, substitutions), and teamLists with a formation label plus its positional rows of player ids, full lineups with shirt number, captain flag and positionInfo in words. teams/{id}/compseasons/{seasonId}/staff carries the manager. This one source covers referees, formations, and managers officially, and its ids need a stored mapping to playerCode like any other provider.',
+      'The site own backing API, keyless, needing an Origin and Referer of premierleague.com. 13,546 fixtures across 35 seasons from 1992/93. Per fixture it carries matchOfficials (the referee, role MAIN), events with minutes (goals, bookings, substitutions), and teamLists with a formation label plus its positional rows of player ids, full lineups with shirt number, captain flag and positionInfo in words. teams/{id}/compseasons/{seasonId}/staff carries the manager. This one source covers referees, formations, and managers officially. Its ids need no mapping at all: with altIds=true it publishes the Opta id beside its own for every club and person, and those digits are exactly FPL Team.code and Player.code, so the join is a substring rather than a name match. Ingested by pl-official as the matches, match-details, managers, and grounds datasets.',
   },
   {
     id: 'fpl-api',
@@ -110,6 +112,28 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     probedAt: '2026-08-18',
     notes:
       'Free season CSVs with opening and closing odds from many bookmakers. Historical only, updated after matchdays, so it backfills a model but cannot price an upcoming fixture.',
+  },
+  {
+    id: 'open-meteo',
+    name: 'Open-Meteo',
+    url: 'https://open-meteo.com',
+    access: 'public',
+    coverage: ['weather'],
+    verdict: 'built',
+    probedAt: '2026-08-18',
+    notes:
+      'Keyless forecast and historical archive, no account and no attribution header. A ground carries its own coordinates on the Premier League API, so no geocoding step exists. The forecast reaches about sixteen days ahead and answers anything further with 400, and the archive lags reality by about five days, which is why the source picks between them by kickoff date. Ingested by weather-open-meteo.',
+  },
+  {
+    id: 'wikimedia-commons',
+    name: 'Wikimedia Commons, through Wikidata',
+    url: 'https://commons.wikimedia.org',
+    access: 'public',
+    coverage: ['grounds'],
+    verdict: 'built',
+    probedAt: '2026-08-18',
+    notes:
+      'The only keyless source of licensed stadium photographs: the Premier League CDN answers every plausible ground path with 403, which for that object store means absent. A Wikipedia search finds candidates, Wikidata supplies each one coordinates (P625) and its image (P18), and a candidate is accepted only within 1.5 km of the ground the Premier League publishes, which is what resolves "American Express Stadium" to the article titled "Falmer Stadium". Almost every file is Creative Commons with an attribution condition, so the credit and licence are stored with the URL and a file whose credit cannot be read is refused: 19 of 20 grounds resolved on 2026-08-18. Ingested by grounds-wikimedia.',
   },
   {
     id: 'the-odds-api',
@@ -197,6 +221,17 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     verdict: 'unprobed',
     probedAt: '2026-08-16',
     notes: 'Event data with coordinates and video. Common alternative to Opta for event coverage.',
+  },
+  {
+    id: 'sofascore',
+    name: 'Sofascore',
+    url: 'https://api.sofascore.com/api/v1',
+    access: 'public',
+    coverage: ['event_locations', 'shot_locations', 'aggregated_stats'],
+    verdict: 'blocked',
+    probedAt: '2026-08-18',
+    notes:
+      'Player heatmaps, average positions, per player match statistics, shot coordinates with expected goals, and national team records. The adapter is written and works: on 2026-08-18 it resolved 272 of a completed season 380 fixtures against the official record, the 108 misses being clubs since relegated. Then, part way through that backfill, every path began answering 403 with a body of {"error":{"code":403,"reason":"challenge"}}, listing endpoints included, and was still doing so an hour later. So this is a rate limit or a bot challenge tripped by sustained use rather than a change of terms, and the verdict is blocked rather than refused. Retry from a different address, and slower: the adapter costs one request per player per match.',
   },
   {
     id: 'transfermarkt',

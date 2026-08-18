@@ -1,0 +1,90 @@
+.frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--paper-3);
+  border: 1px solid var(--rule);
+}
+
+.photo {
+  object-fit: cover;
+  /* The CDN crops to the head, so the shoulders sit below the circle. */
+  object-position: center 12%;
+  background: var(--paper-3);
+}
+
+.fallback {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+  font-stretch: 110%;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.xs {
+  width: 24px;
+  height: 24px;
+}
+.sm {
+  width: 36px;
+  height: 36px;
+}
+.md {
+  width: 56px;
+  height: 56px;
+}
+.lg {
+  width: 96px;
+  height: 96px;
+}
+.xl {
+  width: 220px;
+  height: 220px;
+  border-radius: var(--radius);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.chipLink {
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+
+.chipLink:hover .chipName {
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 0.2em;
+}
+
+.chipText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.chipName {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipDetail {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

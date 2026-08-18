@@ -51,7 +51,7 @@
 .bar {
   width: 100%;
   background: var(--ink);
-  transition: height 160ms ease;
+  transition: transform 160ms ease;
 }
 
 .current .bar {

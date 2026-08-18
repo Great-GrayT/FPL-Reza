@@ -76,6 +76,18 @@ snapshot, so its totals are summed across the partitions the manifest records.
 Args: a player id. Flags: json. Prints one player's detail and their gameweek
 history where present.
 
+### official matches
+
+In: optional `--season`, `--seasons <n>`, `--detail-seasons <n>`, `--max-detail <n>`, `--json`. Out: a sync table. Errors: exits 1 if the source failed. Notes: reads the Premier League's own API for results, teamsheets, officials, managers, and grounds. Roughly four requests per season of results and one per played match of detail, so the defaults (35 and 3) are about 900 requests and a few minutes.
+
+### official grounds
+
+In: optional `--season`, `--json`. Out: a sync table. Errors: exits 1 if the source failed. Notes: finds one licensed photograph per ground on Wikimedia Commons, matched by coordinates. About six requests per ground.
+
+### official weather
+
+In: optional `--season`, `--window-days <n>`, `--max-requests <n>`, `--json`. Out: a sync table. Errors: exits 1 if the source failed. Notes: one request per ground per matchday inside the window, which defaults to 14 days because the forecast reaches about 16.
+
 ## Logic
 
 Partitioned datasets are enumerated through Store.partitions rather than by
