@@ -35,8 +35,18 @@ import { FileStore } from '@fpl/store';
  */
 
 function findLakeRoot(): string {
+  const tried: string[] = [];
+
+  // A configured path wins, but only if it exists. Relative values are the
+  // trap: FPL_DATA_DIR=data resolves against the app directory on Vercel, not
+  // the repository root, and trusting it blindly turns a good deployment into
+  // one that reports an empty lake at a path nobody meant.
   const configured = process.env.FPL_DATA_DIR;
-  if (configured !== undefined && configured !== '') return path.resolve(configured);
+  if (configured !== undefined && configured !== '') {
+    const resolved = path.resolve(configured);
+    if (existsSync(resolved)) return resolved;
+    tried.push(`${resolved} (from FPL_DATA_DIR=${configured})`);
+  }
 
   // Next runs with cwd at the app directory locally and at the repo root on
   // Vercel, so the root is found by walking up rather than by assuming either.
@@ -44,19 +54,29 @@ function findLakeRoot(): string {
   for (let depth = 0; depth < 6; depth += 1) {
     const candidate = path.join(directory, 'data');
     if (existsSync(candidate)) return candidate;
+    tried.push(candidate);
     const parent = path.dirname(directory);
     if (parent === directory) break;
     directory = parent;
   }
+
   // Falling back to a path that does not exist would deploy a site that looks
   // healthy and renders nothing. On Vercel this means the project root
   // directory excludes the repository root, where data/ lives.
   throw new Error(
-    `no data directory found walking up from ${process.cwd()}. Set FPL_DATA_DIR, or point the deployment at a root that contains data/.`,
+    [
+      'no data directory found. Tried:',
+      ...tried.map((candidate) => `  ${candidate}`),
+      'Set FPL_DATA_DIR to an absolute path, or point the deployment at a root that contains data/.',
+    ].join('\n'),
   );
 }
 
 export const lakeRoot = findLakeRoot();
+
+// The build log is where this belongs: it is the first thing to check when a
+// deployment renders differently from a local build.
+console.info(`[lake] reading ${lakeRoot}`);
 
 const store = new FileStore({ root: lakeRoot });
 
