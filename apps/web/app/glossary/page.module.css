@@ -52,10 +52,19 @@
   }
 }
 
-/* The anchored entry is marked, so arriving from a metric link lands visibly. */
+/* Arriving from a metric link lands on the entry, so the entry is marked the
+   way a printed page marks a looked up word: the paper tints and the term is
+   ruled, rather than a coloured tab appearing beside it. */
 .entry:target {
-  border-left: 3px solid var(--flare);
-  padding-left: var(--s3);
+  background: var(--paper-2);
+  box-shadow: 0 0 0 var(--s2) var(--paper-2);
+}
+
+.entry:target .term {
+  text-decoration: underline;
+  text-decoration-color: var(--flare);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0.2em;
 }
 
 .term {

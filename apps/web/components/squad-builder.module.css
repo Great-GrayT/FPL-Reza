@@ -296,10 +296,15 @@
 
 .removeButton {
   position: absolute;
-  inset-block-start: 0.15rem;
-  inset-inline-end: 0.15rem;
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  /* 44px is the touch floor; the glyph stays small inside a large target. */
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  padding: 0.2rem 0.35rem;
   background: none;
   border: 0;
   font-size: var(--step-0);
@@ -493,7 +498,8 @@
   font-size: var(--step--2);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.25rem 0.5rem;
+  min-block-size: 2.25rem;
+  padding: 0.45rem 0.7rem;
   border: 1px solid var(--rule-strong);
   background: none;
   color: var(--ink-soft);
@@ -596,8 +602,14 @@
 .why {
   margin: 0;
   padding: 0 var(--s2) var(--s2);
+  max-inline-size: 42ch;
   font-size: var(--step--2);
   color: var(--ink-soft);
+}
+
+/* Why a name cannot be added is information, not a tooltip. */
+.blockedReason {
+  color: var(--flare-ink);
 }
 
 .empty {

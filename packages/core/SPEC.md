@@ -76,6 +76,10 @@ In: a list of PlayerSeason. Out: seasons counted, points, minutes, goals, assist
 
 In: a season label in either spelling. Out: the other one ("2024/25" to "2024-25" and back). Errors: none. Notes: the archives file seasons with a hyphen and the domain brands them with a slash, and the two must not be interchangeable by accident, which is why `playerSeasonSchema` rejects the hyphenated form.
 
+### internationalTotals(seasons): InternationalTotals
+
+In: a player's international season rows. Out: the country, distinct competitions counted, and caps, goals, assists, and minutes summed, plus the competition names. Errors: none. Notes: an absent measure adds nothing rather than failing, and the caps total is a floor: friendlies and any competition the provider does not track are simply absent.
+
 ### per90(total, minutes): number
 
 In: a raw total and minutes played. Out: the rate scaled to a 90 minute match, or 0 if minutes is 0 or less, avoiding a divide by zero for an unused player. Errors: none.
@@ -97,6 +101,8 @@ FplError is the base of every intentional error; each subclass fixes its own cod
 createLogger writes to stderr by default so stdout stays free for CLI output another tool might pipe; field values are stringified via a format helper that special cases Date (ISO string) and Error (message) before falling back to JSON.stringify.
 
 history.ts holds the two career grains. `PlayerSeason` is one player's totals for one completed season, exactly what FPL publishes on its element summary endpoint. `HistoricPlayerGameweek` is one player's return in one gameweek of a past season, which FPL stops serving once a season closes, so it comes from an archive instead and carries the player's name, club, and position as they were then. Both key on `playerCode`, and `gameweek` is bounded 1 to 47 rather than 38, because a season disrupted into replays and reschedules has run past 38 before.
+
+internationals.ts holds two rows, both keyed on `playerCode`. `PlayerProviderId` is the identity mapping onto a provider, carrying the provider's own spelling of the name, its club at match time, and a confidence of either name_and_club or unique_name, so a suspect join can be audited later rather than trusted blindly. `InternationalSeason` is one player's record in one national team competition season, which is the grain the provider aggregates and the grain a career page prints.
 
 ## Data flow
 

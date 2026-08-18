@@ -14,6 +14,8 @@ Also owns four newer modules: pitch geometry and per match spatial schemas inclu
 
 Also owns the career layer (`history.ts`): `playerSeasonSchema` (one player, one completed season), `historicPlayerGameweekSchema` (one player, one gameweek of a past season), `careerTotals`, and the two spellings of a season label, since the archives write "2024-25" where the domain writes "2024/25".
 
+Also owns the international layer (`internationals.ts`): `playerProviderIdSchema` (the stored identity mapping from a player code to a provider id, with the evidence it was matched on) and `internationalSeasonSchema` (one player, one national team competition season), plus `internationalTotals`.
+
 Does not own: storage or file I/O (`packages/store`), HTTP fetching or upstream FPL response shapes (`packages/ingest`), configuration loading (`packages/config`). Nothing in this package touches the filesystem or the network.
 
 ## Skills used in this section
@@ -33,6 +35,9 @@ Does not own: storage or file I/O (`packages/store`), HTTP fetching or upstream 
 
 - Everything in `history.ts` keys on `playerCode`, never `playerId`. FPL reassigns element ids every summer, so a career keyed by id is one season long. `historicPlayerGameweekSchema` also carries the name, club, and position as recorded at the time, because a player who has left the league cannot be joined to today's player list.
 - A measure that did not exist in a season is null, not 0. The expected goals family starts in 2022/23 and defensive contribution in 2025/26, and FPL reports 0 for both before then, which would otherwise read as "recorded none".
+
+- An international record is a claim about a person, so the mapping that produced it stores its own evidence: the provider name and club at match time, and whether the join used a name and a club or an unambiguous name alone. Never widen a match without recording that it was widened.
+- Caps counted here are appearances in the competitions a provider tracks, which is a floor rather than an official cap count. Say so wherever the number is shown.
 
 ## Related
 

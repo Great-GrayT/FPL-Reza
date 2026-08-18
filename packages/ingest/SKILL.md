@@ -20,6 +20,8 @@ Also owns the Sofascore spatial adapter (spatial/sofascore/): its own fetch tran
 
 Also owns the history backfills (`history/`): `playerSeasonsSource` maps FPL's `history_past` into the player-seasons dataset, and `archiveHistorySource` reads per gameweek rows for completed seasons from the community archive at github.com/vaastav/Fantasy-Premier-League, rekeying each row from that season's element id to the permanent player code.
 
+Also owns the internationals pipeline (`internationals/source.ts`): `providerIdsSource` maps FPL player codes onto Sofascore player ids one search at a time, and `internationalsSource` reads national team competition records for every mapped player.
+
 Does not own: config loading (packages/config), snapshot storage mechanics (packages/store), scoring, squad rules, or the spatial/odds/transfer domain schemas (all packages/core).
 
 ## Skills used in this section
@@ -47,6 +49,8 @@ Does not own: config loading (packages/config), snapshot storage mechanics (pack
 - Both history sources are backfills, not nightly work: completed seasons do not change. `playerSeasonsSource` deliberately does not piggyback on `playerHistorySource`, even though they call the same endpoint, because the nightly sync skips players with no minutes and a partial snapshot would shadow a complete one (a read takes the newest snapshot whole).
 - The archive keys rows by that season's element id, which FPL reassigns every summer. Every row is rekeyed through the same season's `players_raw.csv` before it is stored, and a row whose code cannot be resolved is counted and dropped. Never fall back to matching on name.
 - Archive snapshots are written as Parquet, not JSONL. One season is about 27,000 rows: 400 KB as Parquet against 25 MB as JSONL, and the lake lives in git.
+- The internationals pipeline is two sources on purpose. The mapping is expensive (one search per player) and permanent, so it is never redone for a player already mapped; the records change only when a tournament is played. Both yield the whole dataset, existing rows included, because a snapshot read takes the newest file whole and a partial write would erase everyone else.
+- A provider category flag of "international" is not sufficient evidence of a cap: the provider files club friendlies such as the Emirates Cup under that category, and the first real run duly credited an Arsenal player with Arsenal "caps". The team on the statistics payload must itself carry `national: true`. Youth sides are kept and named as the provider names them, so France U20 is not France.
 - refreshFixtures writes only when the diff reports a change, unless `always` is set. A fixture list polled every few minutes would otherwise fill the lake with identical snapshots.
 
 ## Related

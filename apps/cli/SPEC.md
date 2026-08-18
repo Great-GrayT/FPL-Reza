@@ -43,6 +43,10 @@ In: optional kinds to sync (see `ASSET_KINDS`), `--force` to refetch what is alr
 
 In: `history seasons` takes optional `--season`, `--limit`, `--json`; `history archive` takes optional `--season`, `--seasons` (comma separated, default every season the archive publishes from 2016/17 to the last completed one), `--format`, `--json`. Out: the same per source report table as `sync`. Errors: as `sync`. Notes: both are backfills for completed seasons, which do not change, so neither belongs on a schedule. `history archive` defaults to Parquet rather than the store default, because one season is about 27,000 rows and Parquet stores it in roughly a twentieth of the JSONL bytes.
 
+### history internationals
+
+In: optional `--season`, `--limit` (bounds the players processed), `--only-missing`, `--json`. Out: the same per source report table as `sync`. Errors: as `sync`; a failed source sets a non zero exit code. Notes: runs the mapping source then the records source against the provider's own HttpClient, since it needs browser headers and a browser TLS cipher order rather than the FPL client. Bounded and resumable: a player already mapped is skipped, so repeated small runs converge.
+
 ### rules refresh
 
 Flags: season, json. Scrapes the published rules page, diffs it against the

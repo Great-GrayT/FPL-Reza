@@ -15,6 +15,7 @@ on:
           - both
           - seasons
           - archive
+          - internationals
       seasons:
         description: 'Archive seasons, comma separated (default: every season the archive publishes)'
         required: false
@@ -75,6 +76,18 @@ jobs:
         env:
           SEASONS: ${{ inputs.seasons }}
 
+      # National team records: one search per unmapped player plus a couple of
+      # reads each, against a provider throttled to 500 ms. Bounded with the
+      # limit input, and resumable, since a mapped player is never searched again.
+      - name: Backfill internationals
+        id: internationals
+        if: inputs.what == 'internationals'
+        continue-on-error: true
+        run: |
+          node apps/cli/dist/bin.js history internationals ${LIMIT:+--limit "$LIMIT"}
+        env:
+          LIMIT: ${{ inputs.limit }}
+
       - name: Commit the history
         if: always()
         run: |
@@ -89,7 +102,7 @@ jobs:
           git push || (git pull --rebase && git push)
 
       - name: Fail the job if a backfill step failed
-        if: steps.seasons.outcome == 'failure' || steps.archive.outcome == 'failure'
+        if: steps.seasons.outcome == 'failure' || steps.archive.outcome == 'failure' || steps.internationals.outcome == 'failure'
         run: |
           echo "a backfill step failed; whatever landed has been committed above"
           exit 1

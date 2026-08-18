@@ -2,7 +2,7 @@
 title: Analytics skill
 type: skill
 module: packages/analytics
-updated: 2026-08-16
+updated: 2026-08-18
 status: active
 ---
 
@@ -11,6 +11,8 @@ status: active
 Owns derived measures over stored domain rows: rolling form, fixture difficulty
 across a horizon, value per million, bonus prediction from BPS, and defensive
 contribution rates.
+
+Also owns squad selection and the numbers a manager is shown: `squad.ts` (legality, best legal eleven, auto pick, transfer suggestions), `projection.ts` (a stated points heuristic, differentials, fixture swings), and `glossary.ts`, the dictionary every metric label on the site links to.
 
 Does not own: fetching (packages/ingest), storage (packages/store), or the rule
 constants themselves (packages/core). Every function here is pure, taking
@@ -37,6 +39,11 @@ domain rows and returning numbers. Nothing touches the filesystem or network.
 - Bonus prediction follows the official tie rules: a tied group consumes as
   many award slots as it has members, so a two way tie for first awards 3 and 3
   and the next distinct score takes 1.
+
+- `squad.ts` applies the rules in packages/core, it never restates a limit. A UI that reimplements the budget or the club cap will disagree with the engine, so the builder calls this code rather than duplicating it, which is why the functions take a structural `SquadPlayer` and not the full domain row.
+- `bestStartingEleven` searches every legal formation rather than taking the top eleven by projection. The top eleven is frequently illegal (five midfielders and no defenders), and a greedy fix would be an approximation where the exact answer costs nothing.
+- `projectPoints` has no fitted parameters and returns its own explanation. Every weight is a named constant in that file. Do not replace it with an opaque score: a squad builder whose ranking cannot be argued with is worse than one with no ranking.
+- Every entry in `glossary.ts` states the exact operation, not a paraphrase, plus the source and the caveat where a metric misleads. Adding a metric to the interface means adding its entry, since the UI links labels to ids and a missing id renders the label unlinked.
 
 ## Related
 

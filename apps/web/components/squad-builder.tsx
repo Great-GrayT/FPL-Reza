@@ -262,9 +262,9 @@ export function SquadBuilder({
         </p>
         <h1 className={styles.title}>Team sheet</h1>
         <p className={styles.standfirst}>
-          Fifteen players, {formatPrice(INITIAL_BUDGET)}, no more than three from one club. Drag a
-          name from the list into a slot, or pick it up with the keyboard and drop it into the
-          position you want. Every column is defined: follow the mark beside it.
+          Fifteen players, {formatPrice(INITIAL_BUDGET)}, no more than three from one club. Press a
+          name to add them, or drag it onto a slot. Press a name in the squad to take them out.
+          Every column is defined: follow the mark beside it.
         </p>
       </header>
 
@@ -325,7 +325,7 @@ export function SquadBuilder({
 
           {holding !== null && (
             <p className={styles.holding}>
-              Holding <strong>{byId.get(holding)?.webName}</strong>. Choose a slot below, or{' '}
+              Dragging <strong>{byId.get(holding)?.webName}</strong>. Drop them on a slot, or{' '}
               <button
                 type="button"
                 className={styles.linkButton}
@@ -333,7 +333,7 @@ export function SquadBuilder({
                   setHolding(null);
                 }}
               >
-                put them back
+                cancel
               </button>
               .
             </p>
@@ -566,13 +566,12 @@ export function SquadBuilder({
                         else add(player.id);
                       }}
                       aria-describedby={`why-${String(player.id)}`}
-                      title={check.ok ? undefined : check.reason}
                     >
                       <span className={styles.rowName}>
                         <span className={styles.rowClub}>{club?.shortName ?? '???'}</span>
                         {player.webName}
                         {player.availability !== 'available' && (
-                          <span className={styles.flag} title={player.news}>
+                          <span className={styles.flag}>
                             {player.availability === 'doubtful' ? 'doubt' : player.availability}
                           </span>
                         )}
@@ -585,8 +584,11 @@ export function SquadBuilder({
                       </span>
                     </button>
                     <p id={`why-${String(player.id)}`} className={styles.why}>
-                      {player.why.join('; ')}
-                      {held ? '. In your squad: pick again to remove.' : ''}
+                      {player.news === '' ? player.why.join('; ') : player.news}
+                      {held && '. In your squad: press again to take them out.'}
+                      {!check.ok && !held && (
+                        <span className={styles.blockedReason}> {check.reason}</span>
+                      )}
                     </p>
                   </div>
                 </li>
@@ -602,7 +604,7 @@ export function SquadBuilder({
         </section>
       </div>
 
-      <p aria-live="polite" className={styles.live} ref={liveRegion}>
+      <p aria-live="polite" role="status" className={styles.live} ref={liveRegion}>
         {message}
       </p>
 

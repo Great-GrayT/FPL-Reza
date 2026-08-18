@@ -184,6 +184,18 @@ In: a season label, that season's `merged_gw.csv`, and the code index. Out: `{ r
 
 In: an HttpClient and the seasons to pull (plus an optional baseUrl for a mirror). Out: a Source named history-archive yielding one player-gameweeks-history batch per season, partitioned by the hyphenated season label. Errors: propagates the fetch. Notes: two requests per season, the player list and the merged gameweek file.
 
+### providerIdsSource(http, options?): Source
+
+In: a Sofascore HttpClient and optional limit, progressEvery. Out: a Source named sofascore-player-ids, requiring players and teams, yielding the whole player-provider-ids dataset. Errors: propagates the fetch. Notes: one search per unmapped player, and a player already in the dataset is skipped, so a bounded run resumes where the last one stopped. A candidate is accepted when the normalised name matches and the provider club is the player's club, or when the name is unique across the results; anything else is counted and dropped.
+
+### internationalsSource(http, options?): Source
+
+In: a Sofascore HttpClient and optional limit, onlyMissing, progressEvery. Out: a Source named sofascore-internationals, requiring player-provider-ids, yielding the whole internationals dataset. Errors: propagates the fetch. Notes: two requests per player plus one per international tournament season. Rows for a player being refreshed are replaced wholesale and every other player's rows are carried through, since a snapshot is read whole.
+
+### isInternationalCategory(flag): boolean
+
+In: the provider category flag. Out: whether it reads "international". Errors: none. Notes: necessary but not sufficient. The provider files club friendlies under an international category, so the source also requires the team on the statistics payload to carry `national: true`.
+
 ## Logic
 
 HttpClient distinguishes a terminal SourceError, already thrown for a non retryable status or the final attempt, from a network or timeout fault: only the latter is retried while attempts remain within the configured retries budget. Backoff without a Retry-After header doubles from a 250ms base per attempt (250, 500, 1000, and so on); a numeric Retry-After header, in seconds, takes precedence over that computed backoff.
@@ -238,9 +250,17 @@ fantasy.premierleague.com/api/fixtures/ JSON -> FplClient.fixtures -> toFixture 
 
 Store.read of teams, players, and fixtures -> buildFixtureResolver and buildPlayerResolver -> api.sofascore.com listing pages -> per event lineups, average positions, shotmap, and one heatmap per player -> fromTeamFrame and fromShotFrame -> toPlayerMatchSpatial and toMatchEvent -> rows grouped by gameweek -> sofascoreSpatialSource batches -> runSync -> Store.write for the player-match-spatial and match-events datasets, one partition per gameweek.
 
+FPL players plus teams -> a Sofascore search per unmapped player -> name and club agreement -> providerIdsSource -> Store.write for the player-provider-ids dataset.
+
+player-provider-ids -> per player statistics seasons -> the international categories only -> per tournament season statistics, keeping rows whose team is a national side -> internationalsSource -> Store.write for the internationals dataset.
+
 FPL element-summary JSON -> FplClient.playerSummary -> toPlayerSeason per history_past row -> playerSeasonsSource batch -> Store.write for the player-seasons dataset.
 
 archive players_raw.csv -> buildCodeIndex -> archive merged_gw.csv -> parseArchiveSeason, rekeyed to playerCode -> archiveHistorySource batch per season -> Store.write for the player-gameweeks-history dataset, one Parquet partition per season.
+
+The internationals pipeline splits identity from records because the two have different lifetimes. A player code to provider id mapping is permanent, so it is resolved once and stored with its evidence (the provider name, the club at match time, and whether the match needed a club to disambiguate). Records change only when a tournament is played. Measured on 2026-08-18 over a bounded run of 8 players, 5 mapped and 4 of those carried national team records.
+
+The category flag alone was not enough: the provider files club friendly tournaments (the Emirates Cup, the International Champions Cup) under an international category, and the first run therefore produced rows whose "country" was Arsenal. Requiring `national: true` on the team is what separates a cap from a pre season friendly, and it is a structural check rather than a list of tournament names that would go stale.
 
 ## Dependencies
 

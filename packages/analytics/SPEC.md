@@ -2,7 +2,7 @@
 title: Analytics spec
 type: spec
 module: packages/analytics
-updated: 2026-08-16
+updated: 2026-08-18
 status: active
 ---
 
@@ -61,11 +61,53 @@ threshold, and expected defensive contribution points per gameweek. Errors:
 none. Notes: gameweeks whose count is null are excluded entirely; keepers never
 qualify.
 
+### validateSquad(state, players, teamName?): SquadIssue[]
+
+In: the picks and an optional budget, the player list, and a club namer for the messages. Out: every violation at once, each with a machine readable code (over_budget, squad_incomplete, quota_short, quota_exceeded, club_limit, duplicate, unknown_player) and a sentence a UI can print. Errors: none. Notes: reports all problems together rather than the first, so a builder does not make the user fix fifteen things in fifteen round trips. `isLegalSquad` is the boolean form.
+
+### canAdd(state, candidate, players): { ok: true } | { ok: false, reason }
+
+In: the current picks, one candidate, the player list. Out: whether the candidate can join, and if not, why, quoting the numbers (the price and what is left). Errors: none. Notes: this is what a drop target asks before it accepts, so a refusal happens at the gesture rather than after it.
+
+### squadCost / countByPosition / countByClub
+
+In: the picks and the player list. Out: spent, remaining, and the budget in tenths; counts per position; counts per club. Errors: none. Notes: an id no longer in the player list contributes nothing rather than throwing, because a stored squad outlives a transfer window.
+
+### bestStartingEleven(picks, players, projection): StartingEleven
+
+In: a squad, the player list, and a projection. Out: starters, bench in the order they would come on, the formation, the projected total, and a captain and vice captain. Errors: none. Notes: exhaustive over the legal formations (1 keeper, 3 to 5 defenders, 0 to 5 midfielders, 1 to 3 forwards, summing to 11), because there are only a handful and the exact answer is cheaper than justifying a heuristic. The spare keeper sits at the front of the bench, since only a keeper can replace a keeper. A squad too small to field an eleven yields empty lists rather than throwing.
+
+### autoPick(players, projection, options?): PlayerId[]
+
+In: the pool, a projection, and optional budget, keep, exclude, benchBudgetShare. Out: a complete legal squad. Errors: none. Notes: reserves the four bench slots at the cheapest legal prices first, then spends the rest by projected points per million, then fills any slot the value pass could not afford with the cheapest legal option, because an incomplete squad cannot be entered. Spending evenly across fifteen slots buys a weak eleven and an expensive bench, which is why the reserve exists.
+
+### suggestTransfers(state, players, projection, limit?): TransferSuggestion[]
+
+In: the squad, the pool, a projection, and how many to return. Out: same position swaps that raise the projection, best gain first, each with the points gained and the money freed. Errors: none. Notes: every candidate is checked through `canAdd` against the squad without the outgoing player, so a suggestion can never break the club cap or the budget.
+
+### projectPoints(player, inputs?): ProjectionParts
+
+In: a player, and optionally their gameweeks this season, the fixture list, a starting gameweek, and a horizon. Out: the base rate, the fixture multiplier, the minutes multiplier, the product, and an explanation as a list of sentences. Errors: none. Notes: base is points per game over the last six gameweeks, or last season's points per game before this season has any matches, which is what makes the number non zero in August. The fixture term is 1 plus 0.12 per difficulty step either side of neutral (3), clamped to 0.6 and 1.4. Availability multiplies (injured and suspended are 0, doubtful 0.5), and starter reliability only counts once there is evidence for it. A blank or a double is named in the explanation rather than folded into the average.
+
+### differentials(players, projection, options?): DifferentialRow[]
+
+In: the pool, a projection, and optional maxOwnership, minProjected, limit. Out: players under the ownership ceiling ranked by edge, projected points per percent owned. Errors: none. Notes: ownership is floored at a tenth of a percent so an unowned player does not divide into an infinite edge.
+
+### fixtureSwings(fixtures, teamIds, fromGameweek, horizon): FixtureSwing[]
+
+In: the fixture list, the clubs to rank, a start, and a horizon. Out: each club's average difficulty over the horizon, easiest first, with its blank and double gameweeks. Errors: none. Notes: a club with no fixture in the horizon has a null average and sorts last, rather than ranking as the easiest run available.
+
+### GLOSSARY / glossaryEntry(id)
+
+In: an id. Out: the entry, or undefined. Errors: none. Notes: 21 entries, each with a definition, the exact operation where one applies, the source, and a caveat where the metric misleads. Ids are page anchors, so they are stable and unique, which a test enforces.
+
 ## Logic
 
 Thresholds are read from packages/core, never redeclared here, so the published
 rule stays the single source: 10 for defenders, 12 for midfielders and
 forwards, non stacking, 2 points.
+
+The squad engine takes a structural `SquadPlayer` (id, teamId, position, price, webName) rather than the full domain `Player`, so the identical code runs on the server and inside the browser bundle. That is deliberate: a builder that reimplemented the budget or the club cap would eventually disagree with the platform about whether a squad is legal, and the user would be right to trust neither.
 
 Blanks and doubles are reported explicitly rather than averaged away, because a
 mean alone cannot distinguish a team with one easy fixture from a team with two.
