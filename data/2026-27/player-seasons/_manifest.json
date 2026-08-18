@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "player-seasons",
+      "partition": null,
+      "capturedAt": "2026-08-18T01:15:00.662Z",
+      "rows": 2035,
+      "bytes": 903400,
+      "format": "jsonl",
+      "file": "2026-27/player-seasons/_all/2026-08-18T01-15-00-662Z.jsonl"
+    }
+  ]
+}

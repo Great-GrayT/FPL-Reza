@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2016-17",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 23679,
+      "bytes": 268846,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2016-17/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2017-18",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 22467,
+      "bytes": 260756,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2017-18/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2018-19",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 21790,
+      "bytes": 256458,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2018-19/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2019-20",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 22560,
+      "bytes": 277820,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2019-20/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2020-21",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 24365,
+      "bytes": 345656,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2020-21/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2021-22",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 25447,
+      "bytes": 348363,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2021-22/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2022-23",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 26505,
+      "bytes": 413753,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2022-23/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2023-24",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 29725,
+      "bytes": 439543,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2023-24/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2024-25",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 27605,
+      "bytes": 409007,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2024-25/2026-08-18T01-17-28-379Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks-history",
+      "partition": "2025-26",
+      "capturedAt": "2026-08-18T01:17:28.379Z",
+      "rows": 29757,
+      "bytes": 411623,
+      "format": "parquet",
+      "file": "2026-27/player-gameweeks-history/2025-26/2026-08-18T01-17-28-379Z.parquet"
+    }
+  ]
+}
