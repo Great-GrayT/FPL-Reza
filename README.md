@@ -89,6 +89,15 @@ Leave "Include files outside the Root Directory in the Build Step" enabled. The 
 
 Set `REFRESH_TOKEN` in the project before handing the refresh URLs to a scheduler: with it unset the refresh endpoints are open, and they say so in every response. Set `FPL_SEASON` only to pin a season; otherwise it is derived from the date.
 
+## Keep the data fresh
+
+Two scheduled workflows own this, because the deployed host cannot write:
+
+- `.github/workflows/refresh-lake.yml`, hourly: `fpl fixtures refresh` and `fpl rules refresh`. Both diff first and write only on a change, so a quiet hour costs two requests and no commit.
+- `.github/workflows/sync-lake.yml`, daily at 02:15 UTC: the full sync, after FPL has settled its overnight price changes.
+
+Each commits `data/` and pushes, and the push is what redeploys the site. They share one concurrency group, since the store assumes a single writer per dataset. Both can be run by hand from the Actions tab, and the sync accepts a `sources` input for a partial run.
+
 ## Where the docs live
 
 - [How this project works](docs/ARCHITECTURE.md): the end to end explanation, from the public sources it reads through the models, the algorithms, and the packages, to a rendered page. The web app serves it at `/how-it-works`. Any change to what it describes updates it in the same commit.

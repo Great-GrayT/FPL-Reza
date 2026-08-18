@@ -1,6 +1,7 @@
 import { DATASETS, type Source, type SourceBatch, type SourceContext } from '../source.js';
 import type { HttpClient } from '../http.js';
 import { parseRules } from './parse.js';
+import { isUsableRulesDocument } from './refresh.js';
 import { RULES_URL, type RulesDocument } from './schema.js';
 
 export interface RulesSourceOptions {
@@ -32,6 +33,17 @@ export function rulesSource(http: HttpClient, options: RulesSourceOptions = {}):
         deadlines: document.deadlines.length,
         scoringRows: document.scoring.length,
       });
+
+      // Same guard as refreshRules: an empty parse is a page that no longer
+      // serves the rules to a plain client, not a season without deadlines.
+      // Yielding it would store "no deadlines" as though it were measured.
+      if (!isUsableRulesDocument(document)) {
+        context.logger.warn('rules page yielded nothing parsable, dataset skipped', {
+          parsedFrom: document.parsedFrom,
+          url,
+        });
+        return;
+      }
 
       yield {
         dataset: DATASETS.rules,

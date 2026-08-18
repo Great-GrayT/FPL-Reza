@@ -14,6 +14,24 @@ New since: `docs/ARCHITECTURE.md` explains the whole platform end to end and is 
 
 Still outstanding: push to `origin` (the remote is set to `https://github.com/Great-GrayT/FPL-Reza.git`, the push itself needs a human), the live spatial smoke test with `--spatial-max-events 2` and a recorded player resolution hit rate, a web route that renders heatmaps and shotmaps, Vercel setup, and `SKILL.md`/`SPEC.md` for `packages/assets` and `apps/web`.
 
+## Freshness, and a broken upstream found while building it
+
+The site is built from committed snapshots and Vercel cannot write, so the
+refresh endpoints persist nothing there. Two GitHub Actions workflows now own
+freshness instead: `refresh-lake.yml` hourly (fixtures and rules, both diff
+aware) and `sync-lake.yml` daily at 02:15 UTC (full sync). Each commits `data/`
+and pushes, which redeploys. They share the `fpl-lake` concurrency group because
+the store assumes one writer per dataset.
+
+Building that surfaced a dead upstream: **the FPL rules page is now client
+rendered**. Its HTML has no tables, no `__NEXT_DATA__`, and not even the string
+"Deadline", so `parseRules` returns an empty document with `parsedFrom: none`.
+Before this change `rules refresh` cheerfully stored that empty document and
+reported "rules changed". Now `isUsableRulesDocument` gates both write paths, so
+nothing lands and the CLI, the API, and the web endpoint all say so. To recover
+the rules, find the JSON the page fetches at runtime and add a source for it.
+Do not loosen the guard.
+
 ## Original blocker, resolved
 
 Kept for the record. The repo did not build; one file had one error, fixed by

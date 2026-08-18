@@ -6,7 +6,8 @@ import path from 'node:path';
 import { asSeason } from '@fpl/core';
 import { FileStore } from '@fpl/store';
 import { HttpClient } from '../http.js';
-import { readLatestRules, refreshRules } from './refresh.js';
+import { isUsableRulesDocument, readLatestRules, refreshRules } from './refresh.js';
+import { parseRules } from './parse.js';
 import { RULES_HTML_CHANGED, RULES_HTML_SAMPLE } from './fixture.test-data.js';
 
 const season = asSeason('2026/27');
@@ -111,5 +112,53 @@ describe('refreshRules', () => {
   it('returns undefined when the rules were never scraped', async () => {
     const store = new FileStore({ root: path.join(root, 'empty') });
     assert.equal(await readLatestRules(store, season), undefined);
+  });
+
+  // The published page went client rendered in August 2026: no tables, no
+  // embedded payload, so the scrape yields a document with nothing in it.
+  it('stores nothing when the page serves no rules to parse', async () => {
+    const store = new FileStore({ root: path.join(root, 'unparsable') });
+    const shell = '<!doctype html><html><body><div id="app"></div></body></html>';
+
+    const result = await refreshRules({
+      http: httpServing(() => shell),
+      store,
+      season,
+      url: 'https://example.test/api/rules',
+    });
+
+    assert.equal(result.usable, false);
+    assert.equal(result.written, null);
+    assert.equal(result.document.parsedFrom, 'none');
+    assert.equal(await readLatestRules(store, season), undefined);
+  });
+
+  it('reports a real scrape as usable', async () => {
+    const store = new FileStore({ root: path.join(root, 'usable') });
+
+    const result = await refreshRules({
+      http: httpServing(() => RULES_HTML_SAMPLE),
+      store,
+      season,
+      url: 'https://example.test/api/rules',
+    });
+
+    assert.equal(result.usable, true);
+    assert.notEqual(result.written, null);
+  });
+});
+
+describe('isUsableRulesDocument', () => {
+  it('accepts a document carrying any of deadlines, scoring, or bps', () => {
+    const document = parseRules(RULES_HTML_SAMPLE, { seasonStartYear: 2026 });
+
+    assert.equal(isUsableRulesDocument(document), true);
+  });
+
+  it('rejects a document with none of the three', () => {
+    const document = parseRules('<html><body></body></html>', { seasonStartYear: 2026 });
+
+    assert.equal(document.deadlines.length, 0);
+    assert.equal(isUsableRulesDocument(document), false);
   });
 });

@@ -24,7 +24,23 @@ export interface RefreshRulesResult {
   diff: RulesDiff;
   /** Null when nothing changed, because an unchanged page is not rewritten. */
   written: SnapshotMeta | null;
+  /**
+   * False when the page yielded nothing worth storing. A caller shows this
+   * rather than reporting a successful refresh of an empty document.
+   */
+  usable: boolean;
 }
+
+/**
+ * A scrape that found no deadlines, no scoring rows, and no BPS rows did not
+ * find the rules: it found a page that no longer serves them to a plain HTTP
+ * client. As of 2026-08-18 that is exactly what fantasy.premierleague.com does,
+ * rendering the rules client side with no tables and no embedded payload. An
+ * empty document must never reach the store: it would read back as a rules
+ * snapshot, and every consumer would treat "no deadlines" as fact.
+ */
+export const isUsableRulesDocument = (document: RulesDocument): boolean =>
+  document.deadlines.length > 0 || document.scoring.length > 0 || document.bps.length > 0;
 
 /**
  * The rules dataset is always JSONL. The document is a single deeply nested
@@ -70,15 +86,24 @@ export async function refreshRules(deps: RefreshRulesDeps): Promise<RefreshRules
 
   const previous = await readLatestRules(deps.store, deps.season);
   const diff = diffRules(previous, document);
+  const usable = isUsableRulesDocument(document);
+
+  if (!usable) {
+    logger.warn('rules page yielded nothing parsable, not written', {
+      parsedFrom: document.parsedFrom,
+      url,
+    });
+    return { document, diff, written: null, usable };
+  }
 
   if (deps.dryRun === true) {
     logger.info('rules checked, not written', { changed: diff.changed });
-    return { document, diff, written: null };
+    return { document, diff, written: null, usable };
   }
 
   if (!diff.changed) {
     logger.info('rules unchanged', { checksum: document.checksum });
-    return { document, diff, written: null };
+    return { document, diff, written: null, usable };
   }
 
   const written = await deps.store.write(
@@ -93,5 +118,5 @@ export async function refreshRules(deps: RefreshRulesDeps): Promise<RefreshRules
     deadlines: document.deadlines.length,
   });
 
-  return { document, diff, written };
+  return { document, diff, written, usable };
 }

@@ -1,0 +1,60 @@
+name: Refresh lake
+
+# Vercel cannot write at runtime, so the deployed site is only as fresh as the
+# snapshots in git. This is what commits them: the push is what triggers the
+# redeploy. The API and web refresh endpoints stay useful for a read only check,
+# but on a read only host they persist nothing.
+on:
+  schedule:
+    # Hourly. Both commands below diff first and write only on a change, so an
+    # hour with no reschedule and no rules edit costs two requests and no commit.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+# The store assumes a single writer per dataset: two runs writing the same
+# manifest would race it. Queue rather than cancel, so a run that already
+# fetched still gets to commit.
+concurrency:
+  group: fpl-lake
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # Fixtures move for broadcast, lose and regain a gameweek, and take scores
+      # live: the one dataset worth checking this often.
+      - run: node apps/cli/dist/bin.js fixtures refresh
+
+      # Cheap, and a mid season rules edit is exactly the thing nobody notices.
+      - run: node apps/cli/dist/bin.js rules refresh
+
+      - name: Commit any new snapshots
+        run: |
+          if [ -z "$(git status --porcelain data)" ]; then
+            echo "lake unchanged, nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "chore(data): refresh fixtures and rules"
+          # A human push between fetch and push is normal, not an error.
+          git push || (git pull --rebase && git push)

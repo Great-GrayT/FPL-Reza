@@ -3,6 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+    # The scheduled lake workflows commit snapshots and nothing else; re-running
+    # lint and tests over a data only commit proves nothing.
+    paths-ignore:
+      - 'data/**'
   pull_request:
 
 jobs:

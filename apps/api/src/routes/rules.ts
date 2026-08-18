@@ -53,6 +53,9 @@ export async function rulesRoutes(app: FastifyInstance, opts: RulesRouteOptions)
     });
 
     return {
+      // usable false means the page served no rules to parse, so nothing was
+      // stored and "changed" describes an empty document, not an edit.
+      usable: result.usable,
       changed: result.diff.changed,
       checksum: result.diff.checksumAfter,
       changes: result.diff.changes.map((change) => ({

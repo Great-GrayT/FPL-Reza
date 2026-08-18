@@ -27,13 +27,16 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const result = await refreshRules({ http, store, season, logger, dryRun: !writable });
 
-    if (result.diff.changed) {
+    if (result.usable && result.diff.changed) {
       revalidatePath('/');
       revalidatePath('/matches');
     }
 
     return Response.json({
       dataset: 'rules',
+      // False when the published page served nothing parsable, which is its
+      // current state: client rendered, with no tables and no embedded payload.
+      usable: result.usable,
       changed: result.diff.changed,
       checksum: result.diff.checksumAfter,
       deadlines: result.document.deadlines.length,

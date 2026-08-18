@@ -395,6 +395,16 @@ function registerRules(program: Command, deps: CliDeps, streams: Streams, now: (
         return;
       }
 
+      if (!result.usable) {
+        // Reporting "changed" here would be a lie: nothing was stored, because
+        // the page served no rules to parse.
+        writeLine(
+          streams,
+          'rules page served nothing parsable, no snapshot written (the published page is rendered client side)',
+        );
+        return;
+      }
+
       writeLine(streams, result.diff.changed ? 'rules changed' : 'rules unchanged');
       for (const change of result.diff.changes) {
         writeLine(

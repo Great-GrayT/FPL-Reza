@@ -1,0 +1,68 @@
+name: Sync lake
+
+# The full ingest: teams, players, gameweeks, fixtures, rules, odds, and player
+# gameweek histories. Daily rather than hourly because player history is roughly
+# one request per player behind a deliberate throttle, and because prices only
+# move once a day.
+on:
+  schedule:
+    # 02:15 UTC, after FPL's overnight price changes have settled.
+    - cron: '15 2 * * *'
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: 'Comma separated source names (default: all but spatial-sofascore)'
+        required: false
+        type: string
+
+concurrency:
+  group: fpl-lake
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Player history is hundreds of throttled requests; the default 360 minutes
+    # would let a stuck run hold the single writer lock all day.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # --skip-unplayed drops the request for every player with no minutes,
+      # which early in a season is most of them. --continue-on-error keeps one
+      # upstream having a bad morning from costing the other datasets.
+      - name: Sync
+        run: |
+          node apps/cli/dist/bin.js sync \
+            --skip-unplayed \
+            --continue-on-error \
+            ${SOURCES:+--sources "$SOURCES"}
+        env:
+          SOURCES: ${{ inputs.sources }}
+
+      - name: Commit the new snapshots
+        run: |
+          if [ -z "$(git status --porcelain data)" ]; then
+            echo "lake unchanged, nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "chore(data): daily sync"
+          git push || (git pull --rebase && git push)

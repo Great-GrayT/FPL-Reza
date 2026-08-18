@@ -70,11 +70,15 @@ In: a printed deadline label such as Sat 2 Jan 13:30 plus the season's start yea
 
 ### rulesSource(http, options?): Source
 
-In: an HttpClient and an optional url override. Out: a Source named fpl-rules that scrapes the rules page and yields a single rules batch with one row, the RulesDocument. Errors: propagates parseRules's errors. Notes: unlike refreshRules, this always yields (and therefore always writes) the current page; it does not diff against the stored version.
+In: an HttpClient and an optional url override. Out: a Source named fpl-rules that scrapes the rules page and yields a single rules batch with one row, the RulesDocument. Errors: propagates parseRules's errors. Notes: unlike refreshRules, this yields (and therefore writes) the current page every run; it does not diff against the stored version. The one thing it will not yield is an unusable document, the same guard refreshRules applies.
 
 ### refreshRules(deps): Promise<RefreshRulesResult>
 
-In: an HttpClient, a Store, a Season, and optional logger, capturedAt, url. Out: `{ document, diff, written }`, where written is the SnapshotMeta just recorded or null if nothing changed. Errors: propagates parseRules's and Store.write's errors. Notes: always writes JSONL regardless of the store's default format, since the document is deeply nested and the Parquet codec would flatten it to JSON text that could not be read back through the schema; scrapes first, reads the previous snapshot with readLatestRules, diffs with diffRules, and only calls Store.write when diff.changed is true.
+In: an HttpClient, a Store, a Season, and optional logger, capturedAt, url. Out: `{ document, diff, written, usable }`, where written is the SnapshotMeta just recorded or null if nothing changed or nothing usable was parsed. Errors: propagates parseRules's and Store.write's errors. Notes: always writes JSONL regardless of the store's default format, since the document is deeply nested and the Parquet codec would flatten it to JSON text that could not be read back through the schema; scrapes first, reads the previous snapshot with readLatestRules, diffs with diffRules, and only calls Store.write when diff.changed is true.
+
+### isUsableRulesDocument(document): boolean
+
+In: a RulesDocument. Out: whether it carries at least one deadline, scoring row, or BPS row. Errors: none. Notes: the guard both rules paths check before writing. A document failing it is a page that no longer serves the rules to a plain HTTP client, not a season without deadlines, and storing it would make every consumer read "no deadlines" as fact.
 
 ### readLatestRules(store, season): Promise<RulesDocument | undefined>
 
@@ -171,6 +175,8 @@ The rules page scraper (parseRules) prefers the page's own rendered HTML tables,
 london-time.ts resolves a printed deadline's year by comparing its month against a July rollover cutoff (a January date belongs to the following year, since PL seasons open in August); it derives the Europe/London to UTC offset at a given instant by formatting that instant through Europe/London and re-deriving the implied UTC instant twice, which is what lets it cross the GMT to BST transition correctly without a timezone database dependency. The same helper (londonToUtc) is reused by parseFootballDataCsv for provider kickoff times.
 
 diffRules treats every keyed collection the same way: build a key to value map for the before and after sides, report "added" for a key only in after, "removed" for a key only in before, "changed" for a key whose value differs, and nothing for a key whose value is identical; the squad and transfer blocks (plain scalars, not collections) are compared field by field the same way, coercing each side to a string for the change record.
+
+As of 2026-08-18 fantasy.premierleague.com renders its rules page client side: the HTML carries no tables, no script#**NEXT_DATA**, and not even the string "Deadline", so parseRules returns a document with parsedFrom "none" and nothing in it. Both write paths refuse it (see isUsableRulesDocument), which is why the lake has no rules dataset and the API answers 404 for /rules. Recovering the rules means locating the JSON the page fetches at runtime and adding a source for it; the scraper and its differ are otherwise unchanged and still covered by fixture driven tests.
 
 rulesSource and refreshRules both call parseRules but serve different callers: rulesSource is registered in the CLI's sync command's source list and always writes, since a batch sync is expected to capture a fresh snapshot every run; refreshRules is called directly, not as a Source, by the CLI's rules refresh command and the API's POST /rules/refresh route, and only writes when diffRules reports a change, so an interactive check for updates does not create a snapshot every time it runs.
 
