@@ -104,6 +104,24 @@ The squad as a portfolio. `efficientFrontier(candidates, constraints, points)`: 
 
 `backtest(panel, rule, options)`. A rule is a declarative object, not a callback: a universe filter, a ranking expression, a squad size, a captain rule, a transfer budget per gameweek, and a hit cost. The engine replays it gameweek by gameweek over any stored season, applying transfer costs and bench rules, and returns an equity curve, per gameweek returns, total points, the benchmark (the season's average entry score, which the gameweeks dataset stores), the tracking error, and the hit rate.
 
+#### ml/
+
+Machine learning over the same panel, in the same worker, with no new dependency and no training server. Tabular data, so the models that actually win on tabular data: trees and their ensembles, with linear and nearest neighbour baselines to beat.
+
+- `ml/pipeline.ts`: imputation, standardisation, and one hot encoding, all fitted on the training split only. A transform fitted on the whole panel and applied to a test fold is the most common way a backtest lies about itself, so the fit and the apply are separate calls by construction.
+- `ml/features.ts`: the design matrix builder. Lagged returns, rolling windows, per 90 rates, opponent strength, venue, position, price, ownership, rest days. Every feature is built from information available **before** the gameweek it predicts; a feature that reads its own target is refused by a check, not by a convention.
+- `ml/tree.ts`: CART for regression and classification, depth and leaf size bounded, with the split search on pre binned features.
+- `ml/forest.ts`: bagged trees with feature subsampling, out of bag error, and impurity importance.
+- `ml/gbm.ts`: histogram gradient boosting (features binned once into 256 buckets, so a split search is a histogram scan rather than a sort), squared and logistic loss, learning rate, subsampling, and early stopping on a validation fold. This is the workhorse: 113,592 rows by twenty features trains in seconds in a worker.
+- `ml/knn.ts`: k nearest neighbours over a standardised feature space, which doubles as the "players like this one" search the site can use directly.
+- `ml/kmeans.ts` and `ml/pca.ts`: unsupervised. Player archetypes by k means with a silhouette score, and a PCA biplot (covariance eigenvectors by Jacobi rotation) that shows which metrics actually move together.
+- `ml/mlp.ts`: a small feedforward network (one or two hidden layers, ReLU, Adam, minibatch) so a non linear baseline exists that is not a tree.
+- `ml/metrics.ts`: RMSE, MAE, R squared, log loss, Brier score, AUC with the ROC curve, a calibration curve, and a confusion matrix at a chosen threshold.
+- `ml/validate.ts`: walk forward validation by gameweek (expanding window, out of sample always in the future), with a purge and an embargo around the split so a rolling feature cannot leak across it. Learning curves, and a permutation null so a model's score can be compared against chance rather than against nothing.
+- `ml/explain.ts`: permutation importance, partial dependence, individual conditional expectation, and sampled Shapley values (Monte Carlo over feature permutations, seeded, labelled as sampled rather than exact).
+
+Everything is seeded, and a trained model serialises to JSON, so a model is shareable in the same way a chart is.
+
 ### apps/web
 
 #### Data delivery
@@ -116,7 +134,7 @@ Loading is per season and on demand: opening the Lab pulls the most recent seaso
 
 #### Panels
 
-Nine, sharing one selection context so a brush in one filters the others.
+Ten, sharing one selection context so a brush in one filters the others.
 
 1. **Screener**: virtualised table over the panel, derived formula columns, stacked filters, a pivot builder, CSV export.
 2. **Distributions**: histogram, KDE, box, violin, QQ, with a fitted distribution overlay and its goodness of fit.
@@ -126,7 +144,8 @@ Nine, sharing one selection context so a brush in one filters the others.
 6. **Match model**: the `estimateStrength` model made adjustable: change half life, shrinkage, home advantage, refit live, read the scoreline grid.
 7. **Monte Carlo**: seeded simulation of gameweek points, captaincy, chip timing, season tables, as quantile fans.
 8. **Portfolio**: the efficient frontier of legal squads, risk contributions, and the frontier's own squads inspectable.
-9. **Archive**: the 35 season record. Home advantage over time, goals per match, attendance, referees, era comparisons with a significance test rather than an eyeball.
+9. **Model lab**: pick a target (next gameweek points, a haul, a clean sheet, sixty minutes), pick features, pick a model (ridge, logistic, tree, forest, gradient boosting, k nearest neighbours, a small network), validate walk forward, and read the metrics, the learning curve, the importances, the partial dependence, the calibration, and the residuals. The fitted model then scores the current season, which turns the panel into a projection the analyst built rather than one the site handed them. Also holds the unsupervised pair: archetype clusters and the PCA biplot.
+10. **Archive**: the 35 season record. Home advantage over time, goals per match, attendance, referees, era comparisons with a significance test rather than an eyeball.
 
 #### State
 
