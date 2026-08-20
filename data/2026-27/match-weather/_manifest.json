@@ -440,6 +440,26 @@
       "bytes": 3826,
       "format": "jsonl",
       "file": "2026-27/match-weather/2026-27/2026-08-20T19-04-07-608Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T19:49:01.965Z",
+      "rows": 16,
+      "bytes": 3817,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T19-49-01-965Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T20:50:05.254Z",
+      "rows": 16,
+      "bytes": 3817,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T20-50-05-254Z.jsonl"
     }
   ]
 }
