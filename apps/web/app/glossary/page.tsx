@@ -15,7 +15,7 @@ export const metadata: Metadata = {
  */
 export default function GlossaryPage() {
   return (
-    <div className={styles.page}>
+    <div className={`shell ${styles.page}`}>
       <header className={styles.masthead}>
         <p className={styles.eyebrow}>{GLOSSARY.length} entries</p>
         <h1 className={styles.title}>What the numbers mean</h1>

@@ -147,3 +147,129 @@
   border-top: 1px solid var(--rule);
   font-size: var(--step--1);
 }
+
+/* ------------------------------------------------------ the estimate */
+
+.estimateNote {
+  margin: 0 0 var(--s3);
+  padding: var(--s3);
+  border-inline-start: 2px solid var(--bonus);
+  background: var(--paper-2);
+  font-size: var(--step--1);
+  max-inline-size: var(--measure);
+}
+
+.pitchWrap {
+  position: relative;
+}
+
+/* A broken outline, which is how a printed page marks a draft. It is the third
+   place this figure says it is modelled, after the banner and the stamp, and
+   the only one that is still visible in a screenshot with the text cropped. */
+.figure[data-estimated='true'] .pitchWrap {
+  outline: 2px dashed var(--bonus-ink);
+  outline-offset: 3px;
+}
+
+.stamp {
+  position: absolute;
+  inset-block-start: var(--s2);
+  inset-inline-end: var(--s2);
+  padding: 0.1rem 0.4rem;
+  background: var(--bonus);
+  color: #14181c;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* The reasons read as notes pencilled in the margin of a draft, which is the
+   same device the stamp and the broken outline use. Label, note, and a rule as
+   long as the claim is strong. */
+
+.reasons {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s2) var(--s3);
+  align-items: baseline;
+  margin: var(--s3) 0 0;
+  padding-block-start: var(--s3);
+  border-top: 1px solid var(--rule);
+  max-inline-size: var(--measure);
+}
+
+.reasonsHead {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.reasonsBody {
+  margin: 0;
+}
+
+.reasonList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s1);
+}
+
+.reason {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 4rem;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--step--1);
+}
+
+.reasonKind {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reasonNote {
+  color: var(--ink-soft);
+}
+
+/* Length is the weight, capped at the same 1.2 the model caps a lobe at, so two
+   players' rules are comparable rather than each scaled to its own maximum. */
+.reasonWeight {
+  height: 0.35rem;
+  border: 1px solid var(--rule-strong);
+  background: linear-gradient(
+    to right,
+    var(--bonus) 0 calc(clamp(0, var(--weight) / 1.2, 1) * 100%),
+    transparent 0
+  );
+}
+
+.window {
+  margin: var(--s2) 0 0;
+  color: var(--ink-soft);
+  font-size: var(--step--2);
+  max-inline-size: var(--measure);
+}
+
+@media (width < 32rem) {
+  /* Three columns of an already small line is four characters each on a phone;
+     stacked, the note keeps its own line and the rule sits under it. */
+  .reasons {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s2);
+  }
+
+  .reason {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .reasonWeight {
+    grid-column: 1 / -1;
+  }
+}

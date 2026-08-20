@@ -13,11 +13,14 @@ import {
   playerSeasonSchema,
   historicPlayerGameweekSchema,
   careerTotals,
+  fromArchiveSeason,
   internationalSeasonSchema,
   internationalTotals,
   groundSchema,
   groundImageSchema,
   managerSchema,
+  managerSpellSchema,
+  currentManager as currentManagerSpell,
   matchSchema,
   matchDetailSchema,
   matchWeatherSchema,
@@ -36,6 +39,7 @@ import {
   type Ground,
   type GroundImage,
   type Manager,
+  type ManagerSpell,
   type Match,
   type MatchDetail,
   type MatchWeather,
@@ -46,6 +50,7 @@ import {
 import { seasonForDate } from '@fpl/config';
 import { DATASETS } from '@fpl/ingest';
 import { FileStore } from '@fpl/store';
+import type { EvidenceRow } from './heatmap-lobes';
 
 /**
  * The site is built from committed snapshots rather than from a database or a
@@ -260,6 +265,54 @@ export const getArchivedSeasonLabels = cache(async (): Promise<string[]> => {
   const partitions = await store.partitions({ season, dataset: 'player-gameweeks-history' });
   return [...partitions].sort((a, b) => b.localeCompare(a));
 });
+
+/**
+ * A player's recent gameweeks, live season first and the archive behind it,
+ * carrying only what locates where his work happened.
+ *
+ * Two sources because the season on the ribbon is usually not the season with
+ * the evidence in it: in August the live dataset is empty and everything known
+ * about a player is last season's, while by March it is the other way round.
+ * Rows are returned oldest first with the archive's hyphenated season label
+ * rewritten into the domain's own spelling, so the two sort against each other.
+ */
+export const getRecentForm = cache(
+  async (playerCode: number, playerId: number, seasons = 2): Promise<EvidenceRow[]> => {
+    const live: EvidenceRow[] = (await getPlayerHistory(playerId)).map((row) => ({
+      season,
+      gameweek: row.gameweek,
+      minutes: row.minutes,
+      threat: row.threat,
+      creativity: row.creativity,
+      expectedGoals: row.expectedGoals,
+      expectedAssists: row.expectedAssists,
+      defensiveContribution: row.defensiveContribution,
+    }));
+
+    const labels = (await getArchivedSeasonLabels()).slice(0, seasons);
+    const archived = await Promise.all(
+      labels.map(async (label) => {
+        const rows = await getArchivedSeasonForPlayer(label, playerCode);
+        return rows.map((row): EvidenceRow => ({
+          season: fromArchiveSeason(label),
+          gameweek: row.gameweek,
+          minutes: row.minutes,
+          threat: row.threat,
+          creativity: row.creativity,
+          expectedGoals: row.expectedGoals,
+          expectedAssists: row.expectedAssists,
+          // The archive does not carry the column at all, which is not the
+          // same as a player who made no defensive actions.
+          defensiveContribution: null,
+        }));
+      }),
+    );
+
+    return [...archived.flat(), ...live].sort((a, b) =>
+      a.season === b.season ? a.gameweek - b.gameweek : a.season.localeCompare(b.season),
+    );
+  },
+);
 
 /**
  * National team records, keyed by player code. Optional like the rest of the
@@ -498,12 +551,45 @@ export const getManagersByTeamCode = cache(async (): Promise<Map<number, Manager
   return byTeam;
 });
 
-/** The club's current manager, which is the newest season's head coach. */
-export const getCurrentManager = cache(async (teamCode: number): Promise<Manager | undefined> =>
-  (await getManagersByTeamCode())
-    .get(teamCode)
-    ?.find((manager) => manager.role.toLowerCase() === 'manager'),
+/** Every dated manager spell the lake holds, which is what settles a handover. */
+export const getManagerSpells = cache(async (): Promise<ManagerSpell[]> =>
+  readOrEmpty<ManagerSpell>('manager-spells', managerSpellSchema),
 );
+
+/** Names compared across two providers: decomposed, then stripped to letters and digits,
+ * so an accent, an apostrophe, or a hyphen cannot part one name into two. */
+function normaliseName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+}
+
+/**
+ * The club's head coach today.
+ *
+ * The staff feed carries no start date and keeps a departed manager listed, so
+ * Chelsea's newest season holds two rows with the role "Manager" and reading the
+ * first of them printed a caretaker who left in June. The spells dataset is the
+ * one that has dates: the open spell names who is in charge, and the staff row
+ * matching that name is what carries the photograph and the page to link to.
+ * Where no spell covers the club, the feed order stands, which is every club
+ * that is not mid handover.
+ */
+export const getCurrentManager = cache(async (teamCode: number): Promise<Manager | undefined> => {
+  const [byTeam, spells] = await Promise.all([getManagersByTeamCode(), getManagerSpells()]);
+  const heads = (byTeam.get(teamCode) ?? []).filter(
+    (manager) => manager.role.toLowerCase() === 'manager',
+  );
+  const spell = currentManagerSpell(spells, teamCode);
+  if (spell !== null) {
+    const named = heads.find(
+      (manager) => normaliseName(manager.name) === normaliseName(spell.managerName),
+    );
+    if (named !== undefined) return named;
+  }
+  return heads[0];
+});
 
 /**
  * A licensed photograph per ground, keyed by ground id. Every one carries its

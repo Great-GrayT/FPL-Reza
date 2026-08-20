@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { GameweekRibbon, type RibbonCell } from './gameweek-ribbon';
+import type { EvidenceRow, HeatmapPrior } from '@/lib/heatmap-lobes';
 import { PlayerHeatmap, type HeatmapMatch } from './player-heatmap';
 import { PlayerTimeSeries, type SeriesPoint } from './player-time-series';
 import styles from './player-season.module.css';
@@ -33,11 +34,20 @@ export function PlayerSeason({
   series,
   rows,
   heatmap = [],
+  heatmapPrior,
+  heatmapForm,
+  liveSeason,
 }: {
   cells: readonly RibbonCell[];
   series: readonly SeriesPoint[];
   rows: readonly GameweekRow[];
   heatmap?: readonly HeatmapMatch[];
+  /** Drawn only where nothing was measured, and marked as modelled. */
+  heatmapPrior?: HeatmapPrior | undefined;
+  /** His own gameweeks, which narrow the role to him. */
+  heatmapForm?: readonly EvidenceRow[] | undefined;
+  /** The season the ribbon's gameweek numbers belong to. */
+  liveSeason?: string | undefined;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const shown = selected === null ? rows : rows.filter((row) => row.gameweek === selected);
@@ -77,7 +87,14 @@ export function PlayerSeason({
         <PlayerTimeSeries data={series} highlight={selected} />
       </section>
 
-      <PlayerHeatmap matches={heatmap} selectedGameweek={selected} onSelectGameweek={setSelected} />
+      <PlayerHeatmap
+        matches={heatmap}
+        prior={heatmapPrior}
+        form={heatmapForm}
+        liveSeason={liveSeason}
+        selectedGameweek={selected}
+        onSelectGameweek={setSelected}
+      />
 
       <section aria-labelledby="rows-heading">
         <div className={styles.sectionHead}>

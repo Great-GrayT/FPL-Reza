@@ -477,7 +477,7 @@ export function SquadBuilder({
   const starters = new Set(eleven.starters);
 
   return (
-    <div className={styles.page}>
+    <div className={`shell ${styles.page}`}>
       <header className={styles.masthead}>
         <p className={styles.eyebrow}>
           Gameweek {gameweek}

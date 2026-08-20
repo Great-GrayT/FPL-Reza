@@ -14,6 +14,7 @@ import {
   getGroundsById,
   getGroundImages,
   getManagersByTeamCode,
+  getCurrentManager,
   getMatchSeasons,
   getPlayers,
   getTeams,
@@ -74,7 +75,18 @@ export default async function TeamPage({ params }: { params: Promise<{ code: str
   const form = recentForm(allMatches, teamCode);
 
   const managers = managersByTeam.get(teamCode) ?? [];
-  const staff = managers.filter((entry) => entry.season === managers[0]?.season);
+  // A departed manager stays listed in the staff feed with no date to retire him,
+  // so a club mid handover carries two rows reading "Manager". Only the one the
+  // dated spells name is in charge; the head coach leads the list.
+  const head = await getCurrentManager(teamCode);
+  const staff = managers
+    .filter((entry) => entry.season === managers[0]?.season)
+    .filter(
+      (entry) => entry.role.toLowerCase() !== 'manager' || entry.managerId === head?.managerId,
+    )
+    .sort(
+      (a, b) => Number(b.managerId === head?.managerId) - Number(a.managerId === head?.managerId),
+    );
 
   const ground = [...grounds.values()].find((entry) => entry.teamCode === teamCode);
 

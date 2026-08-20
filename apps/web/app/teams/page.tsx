@@ -4,7 +4,7 @@ import { recentForm, teamRecord } from '@fpl/core';
 import { estimateStrength } from '@fpl/analytics';
 import { Crest } from '@/components/crest';
 import { PersonChip } from '@/components/person-photo';
-import { getAllMatches, getManagersByTeamCode, getTeams, season } from '@/lib/lake';
+import { getAllMatches, getCurrentManager, getTeams, season } from '@/lib/lake';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -13,31 +13,29 @@ export const metadata: Metadata = {
 };
 
 export default async function TeamsPage() {
-  const [teams, allMatches, managersByTeam] = await Promise.all([
-    getTeams(),
-    getAllMatches(),
-    getManagersByTeamCode(),
-  ]);
+  const [teams, allMatches] = await Promise.all([getTeams(), getAllMatches()]);
 
   const model = estimateStrength(allMatches);
   const thisSeason = allMatches.filter((match) => match.season === season);
 
-  const rows = teams
-    .map((team) => ({
-      team,
-      record: teamRecord(thisSeason, team.code),
-      form: recentForm(allMatches, team.code),
-      strength: model.teams.get(team.code),
-      manager: managersByTeam
-        .get(team.code)
-        ?.find((entry) => entry.role.toLowerCase() === 'manager'),
-    }))
-    .sort(
-      (a, b) =>
-        b.record.points - a.record.points ||
-        b.record.goalsFor - b.record.goalsAgainst - (a.record.goalsFor - a.record.goalsAgainst) ||
-        a.team.name.localeCompare(b.team.name),
-    );
+  // The head coach goes through the same resolver the match pages use, since the
+  // staff feed leaves a departed manager listed and a club mid handover has two.
+  const rows = (
+    await Promise.all(
+      teams.map(async (team) => ({
+        team,
+        record: teamRecord(thisSeason, team.code),
+        form: recentForm(allMatches, team.code),
+        strength: model.teams.get(team.code),
+        manager: await getCurrentManager(team.code),
+      })),
+    )
+  ).sort(
+    (a, b) =>
+      b.record.points - a.record.points ||
+      b.record.goalsFor - b.record.goalsAgainst - (a.record.goalsFor - a.record.goalsAgainst) ||
+      a.team.name.localeCompare(b.team.name),
+  );
 
   return (
     <div className="shell">

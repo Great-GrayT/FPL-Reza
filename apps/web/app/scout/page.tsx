@@ -79,7 +79,7 @@ export default async function ScoutPage() {
     .slice(0, CAPTAIN_SHORTLIST);
 
   return (
-    <div className={styles.page}>
+    <div className={`shell ${styles.page}`}>
       <header className={styles.masthead}>
         <p className={styles.eyebrow}>Gameweek {from} onward</p>
         <h1 className={styles.title}>Scout</h1>

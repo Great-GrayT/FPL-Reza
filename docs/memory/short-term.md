@@ -8,7 +8,7 @@ status: active
 
 ## Status
 
-Everything below is committed on `main` and green: `pnpm build`, 635 tests, lint, and format all pass as of 2026-08-20.
+Green as of 2026-08-20: `pnpm build`, 687 tests, lint, and format all pass. Everything below is committed on `main` **except** the estimated heatmap (four files under `apps/web/lib`, the player page, the heatmap component, `lake.ts`) and the two fixes recorded under "Fixed on 2026-08-20", which are verified and sitting uncommitted in the working tree after VS Code was killed at 100% CPU mid verify. `apps/web` is not in the root `tsconfig` references, so its only typecheck is `next build` over 1,109 pages: that is what pinned the CPU. `npx tsc --noEmit -p apps/web/tsconfig.json` is the cheap equivalent and is what was run instead.
 
 Complete and shipped:
 
@@ -19,10 +19,16 @@ Complete and shipped:
 - `/planner`: the goal control, the calendar rail, the pitch per gameweek, and the transfer ledger. The search runs in a Web Worker: eight gameweeks is about 2,500 states in 280 ms, measured on the real lake.
 - Both team building surfaces now put the squad on a printed pitch with club shirts and a paper metric tag; the selection list uses the player photograph instead.
 - `/builder` is an optimiser as well as a builder. `optimiseSquad` in `packages/planner` searches for the best legal fifteen over a chosen horizon and reports what it beat and what it cost. Verified in a real browser at 360 and 1440, light and dark, keyboard only: 42,000 squads in under half a second at eight gameweeks, 440.4 against the ranking's 424.6.
+- The player page's heatmap panel no longer sits empty. `apps/web/lib/estimated-heatmap.ts` builds a role prior from the newest teamsheet that named the player (his club's last shape where none does), and `apps/web/lib/heatmap-lobes.ts` narrows it with his own last twelve played matches: shooting distance inverted from threat and expected goals, creativity in the half space on his side, defensive contribution behind him. Posterior is `(prior + floor) * (1 + sum of lobes)`, a product rather than a sum, so evidence can raise a region and never invent one. It runs in the browser and follows the gameweek ribbon. 26 tests, and the shot quality constant is pinned against `@fpl/model`'s so the copy cannot fork.
+
+## Fixed on 2026-08-20, after a crash mid verify
+
+- **The head coach was read from the wrong feed.** The Premier League staff endpoint carries no start date and leaves a departed manager listed, so five clubs of twenty held two rows reading "Manager" and the site printed the first: Chelsea showed Calum McFarlane, a caretaker whose spell closed on 1 June, instead of Xabi Alonso. Palace, Forest, Leeds, and Wolves were wrong the same way. `currentManager` in `packages/core/src/spells.ts` had answered this since it was written and the web never called it. `getCurrentManager` in `apps/web/lib/lake.ts` now takes the open spell and matches it to the staff row on a decomposed, alphanumeric only name (which is what joins Jakirovic to Jakirović), falling back to feed order where no spell covers the club. `/teams` had its own copy of the broken pick and now calls the same resolver; `/teams/[code]` drops a "Manager" row that is not the current one and leads with the head coach. All 20 clubs resolve by spell.
+- **Three routes printed edge to edge.** `/glossary`, `/scout`, and `/builder` each had a local `.page` setting `padding-block` alone with no `.shell` wrapper, so content ran from the leftmost to the rightmost pixel at every width. All three now wrap in `shell` the way `/how-it-works` does. `/planner` sets its own 78rem measure deliberately and was left alone.
 
 ## In flight
 
-**The one thing left mid step: the fitted models are not wired into the planner.** `/planner` and `/builder` both still project through the stated heuristic in `packages/analytics`, not through `packages/model`. The artifacts have to exist on disk first, and the run that writes them was stopped before it finished. To resume:
+**The one thing left mid step: the fitted models are not wired into the planner.** `/planner` and `/builder` both still project through the stated heuristic in `packages/analytics`, not through `packages/model`. `data/models/` is committed and holds six of the nine components (minutes, assistRate, cleanSheet, saveRate, cardRate, priceChange); goalRate, concededRate, and bpsRate are absent, so a rerun is still wanted before the swap. Note the notes below describe a run in which clean sheet was refused, and the artifact on disk says a later run wrote one: check the gate before trusting either. To rerun:
 
 ```sh
 node --import tsx apps/cli/src/bin.ts model train --folds 4 --rounds 220 --seed 7

@@ -1,9 +1,11 @@
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GAMEWEEKS_PER_SEASON, playerFullName } from '@fpl/core';
 import { Crest } from '@/components/crest';
 import { PersonPhoto } from '@/components/person-photo';
+import { buildNamedShapes, estimatePrior } from '@/lib/estimated-heatmap';
 import { PlayerSeason, type GameweekRow } from '@/components/player-season';
 import type { HeatmapMatch } from '@/components/player-heatmap';
 import { PlayerCareer } from '@/components/player-career';
@@ -21,10 +23,21 @@ import {
   getPlayerSpatial,
   getTeamsById,
   getTeamsByCode,
+  getAllMatchDetailsById,
   getAllMatches,
+  getRecentForm,
+  season as liveSeason,
 } from '@/lib/lake';
 import { POSITION_LABEL, opponentFor, price, signed } from '@/lib/display';
 import styles from './page.module.css';
+
+/**
+ * Built once for the whole build rather than once per profile: 590 pages each
+ * walking every stored teamsheet is the same answer computed six hundred times.
+ */
+const namedShapes = cache(async () =>
+  buildNamedShapes(await getAllMatches(), await getAllMatchDetailsById()),
+);
 
 export async function generateStaticParams(): Promise<{ id: string }[]> {
   const players = await getPlayers();
@@ -62,6 +75,8 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     getTeamsByCode(),
     getAllMatches(),
   ]);
+
+  const shapes = await namedShapes();
 
   const currentGameweek = gameweeks.find((week) => week.isCurrent)?.id;
   // Keyed by plain number so a loop counter can look a gameweek up without
@@ -127,6 +142,18 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   // backfilled season that fixture is an official match id, so the opponent is
   // read off the official record rather than off this season's fixture list.
   const matchById = new Map(allMatches.map((match) => [match.matchId as number, match]));
+  /**
+   * Where his role puts him, for the case the lake holds no tracking data at
+   * all, which today is every player. Read from the most recent teamsheet that
+   * named him, so the shape is the one his manager actually picked rather than
+   * the one his position is called, and from his club's last shape where no
+   * teamsheet names him yet. His own record narrows it in the browser, so the
+   * figure can follow the gameweek ribbon like the rest of the page.
+   */
+  const shape = team === undefined ? null : shapes.forPlayer(player.code, team.code);
+  const prior = estimatePrior({ position: player.position, playerCode: player.code, shape });
+  const form = await getRecentForm(player.code, player.id);
+
   const heatmapMatches: HeatmapMatch[] = spatial
     .filter((row) => row.spatial.heatmap !== null)
     .map((row) => {
@@ -233,7 +260,15 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         </aside>
 
         <div className={styles.main}>
-          <PlayerSeason cells={cells} series={series} rows={rows} heatmap={heatmapMatches} />
+          <PlayerSeason
+            cells={cells}
+            series={series}
+            rows={rows}
+            heatmap={heatmapMatches}
+            heatmapPrior={prior}
+            heatmapForm={form}
+            liveSeason={liveSeason}
+          />
           <PlayerCareer seasons={career.seasons} totals={career.totals} />
           <PlayerInternationals seasons={international.seasons} totals={international.totals} />
         </div>
