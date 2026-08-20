@@ -79,6 +79,15 @@ export default tseslint.config(
   {
     files: ['**/*.mjs', '**/*.config.ts'],
     ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      // Spread rather than replace: disableTypeChecked sets the parser options
+      // that keep these files out of the type aware project, and overwriting
+      // the whole key would put them back in it.
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      // Build and audit scripts run under node, so its globals are real here.
+      // Without this every `process` and `console` in them reads as undefined.
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly' },
+    },
   },
   prettier,
 );

@@ -37,6 +37,19 @@ const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 const BACKOFF_BASE_MS = 250;
 
+/**
+ * Raised by a body reader when the response arrived but its body did not: an
+ * empty 200, or a truncated payload. The Premier League API does this
+ * intermittently, and it is a transient fault rather than a missing resource,
+ * so it is retried on the same terms as a network fault.
+ */
+class BodyFault extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BodyFault';
+  }
+}
+
 export class HttpClient {
   private readonly options: HttpClientOptions;
   private readonly fetchImpl: typeof fetch;
@@ -56,23 +69,31 @@ export class HttpClient {
   }
 
   async getJson(pathname: string): Promise<unknown> {
-    const response = await this.get(pathname, 'application/json');
-    return response.json();
+    return this.request(pathname, 'application/json', async (response) => {
+      // The body is read as text and parsed here rather than through
+      // response.json(), so an empty or truncated payload is a fault this
+      // client can name and retry instead of a bare SyntaxError with no URL.
+      const text = await response.text();
+      if (text.trim() === '') throw new BodyFault('answered 200 with an empty body');
+      try {
+        return JSON.parse(text) as unknown;
+      } catch (error) {
+        throw new BodyFault(`answered 200 with a body that is not JSON: ${describeError(error)}`);
+      }
+    });
   }
 
   /** Used for the rules page, which is HTML rather than an API payload. */
   async getText(pathname: string): Promise<string> {
-    const response = await this.get(pathname, 'text/html,application/xhtml+xml');
-    return response.text();
+    return this.request(pathname, 'text/html,application/xhtml+xml', (response) => response.text());
   }
 
   /** Raw bytes, for images and any other non textual resource. */
   async getBytes(pathname: string, accept = '*/*'): Promise<BinaryResponse> {
-    const response = await this.get(pathname, accept);
-    return {
+    return this.request(pathname, accept, async (response) => ({
       bytes: new Uint8Array(await response.arrayBuffer()),
       contentType: response.headers.get('content-type'),
-    };
+    }));
   }
 
   /**
@@ -91,7 +112,16 @@ export class HttpClient {
     }
   }
 
-  private async get(pathname: string, accept: string): Promise<Response> {
+  /**
+   * One request, with the body read inside the retry loop. Reading it outside
+   * was the defect this shape exists to prevent: a 200 with an empty body threw
+   * a SyntaxError that named no URL, was never retried, and failed a whole sync.
+   */
+  private async request<T>(
+    pathname: string,
+    accept: string,
+    read: (response: Response) => Promise<T>,
+  ): Promise<T> {
     const url = this.resolve(pathname);
     let lastError: unknown;
 
@@ -107,7 +137,25 @@ export class HttpClient {
           signal: AbortSignal.timeout(this.options.timeoutMs),
         });
 
-        if (response.ok) return response;
+        if (response.ok) {
+          try {
+            return await read(response);
+          } catch (error) {
+            if (!(error instanceof BodyFault)) throw error;
+            if (attempt === this.options.retries) {
+              throw new SourceError(this.name, `GET ${url} ${error.message}`, { cause: error });
+            }
+            const wait = backoffMs(attempt);
+            this.logger.warn('retrying after an unreadable body', {
+              url,
+              reason: error.message,
+              waitMs: wait,
+            });
+            await this.sleep(wait);
+            lastError = error;
+            continue;
+          }
+        }
 
         if (!RETRYABLE.has(response.status) || attempt === this.options.retries) {
           throw new SourceError(this.name, `GET ${url} failed with ${response.status}`, {

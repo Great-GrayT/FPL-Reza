@@ -100,6 +100,40 @@ describe('HttpClient', () => {
     assert.deepEqual(waits, [250, 500]);
   });
 
+  it('retries a 200 that carries an empty body', async () => {
+    // The Premier League API answers a valid request this way now and then. It
+    // is a transient fault, not a missing resource, so it is worth a retry.
+    let call = 0;
+    const { http, calls } = client([
+      () => {
+        call += 1;
+        return call === 1 ? new Response('', { status: 200 }) : json({ ok: true });
+      },
+    ]);
+    assert.deepEqual(await http.getJson('x'), { ok: true });
+    assert.equal(calls.length, 2);
+  });
+
+  it('names the url when a body stays empty', async () => {
+    const { http, calls } = client([() => new Response('', { status: 200 })], { retries: 1 });
+    await assert.rejects(
+      () => http.getJson('fixtures'),
+      (error: unknown) =>
+        error instanceof SourceError &&
+        error.message.includes('fixtures') &&
+        error.message.includes('empty body'),
+    );
+    assert.equal(calls.length, 2);
+  });
+
+  it('names the url when a body is not valid JSON', async () => {
+    const { http } = client([() => new Response('{"truncated"', { status: 200 })], { retries: 0 });
+    await assert.rejects(
+      () => http.getJson('teams'),
+      (error: unknown) => error instanceof SourceError && error.message.includes('teams'),
+    );
+  });
+
   it('does not retry a 404', async () => {
     const { http, calls } = client([() => json({}, 404)]);
     await assert.rejects(() => http.getJson('missing'), SourceError);
