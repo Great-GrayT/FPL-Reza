@@ -1,4 +1,4 @@
-import type { Chip, Plan } from '@fpl/planner';
+import type { Chip, Lock, Plan } from '@fpl/planner';
 import type { WirePlayer } from './projections';
 
 /**
@@ -70,8 +70,13 @@ export interface StrategyRequest extends PoolEnvelope {
   /** In tenths, the way the code carries it. */
   riskAversion: number;
   freeTransfers: number;
+  maxTransfersPerWeek?: number;
   chips: Chip[];
-  keep: number[];
+  /**
+   * Players fixed in the squad, and for how long. Both modes hold a player in
+   * the opening fifteen; `always` also stops the plan ever selling him.
+   */
+  locks: Lock[];
   seed: number;
 }
 
@@ -116,6 +121,48 @@ export interface SolvedStrategy {
   spreads: number[];
   /** The fingerprint of the pool this was actually solved against. */
   fingerprint: string;
+  /**
+   * Per gameweek, the best moves available at the start of it with nothing in
+   * the way: no transfer budget, no hit, no regard for what the plan does next.
+   * It is what the plan passed up, printed beside what the plan did, because a
+   * reader who disagrees with a plan wants to see the move it declined.
+   */
+  freeHand: FreeHandWeek[];
+  /** Null where the frontier could not be solved under these constraints. */
+  portfolio: PortfolioView | null;
+}
+
+/**
+ * The squad as a portfolio, over the horizon the strategy names.
+ *
+ * A plan reports one number, its expected total, and a band around it. That
+ * band is a consequence of the fifteen it holds, and the frontier is what says
+ * whether the trade was a good one: how much expected return a squad gives up
+ * to reduce its week to week variance, and where this squad sits against the
+ * best trade available at its own level of risk.
+ */
+export interface FrontierPoint {
+  expected: number;
+  risk: number;
+  /** Risk aversion this point was optimal at. */
+  lambda: number;
+  /** Cost in tenths, so a reader can see what the frontier is spending. */
+  cost: number;
+}
+
+export interface PortfolioView {
+  frontier: FrontierPoint[];
+  /** Where the plan's own squad sits: its expected total and its spread. */
+  held: { expected: number; risk: number; cost: number };
+  /** Per player share of the squad's variance, largest first. */
+  contributions: { name: string; club: string; share: number }[];
+  /** How correlated two players at one club are assumed to be. */
+  clubCorrelation: number;
+}
+
+export interface FreeHandWeek {
+  gameweek: number;
+  swaps: { out: number; in: number; gain: number; cost: number }[];
 }
 
 export interface Envelope {

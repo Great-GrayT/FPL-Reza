@@ -195,6 +195,7 @@ function movesFor(
     >
   >,
   chipsAvailable: readonly Chip[],
+  locked: ReadonlySet<number>,
 ): Move[] {
   const moves: Move[] = [{ out: [], in: [], chip: null }];
 
@@ -206,6 +207,9 @@ function movesFor(
 
   const singles: { out: number; in: number; gain: number; cost: number }[] = [];
   for (const outCode of squad.picks) {
+    // A locked player is not a candidate to sell, so he never enters a single
+    // and therefore never enters a pair either.
+    if (locked.has(outCode)) continue;
     const outPlayer = index.get(outCode);
     if (outPlayer === undefined) continue;
     const outValue = valueOf(outPlayer, week, options.riskAversion);
@@ -322,6 +326,7 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
   const maxTransfersPerWeek = options.maxTransfersPerWeek ?? 2;
   const candidatesPerWeek = options.candidatesPerWeek ?? 12;
   const minTransferGain = options.minTransferGain ?? DEFAULT_MIN_TRANSFER_GAIN;
+  const locked = new Set(options.locked ?? []);
 
   const index = new Map(players.map((player) => [player.code, { ...player }]));
   const byPosition = new Map<Position, PlannerPlayer[]>();
@@ -393,6 +398,7 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
         rules,
         { maxTransfersPerWeek, candidatesPerWeek, riskAversion, minTransferGain },
         chipsAvailable,
+        locked,
       );
 
       for (const move of moves) {

@@ -271,3 +271,58 @@ describe('the claim every plan makes', () => {
     }
   });
 });
+
+describe('a locked player', () => {
+  const players = pool();
+  const squad = startingSquad(players);
+
+  /** A pool where selling the first defender is plainly the best move. */
+  function withAnObviousUpgrade(): PlannerPlayer[] {
+    return pool().map((player) =>
+      player.position === 'DEF' && !squad.picks.includes(player.code)
+        ? { ...player, price: 40, projections: player.projections.map(() => 20) }
+        : player,
+    );
+  }
+
+  it('is sold when nothing locks him', () => {
+    const result = plan(withAnObviousUpgrade(), squad, { horizon: 4, startGameweek: 1 });
+    assert.ok(result.transfers > 0, 'the search should take an upgrade this large');
+  });
+
+  it('is never sold when he is locked throughout', () => {
+    const locked = squad.picks;
+    const result = plan(withAnObviousUpgrade(), squad, {
+      horizon: 4,
+      startGameweek: 1,
+      locked,
+    });
+    for (const week of result.weeks)
+      for (const code of week.transfersOut)
+        assert.fail(`sold ${String(code)}, which was locked for the whole horizon`);
+  });
+
+  it('locks only the players named, and leaves the rest tradable', () => {
+    const first = squad.picks[2] ?? 0;
+    const result = plan(withAnObviousUpgrade(), squad, {
+      horizon: 4,
+      startGameweek: 1,
+      locked: [first],
+    });
+    const soldOut = result.weeks.flatMap((week) => week.transfersOut);
+    assert.ok(!soldOut.includes(first), 'the locked player was sold');
+    assert.ok(result.transfers > 0, 'the rest of the squad should still trade');
+  });
+
+  it('still beats holding the same fifteen, with a lock in place', () => {
+    const result = plan(withAnObviousUpgrade(), squad, {
+      horizon: 4,
+      startGameweek: 1,
+      locked: [squad.picks[0] ?? 0],
+    });
+    assert.ok(
+      result.excess >= -1e-9,
+      `a plan must never be worth less than holding, got ${String(result.excess)}`,
+    );
+  });
+});

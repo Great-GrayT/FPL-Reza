@@ -1,24 +1,45 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import { shirtUrl } from '@fpl/assets/urls';
 import { formatPrice, type Position } from '@fpl/core';
-import type { Chip, Plan, PlannerPlayer, WeekPlan } from '@fpl/planner';
+import {
+  StrategyCodeError,
+  decodeStrategy,
+  encodeStrategy,
+  rebaseStrategy,
+  type Chip,
+  type Plan,
+  type PlannerPlayer,
+  type Strategy,
+  type WeekPlan,
+} from '@fpl/planner';
 import { classes } from '@/lib/classes';
+import { Frontier, RiskShare } from './frontier';
+import { MiniPitch, type MiniPlayer } from './mini-pitch';
 import { usePlannerRun } from '@/lib/planner/client';
 import type { PlannerPool } from '@/lib/planner/projections';
 import styles from './planner.module.css';
 
 /**
- * The season planner.
+ * The plan, explained.
+ *
+ * This page decides nothing. It used to: it picked its own fifteen with the
+ * greedy opening picker and planned from that, while `/builder` searched for a
+ * better fifteen and planned from that instead, so two pages answered one
+ * question differently and the planner's squad was the very baseline the
+ * builder printed as the number it had beaten. There is now one search, on the
+ * builder, and this page explains what it produced.
+ *
+ * What arrives here is a strategy code: the question, not the answer. It is
+ * re-solved on today's data, which is what lets the page say the data has moved
+ * rather than quietly showing a stale squad.
  *
  * FPL time is 38 discrete slabs, and a plan is a decision per slab, so the
  * calendar is not a widget beside the plan: it is the plan. Each column is one
  * gameweek, its height is what that week is worth, its marks are what the plan
  * does that week, and pressing it scrubs the pitch below to that week's squad.
- *
- * The search itself runs in a worker and under every rule the game enforces, so
- * nothing it suggests is a squad the reader could not actually enter.
  */
 
 export interface PlannerClub {
@@ -27,40 +48,10 @@ export interface PlannerClub {
   shortName: string;
 }
 
-interface Goal {
-  key: string;
-  label: string;
-  weeks: number;
-  note: string;
-}
-
-/**
- * The goals a manager actually has. These are not arbitrary horizons: a week is
- * a captaincy decision, a month is a transfer decision, a half season is a chip
- * decision, and a season is a strategy.
- */
-const GOALS: Goal[] = [
-  { key: 'week', label: 'This week', weeks: 1, note: 'One gameweek. The captain is the decision.' },
-  { key: 'month', label: 'A month', weeks: 4, note: 'Four gameweeks. Transfers start to pay off.' },
-  { key: 'two', label: 'Two months', weeks: 8, note: 'Eight gameweeks. A hit can be recovered.' },
-  { key: 'half', label: 'Half a season', weeks: 19, note: 'Nineteen. Chips are worth planning.' },
-  {
-    key: 'season',
-    label: 'The season',
-    weeks: 38,
-    note: 'Everything left, blanks and doubles too.',
-  },
-];
-
 const RISKS = [
   { value: -1, label: 'Chasing', note: 'Prefers the volatile squad: the one that can win a week.' },
   { value: 0, label: 'Neutral', note: 'Ranks on the mean projection alone.' },
   { value: 1, label: 'Protecting', note: 'Subtracts a standard deviation: the safe squad.' },
-];
-
-const ALL_CHIPS: { chip: Chip; label: string }[] = [
-  { chip: 'bench_boost', label: 'Bench boost' },
-  { chip: 'triple_captain', label: 'Triple captain' },
 ];
 
 const POSITIONS: Position[] = ['GKP', 'DEF', 'MID', 'FWD'];
@@ -87,14 +78,8 @@ export function Planner({
   fromGameweek: number;
   horizon: number;
 }) {
-  const [goalKey, setGoalKey] = useState('month');
-  const [risk, setRisk] = useState(0);
-  const [chips, setChips] = useState<Chip[]>([]);
-  const [maxTransfers, setMaxTransfers] = useState(2);
-  const [selected, setSelected] = useState<number | null>(null);
-
-  const goal = GOALS.find((entry) => entry.key === goalKey) ?? GOALS[1];
-  const weeks = Math.min(goal?.weeks ?? 4, horizon);
+  /** The pitch itself, so the corner panel knows when it has left the screen. */
+  const pitchRef = useRef<HTMLDivElement>(null);
 
   const byCode = useMemo(
     () => new Map(pool.players.map((player) => [player.code, player])),
@@ -106,47 +91,100 @@ export function Planner({
     [deadlines],
   );
 
-  // The opening fifteen: chosen once, over a fixed window, so switching goals
-  // replans from the same squad rather than quietly changing the starting point.
-  const opening = usePlannerRun(
-    () => ({
-      kind: 'auto' as const,
-      poolGeneration: POOL_GENERATION,
-      players: pool.players,
-      matches: pool.matches,
-      gameweeks: pool.gameweeks,
-      budget: 1000,
-      horizon: Math.min(8, horizon),
-    }),
-    (reply) => reply.squad ?? null,
-    [pool.players, horizon],
-  );
+  const params = useSearchParams();
+  const fromUrl = params.get('code');
+  const [pasted, setPasted] = useState('');
+  const [running, setRunning] = useState<string | null>(fromUrl);
+  const [selected, setSelected] = useState<number | null>(null);
 
-  const squad = useMemo(() => opening.data?.picks ?? [], [opening.data]);
-  const bank = opening.data?.bank ?? 0;
+  const code = running ?? fromUrl;
 
-  const planned = usePlannerRun(
+  /**
+   * The code, read and moved onto today.
+   *
+   * A strategy set in gameweek 3 to run through gameweek 10 is still that
+   * strategy in gameweek 5: same budget, same risk, same locks, two fewer
+   * weeks. A window that has closed entirely is refused by name rather than
+   * clipped to nothing.
+   */
+  const read = useMemo((): { strategy: Strategy; elapsed: number } | { error: string } | null => {
+    if (code === null || code.trim() === '') return null;
+    try {
+      const rebased = rebaseStrategy(decodeStrategy(code), fromGameweek);
+      return { strategy: rebased.strategy, elapsed: rebased.weeksElapsed };
+    } catch (error: unknown) {
+      return {
+        error:
+          error instanceof StrategyCodeError
+            ? error.message
+            : 'that code could not be read, so nothing was solved',
+      };
+    }
+  }, [code, fromGameweek]);
+
+  const strategy = read !== null && 'strategy' in read ? read.strategy : null;
+  const codeError = read !== null && 'error' in read ? read.error : null;
+
+  /** Missing from today's pool: a squad of fourteen is illegal, so it refuses. */
+  const missing = useMemo(() => {
+    if (strategy === null) return [];
+    const known = new Set(pool.players.map((player) => player.code));
+    return strategy.squad.filter((entry) => !known.has(entry));
+  }, [strategy, pool.players]);
+
+  const weeks = strategy === null ? 0 : strategy.endGameweek - strategy.startGameweek + 1;
+
+  const solved = usePlannerRun(
     () =>
-      squad.length === 15
-        ? {
-            kind: 'plan' as const,
+      strategy === null || missing.length > 0
+        ? null
+        : {
+            kind: 'strategy' as const,
             poolGeneration: POOL_GENERATION,
-            squad,
-            bank,
-            freeTransfers: 1,
-            startGameweek: fromGameweek,
-            horizon: weeks,
-            riskAversion: risk,
-            chips,
-            maxTransfersPerWeek: maxTransfers,
-            // A long horizon is a wider search, so the beam narrows to keep the
-            // whole plan inside a second rather than a minute.
-            beamWidth: weeks > 12 ? 6 : 12,
-          }
-        : null,
-    (reply) => reply.plan ?? null,
-    [squad.join(','), bank, weeks, risk, chips.join(','), maxTransfers, fromGameweek],
+            players: pool.players,
+            matches: pool.matches,
+            gameweeks: pool.gameweeks,
+            budget: strategy.budget,
+            horizon: Math.min(weeks, horizon),
+            startGameweek: strategy.startGameweek,
+            riskAversion: strategy.riskAversion,
+            freeTransfers: strategy.freeTransfers,
+            maxTransfersPerWeek: strategy.maxTransfersPerWeek,
+            chips: strategy.chips,
+            locks: strategy.locks,
+            seed: strategy.seed,
+          },
+    (reply) => reply.strategy ?? null,
+    [code, weeks, horizon, missing.length],
   );
+
+  const planned = { running: solved.running, error: solved.error, data: solved.data?.plan ?? null };
+
+  /** The default question the builder asks, for a reader who arrives with none. */
+  const explainDefault = useCallback(() => {
+    setSelected(null);
+    setRunning(
+      encodeStrategy({
+        version: 2,
+        startGameweek: fromGameweek,
+        endGameweek: fromGameweek + Math.min(8, horizon) - 1,
+        budget: 1000,
+        riskAversion: 0,
+        freeTransfers: 1,
+        maxTransfersPerWeek: 2,
+        chips: [],
+        squad: [],
+        locks: [],
+        seed: 7,
+        fingerprint: '',
+      }),
+    );
+  }, [fromGameweek, horizon]);
+
+  const runPasted = useCallback(() => {
+    setSelected(null);
+    setRunning(pasted.trim());
+  }, [pasted]);
 
   const plan = planned.data;
   const week =
@@ -154,111 +192,150 @@ export function Planner({
       ? null
       : (plan.weeks.find((entry) => entry.gameweek === selected) ?? plan.weeks[0] ?? null);
 
+  /** The week on the pitch, reduced to what survives at thumbnail size. */
+  const miniSquad: MiniPlayer[] = useMemo(() => {
+    if (week === null) return [];
+    return week.picks.flatMap((code) => {
+      const player = byCode.get(code);
+      if (player === undefined) return [];
+      return [
+        {
+          code,
+          position: player.position,
+          teamCode: player.teamCode,
+          name: player.name,
+          starter: week.starters.includes(code),
+          captain: week.captain === code,
+        },
+      ];
+    });
+  }, [week, byCode]);
+
   return (
     <div className={styles.page}>
       <header className={styles.head}>
         <p className={styles.eyebrow}>
           From gameweek {fromGameweek} · {horizon} left
         </p>
-        <h1 className={styles.title}>Season planner</h1>
+        <h1 className={styles.title}>The plan, explained</h1>
         <p className={styles.standfirst}>
-          Say how far ahead you are playing, and the search returns a squad for every gameweek in
-          between: who comes in, who goes out, what a hit costs, who wears the armband, and where a
-          chip earns more than holding it. Every squad it suggests is legal, because an illegal one
-          is never scored.
+          One search decides a squad, on the <a href="/builder">team builder</a>, and this page
+          explains what it decided: what each gameweek is expected to be worth and how sure that is,
+          who comes in and who goes out, what a hit costs, who wears the armband, and where a chip
+          earns more than holding it. The strategy arrives as a code and is solved again on
+          today&apos;s data, so a plan that has gone stale says so instead of looking current.
         </p>
       </header>
 
-      <section className={styles.controls} aria-label="What you are planning for">
-        <fieldset className={styles.field}>
-          <legend className={styles.legend}>Goal</legend>
-          <div className={styles.choices}>
-            {GOALS.map((entry) => (
-              <button
-                key={entry.key}
-                type="button"
-                className={styles.choice}
-                data-on={entry.key === goalKey ? 'true' : undefined}
-                onClick={() => {
-                  setGoalKey(entry.key);
-                  setSelected(null);
-                }}
-              >
-                {entry.label}
-              </button>
-            ))}
-          </div>
-          <p className={styles.note}>
-            {goal?.note} {weeks < (goal?.weeks ?? 0) && `Only ${String(weeks)} gameweeks are left.`}
+      {/* The question, in words. Every one of these came from the code rather
+          than from a control here, because a page that could change them would
+          be deciding again, which is the thing that made the two pages
+          disagree in the first place. */}
+      {strategy !== null && (
+        <section className={styles.controls} aria-label="The strategy being explained">
+          <dl className={styles.question}>
+            <div>
+              <dt>Window</dt>
+              <dd className="num">
+                GW {strategy.startGameweek}&ndash;{strategy.endGameweek}
+              </dd>
+            </div>
+            <div>
+              <dt>Budget</dt>
+              <dd className="num">{formatPrice(strategy.budget)}</dd>
+            </div>
+            <div>
+              <dt>Risk</dt>
+              <dd>
+                {RISKS.find((entry) => entry.value === Math.sign(strategy.riskAversion))?.label ??
+                  'Neutral'}
+              </dd>
+            </div>
+            <div>
+              <dt>Transfers a week</dt>
+              <dd className="num">{strategy.maxTransfersPerWeek}</dd>
+            </div>
+            <div>
+              <dt>Chips</dt>
+              <dd>
+                {strategy.chips.length === 0 ? 'none' : strategy.chips.map(chipLabel).join(', ')}
+              </dd>
+            </div>
+            <div>
+              <dt>Fixed players</dt>
+              <dd className="num">
+                {strategy.locks.length === 0
+                  ? 'none'
+                  : `${String(strategy.locks.filter((lock) => lock.mode === 'start').length)} at the start, ${String(strategy.locks.filter((lock) => lock.mode === 'always').length)} all period`}
+              </dd>
+            </div>
+          </dl>
+
+          {read !== null && 'elapsed' in read && read.elapsed > 0 && (
+            <p className={styles.note}>
+              This code opened at gameweek {strategy.startGameweek - read.elapsed} and{' '}
+              {read.elapsed === 1 ? 'a gameweek has' : `${String(read.elapsed)} gameweeks have`}{' '}
+              been played since, so it is solved over the {weeks} that are left of its window rather
+              than replanned to a later end.
+            </p>
+          )}
+
+          {solved.data !== null &&
+            strategy.fingerprint !== '' &&
+            solved.data.fingerprint !== strategy.fingerprint && (
+              <p className={styles.note}>
+                The prices or projections have moved since this code was minted, so this is that
+                question answered again on today&apos;s data rather than the squad its author saw.
+              </p>
+            )}
+        </section>
+      )}
+
+      {/* Nothing to explain: say so and point at the page that decides, rather
+          than inventing a squad here and reintroducing the disagreement. */}
+      {strategy === null && (
+        <section className={styles.controls} aria-label="Nothing to explain yet">
+          <p className={styles.standfirst}>
+            This page explains a strategy rather than choosing one. Build a squad on the{' '}
+            <a href="/builder">team builder</a>, then press &ldquo;Explain this plan&rdquo;, or
+            paste a code here.
           </p>
-        </fieldset>
-
-        <fieldset className={styles.field}>
-          <legend className={styles.legend}>Risk</legend>
-          <div className={styles.choices}>
-            {RISKS.map((entry) => (
-              <button
-                key={entry.label}
-                type="button"
-                className={styles.choice}
-                data-on={entry.value === risk ? 'true' : undefined}
-                onClick={() => {
-                  setRisk(entry.value);
-                }}
-              >
-                {entry.label}
-              </button>
-            ))}
+          {codeError !== null && (
+            <p className={styles.error} role="alert">
+              {codeError}
+            </p>
+          )}
+          <div className={styles.paste}>
+            <label className={styles.legend} htmlFor="planner-code">
+              Strategy code
+            </label>
+            <input
+              id="planner-code"
+              className={classes(styles.codeInput, 'num')}
+              value={pasted}
+              spellCheck={false}
+              placeholder="FPL2-G3-EA-B1000-..."
+              onChange={(event) => {
+                setPasted(event.target.value);
+              }}
+            />
+            <button type="button" className={styles.choice} onClick={runPasted}>
+              Explain it
+            </button>
+            <button type="button" className={styles.choice} onClick={explainDefault}>
+              Or explain the best squad for the next {Math.min(8, horizon)} gameweeks
+            </button>
           </div>
-          <p className={styles.note}>{RISKS.find((entry) => entry.value === risk)?.note}</p>
-        </fieldset>
+        </section>
+      )}
 
-        <fieldset className={styles.field}>
-          <legend className={styles.legend}>Chips held</legend>
-          <div className={styles.choices}>
-            {ALL_CHIPS.map((entry) => (
-              <button
-                key={entry.chip}
-                type="button"
-                className={styles.choice}
-                data-on={chips.includes(entry.chip) ? 'true' : undefined}
-                onClick={() => {
-                  setChips((current) =>
-                    current.includes(entry.chip)
-                      ? current.filter((chip) => chip !== entry.chip)
-                      : [...current, entry.chip],
-                  );
-                }}
-              >
-                {entry.label}
-              </button>
-            ))}
-          </div>
-          <p className={styles.note}>
-            A chip is played only where it beats holding it to the end of the horizon.
-          </p>
-        </fieldset>
-
-        <fieldset className={styles.field}>
-          <legend className={styles.legend}>Transfers a week</legend>
-          <div className={styles.choices}>
-            {[1, 2].map((count) => (
-              <button
-                key={count}
-                type="button"
-                className={styles.choice}
-                data-on={count === maxTransfers ? 'true' : undefined}
-                onClick={() => {
-                  setMaxTransfers(count);
-                }}
-              >
-                {count}
-              </button>
-            ))}
-          </div>
-          <p className={styles.note}>Anything past the free one costs four points.</p>
-        </fieldset>
-      </section>
+      {missing.length > 0 && (
+        <p className={styles.error} role="alert">
+          This code holds {missing.length} {missing.length === 1 ? 'player' : 'players'} who
+          {missing.length === 1 ? ' is' : ' are'} not in today&apos;s pool, so it cannot be solved:
+          planning from fourteen would present the search filling that hole as an improvement.
+        </p>
+      )}
 
       {plan !== null && (
         <dl className={styles.summary} aria-label="What the plan is worth">
@@ -318,7 +395,29 @@ export function Planner({
           index={week.gameweek - fromGameweek}
           byCode={byCode}
           clubByCode={clubByCode}
+          pitchRef={pitchRef}
+          freeHand={
+            solved.data?.freeHand.find((entry) => entry.gameweek === week.gameweek)?.swaps ?? []
+          }
         />
+      )}
+
+      {/* The calendar, the ledger, and the caveats are all about the eleven
+          above them, so the eleven stays in the corner once it scrolls away. */}
+      <MiniPitch players={miniSquad} watch={pitchRef} label="The eleven this gameweek" />
+
+      {/* The plan's band is a consequence of the fifteen it holds, and on its
+          own it says nothing about whether that was a good trade. The frontier
+          is what answers that: the best return available at every level of
+          risk, with this squad drawn on it. */}
+      {solved.data?.portfolio != null && (
+        <section className={styles.portfolio} aria-labelledby="portfolio-head">
+          <h2 id="portfolio-head" className={styles.sectionHead}>
+            The squad as a portfolio
+          </h2>
+          <Frontier portfolio={solved.data.portfolio} />
+          <RiskShare portfolio={solved.data.portfolio} />
+        </section>
       )}
 
       <section className={styles.caveat} aria-label="What this does not know">
@@ -478,11 +577,16 @@ function WeekView({
   index,
   byCode,
   clubByCode,
+  pitchRef,
+  freeHand,
 }: {
   week: WeekPlan;
   index: number;
   byCode: Map<number, PlannerPlayer>;
   clubByCode: Map<number, PlannerClub>;
+  pitchRef: RefObject<HTMLDivElement | null>;
+  /** The best moves available this week with nothing in the way. */
+  freeHand: readonly { out: number; in: number; gain: number; cost: number }[];
 }) {
   const resolve = (codes: readonly number[]): PlannerPlayer[] =>
     codes.flatMap((code) => {
@@ -508,7 +612,7 @@ function WeekView({
         </span>
       </h2>
 
-      <div className={styles.pitch}>
+      <div className={styles.pitch} ref={pitchRef}>
         <PitchLines />
         {POSITIONS.map((position) => {
           const line = starters.filter((player) => player.position === position);
@@ -589,6 +693,56 @@ function WeekView({
               </li>
             )}
           </ul>
+        )}
+      </div>
+
+      {/* Two answers to two different questions, printed side by side. What the
+          plan does is constrained by the squad it arrived with, the transfers it
+          banked, and what a hit costs. What was available is none of those: it
+          is the best legal move from this squad in this gameweek, which is what
+          a reader who disagrees with the plan actually wants to see. */}
+      <div className={styles.ledger}>
+        <h3 className={styles.ledgerHead}>What was available, with a free hand</h3>
+        {freeHand.length === 0 ? (
+          <p className={styles.ledgerNone}>
+            Nothing in the pool improves this squad over the rest of the horizon, so holding is not
+            the plan being cautious: it is the whole market having nothing to offer.
+          </p>
+        ) : (
+          <>
+            <ul className={styles.ledgerList}>
+              {freeHand.map((swap) => {
+                const out = byCode.get(swap.out);
+                const incoming = byCode.get(swap.in);
+                const taken =
+                  week.transfersIn.includes(swap.in) && week.transfersOut.includes(swap.out);
+                return (
+                  <li
+                    key={`${String(swap.out)}-${String(swap.in)}`}
+                    className={styles.ledgerRow}
+                    data-taken={taken ? 'true' : undefined}
+                  >
+                    <span className={styles.ledgerOut}>{out?.name ?? swap.out}</span>
+                    <span className={styles.ledgerArrow} aria-hidden="true">
+                      &rarr;
+                    </span>
+                    <span className={styles.ledgerIn}>{incoming?.name ?? swap.in}</span>
+                    <span className={classes(styles.ledgerDelta, 'num')}>
+                      {swap.gain > 0 ? '+' : ''}
+                      {swap.gain.toFixed(1)} pts
+                      {taken ? ' · taken' : ''}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className={styles.ledgerNote}>
+              Measured over the rest of the horizon rather than this gameweek, since a player bought
+              now is still owned in five weeks. Legal and affordable from this squad, but ignoring
+              the free transfer and the four point hit: that is the gap between what is possible and
+              what is worth doing.
+            </p>
+          </>
         )}
       </div>
     </section>

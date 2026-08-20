@@ -1,0 +1,102 @@
+/* The eleven at thumbnail size, pinned to the corner once the real pitch has
+   scrolled away. Bottom right on a wide screen; above the section bar on a
+   phone, since that corner is already a navigation bar there. */
+
+.panel {
+  position: fixed;
+  inset-block-end: var(--s4);
+  inset-inline-end: var(--s4);
+  z-index: 40;
+  opacity: 0;
+  transform: translateY(0.5rem);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.panel[data-shown='true'] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+    transform: none;
+  }
+}
+
+.button {
+  display: block;
+  padding: var(--s2);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: 0 2px 0 var(--ink);
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--paper-2);
+}
+
+/* Flat green with ink line-work, the same printed pitch as the full size one,
+   drawn from behind the goal because that is how the eleven are laid out. */
+.pitch {
+  display: grid;
+  gap: 0.18rem;
+  inline-size: 3.4rem;
+  block-size: 4.6rem;
+  padding: 0.2rem;
+  background: var(--pitch);
+  border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
+  align-content: space-between;
+}
+
+/* Keeper at the bottom, forwards at the top: the rows are listed back to
+   front, so the grid is reversed rather than the data. */
+.pitch {
+  grid-auto-flow: row;
+  direction: ltr;
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+  gap: 0.16rem;
+}
+
+.pitch .row:first-child {
+  order: 4;
+}
+.pitch .row:nth-child(2) {
+  order: 3;
+}
+.pitch .row:nth-child(3) {
+  order: 2;
+}
+.pitch .row:nth-child(4) {
+  order: 1;
+}
+
+.dot {
+  inline-size: 0.34rem;
+  block-size: 0.34rem;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+}
+
+.dot[data-captain='true'] {
+  background: var(--flare);
+}
+
+@media (width < 48rem) {
+  /* The bottom of a phone is the section bar, so the panel sits above it. */
+  .panel {
+    inset-block-end: calc(var(--s8) + var(--s5));
+    inset-inline-end: var(--s3);
+  }
+}

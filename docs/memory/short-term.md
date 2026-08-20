@@ -8,7 +8,7 @@ status: active
 
 ## Status
 
-Green as of 2026-08-20: `pnpm build`, 700 tests, lint, and format all pass. Everything below is committed on `main` **except** the estimated heatmap (four files under `apps/web/lib`, the player page, the heatmap component, `lake.ts`) and the two fixes recorded under "Fixed on 2026-08-20", which are verified and sitting uncommitted in the working tree after VS Code was killed at 100% CPU mid verify. `apps/web` is not in the root `tsconfig` references, so its only typecheck is `next build` over 1,109 pages: that is what pinned the CPU. `npx tsc --noEmit -p apps/web/tsconfig.json` is the cheap equivalent and is what was run instead.
+Green as of 2026-08-20: `pnpm build`, 717 tests, lint, and format all pass. Everything below is committed on `main` **except** the estimated heatmap (four files under `apps/web/lib`, the player page, the heatmap component, `lake.ts`) and the two fixes recorded under "Fixed on 2026-08-20", which are verified and sitting uncommitted in the working tree after VS Code was killed at 100% CPU mid verify. `apps/web` is not in the root `tsconfig` references, so its only typecheck is `next build` over 1,109 pages: that is what pinned the CPU. `npx tsc --noEmit -p apps/web/tsconfig.json` is the cheap equivalent and is what was run instead.
 
 Complete and shipped:
 
@@ -35,6 +35,21 @@ Found on 2026-08-20 from two user reports ("Saka looks like a midfielder", "Timb
 - **The provider publishes a real role vocabulary**, 54 labels over 13 lines and 3 sides, sitting unused in `lineup[].positionInfo`. The prior is now the modal label over a player's last twelve starts, and the page prints it with its count.
 - **`packages/model` is unaffected.** Its duel geometry only mirrors relatively (an attacker's lateral against `1 - lateral` in the opponent's rows), so absolute handedness cancels. The teamsheet drawing is side on, where which touchline is at the top is a convention rather than a claim, so it was left alone.
 - Measured after: Saka reads Left Winger 12 of 12 (the provider's claim, not a correction of it), Timber sits right sided at defensive depth, Calafiori left back, Saliba centre back, Rice central midfield, Raya on his line.
+
+## The builder and the plan page were two answers to one question
+
+Rebuilt on 2026-08-20. The two pages each picked a fifteen and each planned a horizon, and they disagreed: `/planner` used the greedy `openingSquad` over a fixed eight weeks whatever goal was chosen, while `/builder` used `optimiseSquad` over the chosen horizon. Measured, that is 424.6 against 440.4 over eight gameweeks, so the plan page was planning from the very squad the builder prints as the number it beat, and both had their own copy of the goal table.
+
+Now: **the builder decides, the plan page explains.** One search, on the builder. A strategy code carries it to `/planner?code=`, where it is re-solved on today's data.
+
+- **Locks, in two modes.** A pin on each shirt cycles free, held at the start, held all period, and a switch sets all fifteen at once. `start` constrains the opening squad only; `always` also stops `movesFor` ever selling him. A lock is a constraint, never a bonus.
+- **Code version 2** carries an end gameweek instead of a horizon (a code minted at GW3 to run to GW10 and opened at GW5 solves the six weeks left, since the destination is what its author chose), plus the fifteen, the locks with modes, and transfers a week. Version 1 still decodes.
+- **Refusals are named**: bad checksum, closed window, or a player no longer in the pool (planning from fourteen would present the search filling that hole as an improvement).
+- **`bestSwaps`** in the planner package gives each gameweek the best legal move with a free hand, printed beside what the plan actually did, with a move the plan took marked rather than removed.
+- **The frontier** from `@fpl/quant` draws the squad as a portfolio, with per player risk shares. It is one component of the analysis, not the page.
+- **`components/mini-pitch.tsx`** keeps the eleven in the corner on any page with a pitch once the real one scrolls off.
+
+Design written up in `docs/superpowers/specs/2026-08-20-builder-and-plan-design.md`.
 
 ## In flight
 

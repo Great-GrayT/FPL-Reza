@@ -1183,3 +1183,59 @@
   border-color: var(--rule);
   cursor: not-allowed;
 }
+
+/* ------------------------------------------------------------- fixing players
+
+   A fixed player is a constraint on the search, so the control that sets it
+   reads as a pin on the shirt rather than as a setting somewhere else: the
+   claim is about that player, and it belongs on him. */
+
+.locks {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+
+.lockButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+
+.pin {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pin:hover {
+  border-color: var(--ink);
+}
+
+/* Held at the start is an outline; held all period is filled. One is a
+   starting condition, the other is a standing instruction. */
+.pin[data-lock='start'] {
+  border-color: var(--bonus-ink);
+  color: var(--bonus-ink);
+}
+
+.pin[data-lock='always'] {
+  border-color: var(--bonus-ink);
+  background: var(--bonus);
+  color: #14181c;
+}

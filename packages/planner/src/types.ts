@@ -79,6 +79,21 @@ export const DEFAULT_RULES: PlanRules = {
   tripleCaptainMultiplier: 3,
 };
 
+/**
+ * How long a player is fixed in the squad.
+ *
+ * Two different questions, and collapsing them into one checkbox would answer
+ * the wrong one silently. "I own him today, is he worth keeping?" fixes him at
+ * the start and lets the plan sell him; "I am keeping him, what is the best
+ * team around him?" fixes him for the whole horizon.
+ */
+export type LockMode = 'always' | 'start';
+
+export interface Lock {
+  code: number;
+  mode: LockMode;
+}
+
 export interface PlanOptions {
   /** Gameweeks to plan, from the first in the projections. */
   horizon: number;
@@ -111,6 +126,13 @@ export interface PlanOptions {
    * player one week and buys him back the next.
    */
   minTransferGain?: number;
+  /**
+   * Players the plan may never sell. A lock is a constraint and never a bonus:
+   * a locked player is not scored more highly, he is simply present, so the
+   * cost of locking him shows up as a smaller excess over holding rather than
+   * hidden inside a rearranged squad.
+   */
+  locked?: readonly number[];
 }
 
 export interface WeekPlan {

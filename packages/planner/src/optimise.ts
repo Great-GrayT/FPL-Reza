@@ -46,7 +46,11 @@ export interface OptimiseOptions {
    * mean; above 0 it subtracts that many standard deviations.
    */
   riskAversion?: number;
-  /** Codes the search must keep and may never transfer out. */
+  /**
+   * Codes the search must keep. Both lock modes constrain the opening fifteen
+   * identically, because this search only ever chooses an opening fifteen: the
+   * modes diverge in `plan`, where an `always` lock is also unsellable.
+   */
   keep?: readonly number[];
   /**
    * Kick and re-climb rounds after the first climb. Forty is where the answer

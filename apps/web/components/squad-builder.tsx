@@ -24,7 +24,14 @@ import {
 } from '@fpl/analytics';
 import { shirtUrl } from '@fpl/assets/urls';
 import { classes } from '@/lib/classes';
-import { StrategyCodeError, decodeStrategy, encodeStrategy, type Strategy } from '@fpl/planner';
+import { MiniPitch, type MiniPlayer } from './mini-pitch';
+import {
+  StrategyCodeError,
+  decodeStrategy,
+  encodeStrategy,
+  type LockMode,
+  type Strategy,
+} from '@fpl/planner';
 import { send } from '@/lib/planner/client';
 import type { SolvedStrategy } from '@/lib/planner/protocol';
 import type { PlannerPool } from '@/lib/planner/projections';
@@ -167,7 +174,17 @@ export function SquadBuilder({
   const [message, setMessage] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [goalKey, setGoalKey] = useState('two');
-  const [keepPicks, setKeepPicks] = useState(false);
+  /**
+   * Which players are fixed, and for how long.
+   *
+   * Two different questions, and a single checkbox answered neither: "I own
+   * him today, is he worth keeping?" fixes a player in the opening fifteen and
+   * lets the plan sell him later, while "I am keeping him" fixes him for the
+   * whole period. A player with no entry here is free.
+   */
+  const [locks, setLocks] = useState<Record<number, LockMode>>({});
+  /** The pitch itself, so the corner panel knows when it has left the screen. */
+  const pitchRef = useRef<HTMLDivElement>(null);
   const [searching, setSearching] = useState(false);
   const [found, setFound] = useState<
     (SolvedStrategy & { seconds: number; weeks: number; code: string; stale: boolean }) | null
@@ -329,12 +346,13 @@ export function SquadBuilder({
         matches: pool.matches,
         gameweeks: pool.gameweeks,
         budget: strategy.budget,
-        horizon: strategy.horizon,
+        horizon: strategy.endGameweek - strategy.startGameweek + 1,
         startGameweek: strategy.startGameweek,
         riskAversion: strategy.riskAversion,
         freeTransfers: strategy.freeTransfers,
+        maxTransfersPerWeek: strategy.maxTransfersPerWeek,
         chips: strategy.chips,
-        keep: strategy.keep,
+        locks: strategy.locks,
         seed: strategy.seed,
       })
         .then((reply) => {
@@ -349,7 +367,7 @@ export function SquadBuilder({
           setFound({
             ...result,
             seconds: reply.elapsed / 1000,
-            weeks: strategy.horizon,
+            weeks: strategy.endGameweek - strategy.startGameweek + 1,
             code: encodeStrategy(solvedFor),
             stale: strategy.fingerprint !== '' && strategy.fingerprint !== result.fingerprint,
           });
@@ -361,7 +379,7 @@ export function SquadBuilder({
             }),
           );
           say(
-            `Search finished. ${result.optimisation.points.toFixed(1)} points over ${String(strategy.horizon)} gameweeks, ${(result.optimisation.points - result.optimisation.baseline).toFixed(1)} more than the ranking.`,
+            `Search finished. ${result.optimisation.points.toFixed(1)} points over ${String(strategy.endGameweek - strategy.startGameweek + 1)} gameweeks, ${(result.optimisation.points - result.optimisation.baseline).toFixed(1)} more than the ranking.`,
           );
         })
         .catch((error: unknown) => {
@@ -374,25 +392,67 @@ export function SquadBuilder({
     [pool.players, pool.matches, pool.gameweeks, idByCode, say],
   );
 
+  /** The locks as the search takes them, only for players actually in the squad. */
+  const lockList = useMemo(
+    () =>
+      picks.flatMap((id) => {
+        const mode = locks[Number(id)];
+        const code = codeById.get(id);
+        return mode === undefined || code === undefined ? [] : [{ code, mode }];
+      }),
+    [picks, locks, codeById],
+  );
+
+  const lockCounts = useMemo(
+    () => ({
+      start: lockList.filter((lock) => lock.mode === 'start').length,
+      always: lockList.filter((lock) => lock.mode === 'always').length,
+    }),
+    [lockList],
+  );
+
+  /** Cycle one player: free, then held at the start, then held throughout. */
+  const cycleLock = useCallback((id: PlayerId) => {
+    setLocks((current) => {
+      const mode = current[Number(id)];
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([key]) => key !== String(id)),
+      ) as Record<number, LockMode>;
+      if (mode === undefined) next[Number(id)] = 'start';
+      else if (mode === 'start') next[Number(id)] = 'always';
+      return next;
+    });
+  }, []);
+
+  /** Set every player currently in the squad at once. */
+  const lockAll = useCallback(
+    (mode: LockMode | null) => {
+      setLocks(() => {
+        if (mode === null) return {};
+        const next: Record<number, LockMode> = {};
+        for (const id of picks) next[Number(id)] = mode;
+        return next;
+      });
+    },
+    [picks],
+  );
+
   const optimise = useCallback(() => {
     solve({
-      version: 1,
+      version: 2,
       startGameweek: gameweek,
-      horizon: weeks,
+      endGameweek: gameweek + weeks - 1,
       budget: INITIAL_BUDGET,
       riskAversion: 0,
       freeTransfers: 1,
+      maxTransfersPerWeek: 2,
       chips: [],
-      keep: keepPicks
-        ? picks.flatMap((id) => {
-            const code = codeById.get(id);
-            return code === undefined ? [] : [code];
-          })
-        : [],
+      squad: [],
+      locks: lockList,
       seed: 7,
       fingerprint: '',
     });
-  }, [solve, gameweek, weeks, keepPicks, picks, codeById]);
+  }, [solve, gameweek, weeks, lockList]);
 
   /**
    * The plan as the forecast reads it: one row per gameweek, with the names the
@@ -458,10 +518,19 @@ export function SquadBuilder({
   const runPasted = useCallback(() => {
     try {
       const strategy = decodeStrategy(pasted);
+      const span = strategy.endGameweek - strategy.startGameweek + 1;
       setGoalKey(
-        GOALS.find((entry) => entry.weeks === strategy.horizon)?.key ??
-          GOALS[GOALS.length - 1]?.key ??
-          'two',
+        GOALS.find((entry) => entry.weeks === span)?.key ?? GOALS[GOALS.length - 1]?.key ?? 'two',
+      );
+      // A code carries its constraints, so pasting one adopts them: the reader
+      // sees which players the answer was told to hold.
+      setLocks(
+        Object.fromEntries(
+          strategy.locks.flatMap((lock) => {
+            const id = idByCode.get(lock.code);
+            return id === undefined ? [] : [[Number(id), lock.mode] as const];
+          }),
+        ),
       );
       solve(strategy);
     } catch (error: unknown) {
@@ -471,10 +540,26 @@ export function SquadBuilder({
           : 'that code could not be read, so nothing was changed',
       );
     }
-  }, [pasted, solve]);
+  }, [pasted, solve, idByCode]);
 
   const spentShare = Math.min(100, (cost.spent / cost.budget) * 100);
   const starters = new Set(eleven.starters);
+
+  /** The eleven as the corner panel draws it: position, club, captain. */
+  const miniSquad: MiniPlayer[] = picks.flatMap((id) => {
+    const player = byId.get(id);
+    if (player === undefined) return [];
+    return [
+      {
+        code: player.code,
+        position: player.position,
+        teamCode: teamById.get(player.teamId)?.code ?? 0,
+        name: player.webName,
+        starter: starters.has(player.id),
+        captain: player.id === eleven.captain,
+      },
+    ];
+  });
 
   return (
     <div className={`shell ${styles.page}`}>
@@ -562,7 +647,7 @@ export function SquadBuilder({
             </p>
           )}
 
-          <div className={styles.pitch}>
+          <div className={styles.pitch} ref={pitchRef}>
             <PitchLines />
             {POSITIONS.map((slot) => (
               <section key={slot} className={styles.line} aria-labelledby={`line-${slot}`}>
@@ -586,8 +671,10 @@ export function SquadBuilder({
                         isCaptain={player?.id === eleven.captain}
                         club={player === undefined ? undefined : teamById.get(player.teamId)}
                         holding={holding}
+                        lock={player === undefined ? undefined : locks[Number(player.id)]}
                         onDropPlayer={add}
                         onRemove={remove}
+                        onCycleLock={cycleLock}
                       />
                     );
                   })}
@@ -718,19 +805,62 @@ export function SquadBuilder({
               </p>
             </fieldset>
 
-            <label className={styles.keep}>
-              <input
-                type="checkbox"
-                checked={keepPicks}
-                disabled={picks.length === 0}
-                onChange={(event) => {
-                  setKeepPicks(event.target.checked);
-                }}
-              />
-              <span>
-                Keep the {picks.length} {picks.length === 1 ? 'player' : 'players'} I have picked
-              </span>
-            </label>
+            {/* Fixing players is the question the search exists to answer for
+                a manager who already owns a team: not "which fifteen is best"
+                but "which fifteen is best given these". The two modes are two
+                different questions and a single checkbox answered neither. */}
+            <fieldset className={styles.locks}>
+              <legend className={styles.solverLabel}>Players I am fixing</legend>
+              <div className={styles.lockButtons} role="group">
+                <button
+                  type="button"
+                  className={
+                    lockCounts.start + lockCounts.always === 0 ? styles.goalOn : styles.goal
+                  }
+                  onClick={() => {
+                    lockAll(null);
+                  }}
+                  disabled={picks.length === 0}
+                >
+                  None
+                </button>
+                <button
+                  type="button"
+                  className={
+                    lockCounts.start === picks.length && picks.length > 0
+                      ? styles.goalOn
+                      : styles.goal
+                  }
+                  onClick={() => {
+                    lockAll('start');
+                  }}
+                  disabled={picks.length === 0}
+                >
+                  At the start
+                </button>
+                <button
+                  type="button"
+                  className={
+                    lockCounts.always === picks.length && picks.length > 0
+                      ? styles.goalOn
+                      : styles.goal
+                  }
+                  onClick={() => {
+                    lockAll('always');
+                  }}
+                  disabled={picks.length === 0}
+                >
+                  Whole period
+                </button>
+              </div>
+              <p className={styles.solverNote}>
+                {picks.length === 0
+                  ? 'Pick players first, then fix the ones you are keeping. Press the pin on a shirt to fix one on its own.'
+                  : lockCounts.start + lockCounts.always === 0
+                    ? 'Nothing is fixed, so the search is free to replace all fifteen. Press the pin on a shirt to fix one.'
+                    : `${String(lockCounts.start)} held in the opening squad, ${String(lockCounts.always)} held all period. A fixed player is a constraint, never a bonus: the search reports what it beat either way.`}
+              </p>
+            </fieldset>
 
             <div className={styles.actions}>
               <button
@@ -845,6 +975,11 @@ export function SquadBuilder({
                   >
                     Copy
                   </button>
+                  {/* The code is the hand-off: this page decides, and the plan
+                      page explains what was decided, from the same question. */}
+                  <a className={styles.secondary} href={`/planner?code=${found.code}`}>
+                    Explain this plan
+                  </a>
                 </div>
               </div>
             )}
@@ -1072,9 +1207,19 @@ export function SquadBuilder({
           </li>
         </ul>
       </section>
+
+      {/* The reasoning below the pitch is long, and every line of it is about
+          the squad above it. Once that has scrolled away the eleven stays in
+          the corner, at the size a glance needs. */}
+      <MiniPitch players={miniSquad} watch={pitchRef} label="Your eleven" />
     </div>
   );
 }
+
+const LOCK_TITLE: Record<LockMode, string> = {
+  start: 'Held in the opening squad. Press to hold him all period.',
+  always: 'Held all period, never sold. Press to let him go.',
+};
 
 function Slot({
   slot,
@@ -1083,8 +1228,10 @@ function Slot({
   isStarter,
   isCaptain,
   holding,
+  lock,
   onDropPlayer,
   onRemove,
+  onCycleLock,
 }: {
   slot: Position;
   player: BuilderPlayer | undefined;
@@ -1092,8 +1239,11 @@ function Slot({
   isStarter: boolean;
   isCaptain: boolean;
   holding: PlayerId | null;
+  /** Undefined where the search is free to sell him. */
+  lock: LockMode | undefined;
   onDropPlayer: (id: PlayerId) => void;
   onRemove: (id: PlayerId) => void;
+  onCycleLock: (id: PlayerId) => void;
 }) {
   const [over, setOver] = useState(false);
 
@@ -1157,6 +1307,35 @@ function Slot({
               </abbr>
             )}
             {!isStarter && <span className={styles.benched}>Bench</span>}
+
+            {/* A pin, because that is what fixing a player is. Three states on
+                one control, each named in full for a screen reader, since the
+                difference between holding a player at the start and holding him
+                all period is the whole point of having it. */}
+            <button
+              type="button"
+              className={styles.pin}
+              data-lock={lock ?? 'none'}
+              title={
+                lock === undefined
+                  ? 'Free to be sold. Press to hold him at the start.'
+                  : LOCK_TITLE[lock]
+              }
+              onClick={() => {
+                onCycleLock(player.id);
+              }}
+            >
+              <span aria-hidden="true">
+                {lock === 'always' ? 'A' : lock === 'start' ? 'S' : ''}
+              </span>
+              <span className="visually-hidden">
+                {lock === undefined
+                  ? `${player.webName} is free to be sold`
+                  : lock === 'start'
+                    ? `${player.webName} is held in the opening squad`
+                    : `${player.webName} is held for the whole period`}
+              </span>
+            </button>
           </span>
 
           <span className={styles.tag}>

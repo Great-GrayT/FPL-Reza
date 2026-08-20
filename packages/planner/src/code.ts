@@ -1,4 +1,4 @@
-import type { Chip } from './types.js';
+import type { Chip, Lock, LockMode } from './types.js';
 
 /**
  * A strategy as a code.
@@ -23,23 +23,40 @@ import type { Chip } from './types.js';
  * anyone decoding anything.
  */
 
-export const STRATEGY_CODE_VERSION = 1;
+export const STRATEGY_CODE_VERSION = 2;
 
 export interface Strategy {
   version: number;
   /** The gameweek the horizon opens on. */
   startGameweek: number;
-  /** Gameweeks planned, inclusive of the first. */
-  horizon: number;
+  /**
+   * The last gameweek planned, inclusive.
+   *
+   * The end rather than the length, because the length is not what an author
+   * chose: they chose a destination. A code minted in gameweek 3 to run through
+   * gameweek 10 and opened in gameweek 5 should plan the six weeks that are
+   * left, not eight fresh ones ending somewhere its author never named.
+   */
+  endGameweek: number;
   /** Budget in tenths of a million. */
   budget: number;
   /** Risk appetite, in tenths, so -1.0 travels as -10. */
   riskAversion: number;
   freeTransfers: number;
+  /** Transfers the plan may make in one gameweek. Two is a hit. */
+  maxTransfersPerWeek: number;
   /** Chips the manager holds and is willing to spend inside the horizon. */
   chips: Chip[];
-  /** Player codes the search must keep. */
-  keep: number[];
+  /**
+   * The fifteen the strategy holds, where it holds one.
+   *
+   * This is an input to a plan rather than the answer to a search, which is why
+   * it may travel in a code at all: the planner explains a squad it was handed,
+   * and the builder's own answer is still re-solved from the question.
+   */
+  squad: number[];
+  /** Players fixed in the squad, and for how long. */
+  locks: Lock[];
   /** Seed, so the same code returns the same answer on the same data. */
   seed: number;
   /** Hash of the pool this was solved against, which is what detects drift. */
@@ -88,28 +105,43 @@ function checksum(body: string): string {
   return base36(hash).padStart(2, '0');
 }
 
+const LOCK_LETTERS: Record<LockMode, string> = { always: 'A', start: 'S' };
+const LOCK_BY_LETTER = new Map<string, LockMode>([
+  ['A', 'always'],
+  ['S', 'start'],
+]);
+
 export function encodeStrategy(strategy: Strategy): string {
   const parts = [
     `FPL${String(strategy.version)}`,
     `G${base36(strategy.startGameweek)}`,
-    `H${base36(strategy.horizon)}`,
+    `E${base36(strategy.endGameweek)}`,
     `B${base36(strategy.budget)}`,
     // Risk is the one signed field, and a minus sign inside a dash separated
     // code would split the segment, so a negative reads as M.
     `R${strategy.riskAversion < 0 ? 'M' : ''}${base36(Math.abs(strategy.riskAversion))}`,
     `T${base36(strategy.freeTransfers)}`,
+    `M${base36(strategy.maxTransfersPerWeek)}`,
     `S${base36(strategy.seed)}`,
   ];
   if (strategy.chips.length > 0) {
     parts.push(`C${strategy.chips.map((chip) => CHIP_LETTERS[chip]).join('')}`);
   }
-  if (strategy.keep.length > 0) {
-    // Sorted, so two readers who picked the same players in a different order
-    // produce the same code and can tell they agree.
+  if (strategy.squad.length > 0) {
+    // Sorted, so two readers holding the same fifteen produce the same code and
+    // can tell at a glance that they agree.
     parts.push(
-      `K${[...strategy.keep]
+      `Q${[...strategy.squad]
         .sort((a, b) => a - b)
         .map(base36)
+        .join('.')}`,
+    );
+  }
+  if (strategy.locks.length > 0) {
+    parts.push(
+      `K${[...strategy.locks]
+        .sort((a, b) => a.code - b.code)
+        .map((lock) => `${LOCK_LETTERS[lock.mode]}${base36(lock.code)}`)
         .join('.')}`,
     );
   }
@@ -141,7 +173,9 @@ export function decodeStrategy(code: string): Strategy {
     throw new StrategyCodeError('this is not a strategy code: it does not start with FPL');
   }
   const version = parseBase36(head.slice(3), 'version');
-  if (version !== STRATEGY_CODE_VERSION) {
+  // Version 1 is still read: it carried a horizon rather than an end gameweek,
+  // and a length converts to a destination once, here at the boundary.
+  if (version !== STRATEGY_CODE_VERSION && version !== 1) {
     throw new StrategyCodeError(
       `this code is version ${String(version)} and this site reads version ${String(STRATEGY_CODE_VERSION)}`,
     );
@@ -166,17 +200,28 @@ export function decodeStrategy(code: string): Strategy {
 
   const risk = required('R', 'risk');
   const chips = found.get('C') ?? '';
-  const keep = found.get('K') ?? '';
+  const squad = found.get('Q') ?? '';
+  const locks = found.get('K') ?? '';
+
+  const startGameweek = parseBase36(required('G', 'first gameweek'), 'first gameweek');
+  const endGameweek =
+    version === 1
+      ? startGameweek + parseBase36(required('H', 'horizon'), 'horizon') - 1
+      : parseBase36(required('E', 'last gameweek'), 'last gameweek');
 
   const strategy: Strategy = {
-    version,
-    startGameweek: parseBase36(required('G', 'first gameweek'), 'first gameweek'),
-    horizon: parseBase36(required('H', 'horizon'), 'horizon'),
+    version: STRATEGY_CODE_VERSION,
+    startGameweek,
+    endGameweek,
     budget: parseBase36(required('B', 'budget'), 'budget'),
     riskAversion: risk.startsWith('M')
       ? -parseBase36(risk.slice(1), 'risk')
       : parseBase36(risk, 'risk'),
     freeTransfers: parseBase36(required('T', 'free transfers'), 'free transfers'),
+    // Version 1 had no slot for it, and one transfer a week is the game's own
+    // default, so that is what an older code is read as.
+    maxTransfersPerWeek:
+      version === 1 ? 1 : parseBase36(required('M', 'transfers a week'), 'transfers a week'),
     seed: parseBase36(required('S', 'seed'), 'seed'),
     // Chip letters are ASCII by construction, so splitting by code unit is
     // exactly right here and a segmenter would be ceremony.
@@ -187,14 +232,65 @@ export function decodeStrategy(code: string): Strategy {
       }
       return chip;
     }),
-    keep: keep === '' ? [] : keep.split('.').map((entry) => parseBase36(entry, 'a kept player')),
+    squad: squad === '' ? [] : squad.split('.').map((entry) => parseBase36(entry, 'a player')),
+    locks:
+      locks === ''
+        ? version === 1
+          ? []
+          : []
+        : locks.split('.').map((entry) => {
+            const mode = LOCK_BY_LETTER.get(entry.slice(0, 1));
+            if (mode === undefined) {
+              throw new StrategyCodeError(
+                `this code names a lock nothing here recognises: "${entry}"`,
+              );
+            }
+            return { code: parseBase36(entry.slice(1), 'a locked player'), mode };
+          }),
     fingerprint: required('L', 'data fingerprint'),
   };
 
-  if (strategy.horizon < 1)
-    throw new StrategyCodeError('a horizon has to be at least one gameweek');
+  if (strategy.endGameweek < strategy.startGameweek) {
+    throw new StrategyCodeError('this code ends before it starts, so there is nothing to plan');
+  }
   if (strategy.budget < 0) throw new StrategyCodeError('a budget cannot be negative');
   return strategy;
+}
+
+export interface RebasedStrategy {
+  strategy: Strategy;
+  /** Gameweeks of the original window that have already been played. */
+  weeksElapsed: number;
+  /** Gameweeks left to plan, inclusive of the current one. */
+  weeks: number;
+}
+
+/**
+ * A code solved from today rather than from the gameweek it was minted in.
+ *
+ * A strategy set in gameweek 3 to run through gameweek 10 is still that
+ * strategy in gameweek 5: same budget, same risk, same locks, same
+ * destination, two fewer weeks. Planning the weeks that have been played is
+ * not possible (there are no projections for them and the results are known),
+ * and planning eight fresh weeks would move the destination the author chose,
+ * so the window is clipped at the front and left alone at the back.
+ *
+ * A window entirely in the past is refused rather than clipped to nothing,
+ * naming the gameweek it was set to run through, because "this expired" is a
+ * different message from "this found nothing".
+ */
+export function rebaseStrategy(strategy: Strategy, currentGameweek: number): RebasedStrategy {
+  if (currentGameweek > strategy.endGameweek) {
+    throw new StrategyCodeError(
+      `this code was set to run through gameweek ${String(strategy.endGameweek)}, which has been played`,
+    );
+  }
+  const startGameweek = Math.max(strategy.startGameweek, currentGameweek);
+  return {
+    strategy: { ...strategy, startGameweek },
+    weeksElapsed: startGameweek - strategy.startGameweek,
+    weeks: strategy.endGameweek - startGameweek + 1,
+  };
 }
 
 /**

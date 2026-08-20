@@ -9,6 +9,7 @@
  * the search does.
  */
 import {
+  bestSwaps,
   openingSquad,
   optimiseSquad,
   plan,
@@ -16,6 +17,12 @@ import {
   type PlannerPlayer,
   type Squad,
 } from '@fpl/planner';
+import {
+  efficientFrontier,
+  portfolioVariance,
+  riskContributions,
+  type Candidate,
+} from '@fpl/quant';
 import { expandPool } from './projections';
 import type { Envelope, Reply, Request } from './protocol';
 
@@ -100,7 +107,9 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
       budget: request.budget,
       horizon: request.horizon,
       riskAversion,
-      keep: request.keep,
+      // Both modes hold a player in the opening fifteen; the difference is
+      // whether the plan may later sell him.
+      keep: request.locks.map((lock) => lock.code),
       seed: request.seed,
       freeTransfers: request.freeTransfers,
     });
@@ -113,12 +122,52 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
       startGameweek: request.startGameweek,
       riskAversion,
       chips: request.chips,
+      ...(request.maxTransfersPerWeek === undefined
+        ? {}
+        : { maxTransfersPerWeek: request.maxTransfersPerWeek }),
+      locked: request.locks.filter((lock) => lock.mode === 'always').map((lock) => lock.code),
     });
 
     const spreads = solved.weeks.map(
       (week, index) => Math.round(weekSpread(week.starters, index, week.captain) * 100) / 100,
     );
     const spread = Math.sqrt(spreads.reduce((total, value) => total + value * value, 0));
+
+    // What each week could have done, from the squad it opened with. The
+    // squad before a week's moves is the previous week's squad, which is why
+    // this walks the plan rather than reading each week's own picks: those are
+    // the squad after the move, and asking what else it could have done from
+    // there would be answering a different week.
+    let held: Squad = found.squad;
+    const freeHand = solved.weeks.map((week, index) => {
+      const swaps = bestSwaps(pool, held, index, {
+        horizon: solved.weeks.length - index,
+        riskAversion,
+        limit: 3,
+      });
+      held = {
+        ...held,
+        picks: week.picks,
+        bank: week.bank,
+        // Prices are carried at today's, so a purchase price is the price. The
+        // plan's own price model moves nothing today, and where it does this
+        // understates receipts rather than inventing them.
+        purchasePrices: new Map(
+          week.picks.map((code) => [
+            code,
+            held.purchasePrices.get(code) ??
+              pool.find((player) => player.code === code)?.price ??
+              0,
+          ]),
+        ),
+      };
+      return {
+        gameweek: week.gameweek,
+        swaps: swaps.map((swap) => ({ ...swap, gain: Math.round(swap.gain * 10) / 10 })),
+      };
+    });
+
+    const portfolio = frontierFor(pool, found.squad.picks, solved.weeks.length, request.budget);
 
     return {
       ok: true,
@@ -128,6 +177,8 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
         spread: Math.round(spread * 100) / 100,
         spreads,
         fingerprint: poolFingerprint(pool),
+        freeHand,
+        portfolio,
       },
     };
   }
@@ -141,6 +192,82 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
     beamWidth: request.beamWidth,
   });
   return { ok: true, plan: result };
+}
+
+/** Two players at one club share a clean sheet, so they are not independent. */
+const CLUB_CORRELATION = 0.35;
+
+/**
+ * The frontier of legal squads over the horizon, and where this one sits on it.
+ *
+ * The candidates are the same pool the search used, summed over the horizon:
+ * expected points, and a standard deviation that grows with the root of the
+ * matches rather than with the matches, since two gameweeks are two draws. The
+ * frontier is solved by `@fpl/quant`, which knows nothing about football and is
+ * the same code the Lab's portfolio panel runs on, so the two cannot disagree.
+ */
+function frontierFor(
+  players: readonly PlannerPlayer[],
+  picks: readonly number[],
+  weeks: number,
+  budget: number,
+): NonNullable<Reply['strategy']>['portfolio'] {
+  const sumOver = (values: readonly number[] | undefined): number => {
+    let total = 0;
+    for (let index = 0; index < weeks; index += 1) total += values?.[index] ?? 0;
+    return total;
+  };
+
+  const candidates: Candidate[] = players.map((player) => ({
+    id: player.code,
+    name: player.name,
+    group: player.position,
+    club: String(player.teamCode),
+    cost: player.price,
+    expected: sumOver(player.projections),
+    // Independent weeks add in quadrature, which is the same assumption the
+    // band on the total is drawn with, stated in both places.
+    risk: Math.sqrt(
+      Array.from({ length: weeks }, (_, index) => (player.spreads?.[index] ?? 0) ** 2).reduce(
+        (total, value) => total + value,
+        0,
+      ),
+    ),
+  }));
+
+  const frontier = efficientFrontier(
+    candidates,
+    { budget, quota: { GKP: 2, DEF: 5, MID: 5, FWD: 3 }, maxPerClub: 3 },
+    { clubCorrelation: CLUB_CORRELATION },
+  );
+
+  const held = candidates.filter((candidate) => picks.includes(candidate.id));
+  if (held.length === 0) return null;
+
+  const expected = held.reduce((total, player) => total + player.expected, 0);
+  const risk = Math.sqrt(portfolioVariance(held, CLUB_CORRELATION));
+
+  return {
+    frontier: frontier.map((point) => ({
+      expected: Math.round(point.expected * 10) / 10,
+      risk: Math.round(point.risk * 100) / 100,
+      lambda: point.lambda,
+      cost: point.cost,
+    })),
+    held: {
+      expected: Math.round(expected * 10) / 10,
+      risk: Math.round(risk * 100) / 100,
+      cost: held.reduce((total, player) => total + player.cost, 0),
+    },
+    contributions: riskContributions(held, CLUB_CORRELATION)
+      .slice(0, 6)
+      .map((entry) => ({
+        name: entry.name,
+        club: entry.club,
+        share: Math.round(entry.share * 1000) / 1000,
+      })),
+    clubCorrelation: CLUB_CORRELATION,
+  };
 }
 
 /** The optimiser's answer, flattened for the structured clone. */

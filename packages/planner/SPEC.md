@@ -44,7 +44,9 @@ Two rules keep the ledger enterable. A transfer must gain more than `minTransfer
 
 ### encodeStrategy(strategy) / decodeStrategy(code) / poolFingerprint(players)
 
-In: a strategy, or a code, or the pool. Out: a legible code such as `FPL1-G3-H8-B1000-R0-T1-S7-LABC123-X4F`; the strategy it carries; or a hash of the prices and projections a strategy was solved against. Errors: `decodeStrategy` throws `StrategyCodeError` naming what is wrong, and refuses a mistyped code rather than solving a different strategy silently.
+In: a strategy, or a code, or the pool. Out: a legible code such as `FPL2-G3-EA-B1000-R0-T1-M2-S7-LABC123-XT2`; the strategy it carries; or a hash of the prices and projections a strategy was solved against. Errors: `decodeStrategy` throws `StrategyCodeError` naming what is wrong, and refuses a mistyped code rather than solving a different strategy silently.
+
+Version 2 carries an end gameweek rather than a horizon, the fifteen the strategy holds, the locks with their modes, and the transfers a week. A version 1 code still decodes: its horizon becomes an end gameweek once, at the boundary, and its missing fields take the game's own defaults. The squad may travel because it is an input to a plan rather than the answer to a search, which is exactly the distinction the two pages are built on: the builder decides a fifteen, and the plan page explains one it was handed.
 
 Notes: the code carries the question, never the answer. Fifteen names are the answer to "best over eight gameweeks, a hundred million, neutral risk, keeping these two", and the answer moves every time a price does while the question does not, so pasting a code solves it again on today's data. The cost of that choice is stated on the page: a code cannot reproduce the exact squad someone else saw once the data has moved. What it can do instead is say so, which is what the fingerprint is for. Two base 36 check characters catch a single typo with probability 1295 in 1296, kept players are sorted so two readers who picked the same squad produce the same code, and the whole thing is upper case because it is read aloud.
 
@@ -65,6 +67,20 @@ Notes: three pieces of arithmetic that make the search affordable and honest.
 `ceiling` is an upper bound on what a swap can be worth, and it is a bound rather than an estimate, which is what makes skipping on it safe. Take the new squad's optimal eleven and put the old player back where the new one stood: that is a legal eleven for the old squad worth the new total less the difference between the two players, so the new total cannot exceed the old by more than that difference. The captain can double it and nothing else in the squad moves. Skipping every candidate whose ceiling is below the best gain already found cut evaluations from 29,402 to 5,427 with an identical answer.
 
 `cheapestLegal` is the fallback seed. The greedy picker holds back a share of the budget for the eleven, so on a budget close to what fifteen players cost at all it stops short of fifteen, and the search should not be unable to start over a seed's caution. Only when even the cheapest legal squad overspends is the problem genuinely infeasible.
+
+### bestSwaps(players, squad, week, options): Swap[]
+
+In: the pool, a squad, the gameweek index, and a horizon, risk appetite, and limit. Out: the best legal single transfers out of that squad, best first, each with what it gains over the remaining gameweeks and what it costs from the bank. Errors: none; an empty list means nothing in the pool improves the squad, which is an answer rather than a failure.
+
+Notes: deliberately unconstrained where the plan is constrained. No transfer budget, no hit, no banked free transfers, and no regard for what the plan does next; what it does respect is what the game would refuse outright, which is the bank, the selling price rule, the quota, and three from a club. The gain is measured over the rest of the horizon rather than over the week, because a player bought now is still owned in five weeks and ranking on the week recommends chasing one fixture every time. One suggestion per player leaving, since five variations on selling the same defender is one idea printed five times.
+
+This exists because a plan answers "what should I do" and a reader who disagrees with it is asking "what did it pass up". Those are different questions and the page prints both.
+
+### rebaseStrategy(strategy, currentGameweek): RebasedStrategy
+
+In: a decoded strategy and today's gameweek. Out: the same strategy starting today, with the gameweeks of its window already played, and the number left. Errors: throws `StrategyCodeError` naming the end gameweek where the whole window has passed.
+
+Notes: a strategy set in gameweek 3 to run through gameweek 10 is still that strategy in gameweek 5: same budget, same risk, same locks, two fewer weeks. The window is clipped at the front and never extended at the back, because the length is not what an author chose, the destination is.
 
 ### openingSquad(players, options): Squad
 

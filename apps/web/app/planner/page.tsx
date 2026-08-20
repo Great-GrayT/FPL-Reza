@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { GAMEWEEKS_PER_SEASON, currentGameweek, nextGameweek } from '@fpl/core';
 import { Planner, type PlannerClub } from '@/components/planner';
 import { buildPool } from '@/lib/planner/projections';
 import { getFixtures, getGameweeks, getPlayerHistory, getPlayers, getTeams } from '@/lib/lake';
 
 export const metadata: Metadata = {
-  title: 'Season planner | FPL Lake',
+  title: 'The plan, explained | FPL Lake',
   description:
-    'Plan transfers, chips, and captaincy over a week, a month, or a season, under every rule the game enforces.',
+    'What a strategy is expected to be worth, gameweek by gameweek: the transfers, the hits, the captain, the chips, and how sure any of it is.',
 };
 
 export default async function PlannerPage() {
@@ -47,12 +48,16 @@ export default async function PlannerPage() {
     .map((entry) => ({ gameweek: Number(entry.id), deadline: entry.deadline.toISOString() }));
 
   return (
-    <Planner
-      pool={pool}
-      clubs={clubs}
-      deadlines={deadlines}
-      fromGameweek={fromGameweek}
-      horizon={horizon}
-    />
+    // The strategy arrives in the query string, and reading it is a client
+    // concern, so the prerender needs somewhere to stop.
+    <Suspense fallback={null}>
+      <Planner
+        pool={pool}
+        clubs={clubs}
+        deadlines={deadlines}
+        fromGameweek={fromGameweek}
+        horizon={horizon}
+      />
+    </Suspense>
   );
 }
