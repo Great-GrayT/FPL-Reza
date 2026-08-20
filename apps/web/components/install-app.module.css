@@ -1,0 +1,113 @@
+.wrap {
+  position: relative;
+}
+
+.compact {
+  position: relative;
+  margin-block-end: var(--s3);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  padding: 0 var(--s3);
+  background: none;
+  border: 1px solid var(--rule-strong);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.button:hover,
+.button[aria-expanded='true'] {
+  border-color: var(--ink);
+  background: var(--paper-2);
+}
+
+.compact .button {
+  inline-size: 100%;
+  justify-content: center;
+  border-color: var(--ink);
+}
+
+/* The panel opens under the button on a wide screen and in place inside the
+   sheet on a phone, because a floating panel inside a sheet is two layers of
+   the same idea. */
+.panel {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + var(--s2));
+  z-index: 8;
+  inline-size: min(22rem, calc(100vw - 2rem));
+  padding: var(--s3) var(--s4) var(--s4);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+.compact .panel {
+  position: static;
+  inline-size: auto;
+  margin-block-start: var(--s2);
+  box-shadow: none;
+}
+
+.head {
+  margin: 0 0 var(--s2);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.steps {
+  margin: 0;
+  padding-inline-start: var(--s4);
+  font-size: var(--step--1);
+  line-height: 1.5;
+}
+
+.steps li + li {
+  margin-block-start: var(--s2);
+}
+
+.note {
+  margin: var(--s3) 0 0;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+.address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin: var(--s3) 0 0;
+}
+
+.url {
+  flex: 1 1 12rem;
+  padding: var(--s2);
+  background: var(--paper-2);
+  border: 1px dashed var(--rule-strong);
+  font-size: var(--step--2);
+  overflow-wrap: anywhere;
+}
+
+.copy {
+  min-block-size: 2.75rem;
+  padding: 0 var(--s3);
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}

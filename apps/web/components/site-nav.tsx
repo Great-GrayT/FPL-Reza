@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { InstallApp } from './install-app';
 import styles from './site-nav.module.css';
 
 /**
@@ -87,6 +88,9 @@ export function SiteNav() {
               </Link>
             </li>
           ))}
+          <li className={styles.install}>
+            <InstallApp />
+          </li>
         </ul>
       </nav>
 
@@ -108,6 +112,7 @@ export function SiteNav() {
         data-open={open ? 'true' : undefined}
         hidden={!open}
       >
+        <InstallApp compact />
         <p className={styles.sheetHead}>Everything else</p>
         <ul className={styles.sheetList}>
           {[

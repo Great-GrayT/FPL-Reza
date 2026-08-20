@@ -25,6 +25,10 @@
   border-block-end: 2px solid transparent;
 }
 
+.install {
+  margin-inline-start: var(--s2);
+}
+
 .row a:hover {
   border-block-end-color: var(--flare);
 }

@@ -1,0 +1,194 @@
+{
+  "seed": 7,
+  "seasons": ["2020/21", "2021/22", "2022/23", "2023/24", "2024/25", "2025/26"],
+  "featureRows": 157486,
+  "features": 91,
+  "fits": [
+    {
+      "component": "minutes",
+      "metric": "brierSkill",
+      "rows": 157486,
+      "score": 0.5073965806085449,
+      "standardError": 0.0244738148535723,
+      "nullScore": -0.02095740300666077,
+      "beatsNull": true,
+      "segmented": null,
+      "topFeatures": ["minutes_mean_3", "selected_by", "price"],
+      "ablations": []
+    },
+    {
+      "component": "goalRate",
+      "metric": "rSquared",
+      "rows": 55084,
+      "score": -0.06931772406747327,
+      "standardError": 0.06469511206887067,
+      "nullScore": -0.08539984742955681,
+      "beatsNull": false,
+      "segmented": null,
+      "topFeatures": ["price", "threat_per_90_12", "is_forward"],
+      "ablations": [
+        {
+          "name": "shot origin",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "duels",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "manager",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "opposition",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "expected goals",
+          "score": null,
+          "delta": null
+        }
+      ]
+    },
+    {
+      "component": "assistRate",
+      "metric": "rSquared",
+      "rows": 55084,
+      "score": -0.03409573721426756,
+      "standardError": 0.04774391133543435,
+      "nullScore": -0.09231727841498555,
+      "beatsNull": true,
+      "segmented": null,
+      "topFeatures": ["creativity_per_90_12", "price", "threat_per_90_12"],
+      "ablations": [
+        {
+          "name": "shot origin",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "duels",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "manager",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "opposition",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "expected goals",
+          "score": null,
+          "delta": null
+        }
+      ]
+    },
+    {
+      "component": "cleanSheet",
+      "metric": "brierSkill",
+      "rows": 4304,
+      "score": -0.07421905180010532,
+      "standardError": 0.07441918715230471,
+      "nullScore": -0.1821207899202274,
+      "beatsNull": true,
+      "segmented": null,
+      "topFeatures": ["expected_goals_against", "opponent_attack", "expected_goals_for"],
+      "ablations": []
+    },
+    {
+      "component": "concededRate",
+      "metric": "rSquared",
+      "rows": 4305,
+      "score": -0.11468372915985528,
+      "standardError": 0.09668335037945205,
+      "nullScore": -0.10548417043238939,
+      "beatsNull": false,
+      "segmented": null,
+      "topFeatures": ["expected_goals_against", "expected_goals_for", "opponent_defence"],
+      "ablations": []
+    },
+    {
+      "component": "saveRate",
+      "metric": "rSquared",
+      "rows": 4473,
+      "score": 0.011227668475754987,
+      "standardError": 0.06248768958169661,
+      "nullScore": -0.19223572764273156,
+      "beatsNull": true,
+      "segmented": null,
+      "topFeatures": ["expected_goals_against", "expected_goals_for", "manager_points_per_match"],
+      "ablations": []
+    },
+    {
+      "component": "bpsRate",
+      "metric": "rSquared",
+      "rows": 55084,
+      "score": -0.02915405541496388,
+      "standardError": 0.05918831453715955,
+      "nullScore": -0.05654751115270873,
+      "beatsNull": false,
+      "segmented": null,
+      "topFeatures": ["bps_mean_12", "price", "expected_goals_for"],
+      "ablations": [
+        {
+          "name": "shot origin",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "duels",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "manager",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "opposition",
+          "score": null,
+          "delta": null
+        },
+        {
+          "name": "expected goals",
+          "score": null,
+          "delta": null
+        }
+      ]
+    },
+    {
+      "component": "cardRate",
+      "metric": "brierSkill",
+      "rows": 55084,
+      "score": -0.020758073868235444,
+      "standardError": 0.021963726618247997,
+      "nullScore": -0.04536270216455923,
+      "beatsNull": true,
+      "segmented": null,
+      "topFeatures": ["is_goalkeeper", "appearances", "gameweek"],
+      "ablations": []
+    },
+    {
+      "component": "priceChange",
+      "metric": "brierSkill",
+      "rows": 140242,
+      "score": 0.16545433721757408,
+      "standardError": 0.037246172478441,
+      "nullScore": -0.012084524707744237,
+      "beatsNull": true,
+      "segmented": null,
+      "topFeatures": ["selected_by", "totalPoints_mean_3", "minutes_mean_6"],
+      "ablations": []
+    }
+  ]
+}
