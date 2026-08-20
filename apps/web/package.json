@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "tsc --build ../../tsconfig.json && next build",
+    "build": "node scripts/export-lake.mjs && tsc --build ../../tsconfig.json && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "export:lake": "node scripts/export-lake.mjs",
+    "bench:lab": "node scripts/bench-lab.mjs"
   },
   "dependencies": {
     "@fpl/analytics": "workspace:*",
@@ -15,7 +17,9 @@
     "@fpl/config": "workspace:*",
     "@fpl/core": "workspace:*",
     "@fpl/ingest": "workspace:*",
+    "@fpl/quant": "workspace:*",
     "@fpl/store": "workspace:*",
+    "hyparquet": "^1.28.2",
     "next": "^15.4.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

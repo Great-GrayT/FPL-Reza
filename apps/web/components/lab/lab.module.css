@@ -1,0 +1,404 @@
+/*
+ * The workspace layout. A desk, not a dashboard: a rail that scopes the data, a
+ * bench that holds one panel at a time, and a status strip that always says what
+ * the numbers were computed from.
+ */
+
+.lab {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .lab {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rail {
+  position: sticky;
+  top: var(--s4);
+  display: grid;
+  gap: var(--s5);
+  padding: var(--s4);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  max-height: calc(100vh - var(--s6));
+  overflow-y: auto;
+}
+
+@media (max-width: 60rem) {
+  .rail {
+    position: static;
+    max-height: none;
+  }
+}
+
+.railSection {
+  display: grid;
+  gap: var(--s2);
+}
+
+.railTitle {
+  font-size: var(--step--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.railNote {
+  margin: 0;
+  font-size: var(--step--1);
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.noteList {
+  margin: 0;
+  padding-left: var(--s4);
+  display: grid;
+  gap: var(--s2);
+  font-size: var(--step--1);
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.railButtons {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.saveRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.saveInput {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step--1);
+  padding: var(--s1) var(--s2);
+  min-height: 2rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+}
+
+.saveInput:focus-visible {
+  outline: 2px solid var(--flare);
+  outline-offset: 1px;
+}
+
+.viewList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s1);
+}
+
+.viewList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+
+.viewLink,
+.viewDelete {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step--1);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.viewLink:hover {
+  color: var(--flare-ink);
+}
+
+.viewDelete {
+  color: var(--ink-soft);
+  font-size: var(--step-0);
+  line-height: 1;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+}
+
+.workbench {
+  display: grid;
+  gap: var(--s4);
+  min-width: 0;
+}
+
+/* Index tabs, the way a ledger is divided. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  border-bottom: 2px solid var(--rule-strong);
+  padding-bottom: var(--s2);
+}
+
+.tab {
+  appearance: none;
+  border: 1px solid var(--rule);
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--paper-2);
+  padding: var(--s2) var(--s3);
+  min-height: 2.75rem;
+  cursor: pointer;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  color: var(--ink-soft);
+}
+
+.tab[data-active='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--flare);
+  outline-offset: 2px;
+}
+
+.tabLabel {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  font-stretch: 125%;
+  text-transform: uppercase;
+  font-size: var(--step--1);
+  letter-spacing: 0.02em;
+}
+
+.tabBlurb {
+  font-size: 10px;
+  line-height: 1.2;
+  opacity: 0.8;
+  max-width: 16ch;
+}
+
+@media (max-width: 40rem) {
+  .tabBlurb {
+    display: none;
+  }
+}
+
+.coveragePanel {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s3);
+  background: var(--paper-2);
+  display: grid;
+  gap: var(--s2);
+}
+
+.coverageHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.coverageSummary {
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.panel {
+  min-width: 0;
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  padding: var(--s2) var(--s3);
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+}
+
+.statusFilter {
+  max-width: 40ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Panel internals. */
+.inlineControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: flex-end;
+}
+
+.inlineControls > * {
+  margin-bottom: 0;
+  min-width: 8rem;
+}
+
+.pickerRow {
+  display: grid;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+
+.pickerLabel {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  display: block;
+  margin-bottom: var(--s1);
+}
+
+.columnPicker {
+  min-width: 0;
+}
+
+.chipRow,
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin-bottom: var(--s3);
+}
+
+.columnChip {
+  appearance: none;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  padding: 2px var(--s2);
+  min-height: 1.75rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.columnChip[data-active='true'] {
+  background: var(--pitch);
+  border-color: var(--pitch);
+  color: var(--chalk);
+}
+
+.columnChip:focus-visible {
+  outline: 2px solid var(--flare);
+  outline-offset: 1px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  margin-bottom: var(--s3);
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--step--1);
+}
+
+.table th,
+.table td {
+  padding: var(--s1) var(--s3);
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--paper-3);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--paper-2) 60%, transparent);
+}
+
+.table td.num,
+.table th.num {
+  text-align: right;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  margin-bottom: var(--s3);
+}
+
+.field {
+  display: grid;
+  gap: var(--s1);
+  margin-bottom: var(--s3);
+}
+
+.textareaLabel {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.textarea {
+  width: 100%;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step--1);
+  line-height: 1.5;
+  padding: var(--s2);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--flare);
+  outline-offset: 1px;
+}
+
+@media (pointer: coarse) {
+  .columnChip {
+    min-height: 2.75rem;
+  }
+}

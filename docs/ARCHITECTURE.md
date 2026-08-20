@@ -2,7 +2,7 @@
 title: How this project works
 type: spec
 module: root
-updated: 2026-08-18
+updated: 2026-08-19
 status: active
 ---
 
@@ -90,6 +90,7 @@ Every algorithm below is pure: same input, same output, no I/O.
 - **Fixture diffing** (`ingest/fixtures/diff.ts`). Kickoff, gameweek, both scores, both difficulties, and the finished flag, compared per fixture id.
 - **Provider identity joins** (`ingest/spatial/sofascore/identity.ts`). This is the highest risk code in the repo, because a wrong join silently attributes one player's match to another and nothing downstream can detect it. Names are normalised by stripping diacritics and every non alphanumeric character. A club name resolves through the shared odds resolver, then a Sofascore alias table, then a prefix rule. A fixture resolves on the resolved team pair plus the closest kickoff within a 4 hour tolerance, or, where no kickoff is close enough, on the pair identifying a single fixture whose gameweek equals the provider round, which is what carries a match the two sides have rescheduled days apart. A player resolves from strong forms scoped to the club, then weak forms (family name, initial plus family name) scoped to the club, then an unambiguous full name across the league, which is the only way to reach a player who has since moved. Any key shared by two candidates is marked ambiguous and resolves to nothing, and every resolver returns undefined rather than a best guess. The source counts and logs what it dropped.
 - **Coordinate normalisation** (`ingest/spatial/sofascore/map.ts`). Established empirically from real payloads, since the provider documents nothing. Average positions and heatmaps share a frame whose x already matches the domain (both goalkeepers sit near x 11) but whose y is inverted, so y is flipped. The shot frame is that same frame rotated 180 degrees, so a shot has x flipped and y left alone. Both transforms clamp to the pitch bounds.
+- **The Lab's engine** (`packages/quant`). A columnar frame over typed arrays (filtering returns an index, never a copy), a parsed and interpreted expression language for user written formulas, descriptive statistics and six distributions with their fits and goodness of fit tests, correlation with autocorrelation and partial autocorrelation, OLS by Householder QR with ridge, logistic, and LOESS beside it, the hypothesis test set with seeded bootstrap and permutation, rolling and exponentially weighted series with an AR(1) half life, factor evaluation (information coefficient, its decay, quantile spreads, turnover), seeded simulation of matches, seasons, players, and captaincy, a constrained portfolio optimiser over the real FPL shape, a declarative backtester with a random baseline, and a machine learning layer: histogram gradient boosting, a random forest with out of bag error, k nearest neighbours, k means, PCA, a small network, walk forward validation with a purge and an embargo, and four model agnostic explanation methods. Every random path takes a seed and every method that can mislead carries the sentence that says how.
 - **Parquet type inference** (`store/parquet.ts`). Per column, the narrowest of BOOLEAN, INT32, DOUBLE, or STRING that fits every non null value; anything that does not fit is written as JSON text. Dates never reach a codec: they are serialised to ISO strings first and read back with `z.coerce.date()`, so the round trip is lossless and format independent.
 
 ### Packages
@@ -100,6 +101,7 @@ packages/config     environment driven configuration and season derivation
 packages/store      the Store port and FileStore: the snapshot data lake
 packages/ingest     HTTP client, FPL sources, the PL official record, weather, ground photographs, rules scraper, odds CSV, Sofascore spatial, sync runner
 packages/analytics  form, value, fixture difficulty, defence, bonus prediction, squad rules, projection, team strength and match forecasts, the metric glossary
+packages/quant      columnar frame, expression language, statistics, regression, hypothesis tests, factors, simulation, portfolio optimiser, backtester, machine learning
 packages/assets     FileAssetStore, append only JSONL manifest, PL CDN url builders, syncAssets
 apps/api            Fastify HTTP API over the lake
 apps/cli            fpl command line: sync, refresh, inspect
@@ -107,6 +109,8 @@ apps/web            Next.js 15 site, built from the committed lake
 ```
 
 Dependencies point one way: `core` depends on nothing, `store` and `config` depend on `core`, `ingest` depends on `core` and `store`, `analytics` depends on `core`, and the three apps depend on whichever of those they need. Nothing in `core` touches the filesystem, the network, or the clock.
+
+`packages/quant` depends on nothing at all, not even `core`. That is deliberate: it is loaded into a Web Worker in the reader's browser, and a schema library pulled in behind it would be shipped to every visitor for no benefit. It knows about numbers, not about football, and the football lives in the layer above it (`apps/web/lib/quant/schema.ts`).
 
 The `Store` and `Source` ports are what keep that shape honest. A new upstream implements `Source` and registers itself; `runSync` is never edited to special case one. A different storage backend implements `Store` and nothing above it changes.
 
@@ -163,7 +167,15 @@ The HTTP client retries only 408, 425, 429, 500, 502, 503, and 504 plus network 
 
   `/matches/[id]` is the match centre, and it is the page the official record was ingested for. Before kickoff it prints what the model makes of the fixture, the eleven each club is likely to name, the record between the two clubs across every season stored, both managers, the referee once appointed, the conditions, and the ground. After kickoff the same page prints the confirmed teamsheets in the shape they were named in, the timeline, and the result. Nothing on it is a prediction without its reasoning attached: the likely eleven states which match it took its shape from and names every replacement with the reason, and the forecast carries a disclosure that prints the model's sample, its baseline, and its two known errors.
 
-  `/teams/[code]` is a club end to end: staff with their photographs, estimated strength, the next six fixtures, the squad ranked by projection, a record for every season the club has played, and the clubs it has fared worst against. `/managers` and `/referees` are the people the record names, each with their own page. `/grounds` is where the season is played, photographed and credited. `/stats` is the analysis the 35 season archive makes possible: home advantage season by season, goals per match, the strongest attacks and meanest defences, and who books the most, each with the caveat that applies to it.
+  `/teams/[code]` is a club end to end: staff with their photographs, estimated strength, the next six fixtures, the squad ranked by projection, a record for every season the club has played, and the clubs it has fared worst against. `/managers` and `/referees` are the people the record names, each with their own page. `/grounds` is where the season is played, photographed and credited.
+
+  `/stats` is **the Lab**, and it is the one page on the site that computes nothing at build time. The build copies the stored parquet into `public/lake/`, and the page loads it into a Web Worker in the reader's browser: ten seasons of gameweek history at 260 KB a season, thirty five seasons of results, and the current season's teams, players, fixtures, and gameweeks as one JSON file. Everything after that is local. Eleven panels share one scope (seasons, a filter written in the expression language, a minutes floor, and any number of derived formula columns) and one coverage grid, which shows the rows the scope actually holds per season and gameweek and is the page's honesty device: a claim made from a filter that empties half the archive should look like one.
+
+  The panels are the screener (every row, sorted, with a crosstab and a CSV export), distributions (a column's shape, its summary, and its goodness of fit), relationships (a canvas scatter of the full cloud with a fitted or local line, and a correlation matrix), space (a rotatable three dimensional cloud, a response surface over two binned inputs, and the player space reduced to three principal components and clustered), time (any measure per gameweek or per continuous period, and the autocorrelation that says whether form persists), factors (a formula's information coefficient gameweek by gameweek, its decay, its quantile spread, and its turnover), model (features written as formulas, a choice of gradient boosting, forest, ridge, nearest neighbours, or a small network, validated walk forward with a purge and an embargo, then explained by permutation importance and partial dependence), backtest (the same formula replayed with transfer costs against a random baseline over the same universe), simulate (seeded match, player, and captaincy distributions), portfolio (the efficient frontier of legal squads with its risk attribution), and archive (the 35 season record, with the home advantage step change tested rather than eyeballed).
+
+  What the Lab refuses to do is as deliberate as what it does, and all three limits were set by measuring the real panel with `pnpm --filter @fpl/web bench:lab` rather than guessed. Walk forward validation over ten seasons produces 77 folds and each one is a full refit: measured, that is five and a half minutes, so the folds are thinned evenly across the period axis to ten and the panel prints how many of how many it ran. Gradient boosting runs 80 rounds on half the rows per round, which lands in a couple of seconds where 120 rounds on all of them took 28. A correlation matrix is sampled above 60,000 rows, and Kendall above 4,000, because the coefficient has long since converged and the rest buys nothing but a stalled tab.
+
+  Every panel's configuration encodes into the query string, so a finding is a link, and named views persist in the reader's own browser. Every statistic prints the sentence that says what it licenses, and every method that can mislead prints its own caveat: a Kolmogorov-Smirnov p value is conservative on a fitted reference, a partial dependence curve extrapolates where features are correlated, independent Poisson understates draws, and a significant correlation over a hundred thousand rows says nothing about whether the relationship is useful.
 
   `/builder` is the squad builder: the fifteen slots are a teamsheet, the ruled card handed over at kickoff, rather than a green pitch. A name is added by pressing it or dragged onto a slot, which keeps the whole interface reachable from a keyboard and a touch screen, and a slot refuses a drop at the gesture with the reason. `/scout` answers three questions with the same numbers: who is overlooked, whose fixtures turn, and who to captain. `/glossary` prints the dictionary in `analytics/glossary.ts`, and every metric label across the site links into it, because a number whose definition is not one click away is a number nobody should trust.
 
@@ -227,11 +239,13 @@ Every stored match -> `estimateStrength` -> `forecastMatch` -> the probabilities
 
 Stored snapshots -> `apps/web` build time reads (`lib/lake.ts`) -> analytics functions -> prerendered pages; this file -> `lib/markdown.ts` -> `/how-it-works`.
 
+Committed parquet -> `apps/web/scripts/export-lake.mjs` at build -> `public/lake/` -> a fetch per season inside the Lab's Web Worker -> hyparquet decode -> a `@fpl/quant` frame in typed arrays -> a statistic, a model, or a simulation -> a message back to the main thread -> a panel. The reader's configuration -> the query string -> a shared link -> the same result, since every random path is seeded.
+
 ## Dependencies
 
 Internal: the package graph above, `core` at the root of it.
 
-External: zod (every schema), cheerio (the rules scraper), hyparquet and hyparquet-writer (the Parquet codec), commander (the CLI), fastify (the API), next and react and recharts (the web app), tsx (the test runner loader), typescript, eslint with typescript-eslint, prettier.
+External: zod (every schema), cheerio (the rules scraper), hyparquet and hyparquet-writer (the Parquet codec, and hyparquet again in the browser for the Lab), commander (the CLI), fastify (the API), next and react and recharts (the web app), tsx (the test runner loader), typescript, eslint with typescript-eslint, prettier. `packages/quant` has no dependencies at all.
 
 ## Related
 

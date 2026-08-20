@@ -76,6 +76,14 @@ export class Frame {
   /** Row positions into the underlying buffers. Null means the identity. */
   private readonly index: Int32Array | null;
   private readonly baseLength: number;
+  /**
+   * Materialised columns for this view. Reading one is O(rows), and a panel
+   * reads the same column several times in a single render, so the first read
+   * is kept. A frame is immutable once built, so a cached column cannot go
+   * stale; the cost is at most one array per column actually read.
+   */
+  private readonly numericCache = new Map<string, Float64Array>();
+  private readonly stringCache = new Map<string, (string | null)[]>();
 
   private constructor(
     columnMap: Map<string, Column>,
@@ -169,6 +177,8 @@ export class Frame {
    * a boolean as 0/1, so any column can feed a chart axis or a model matrix.
    */
   values(name: string): Float64Array {
+    const cached = this.numericCache.get(name);
+    if (cached !== undefined) return cached;
     const column = this.columnMap.get(name);
     if (column === undefined) return new Float64Array(0);
     const n = this.length;
@@ -185,11 +195,14 @@ export class Frame {
         out[i] = value === 2 ? MISSING : value;
       }
     }
+    this.numericCache.set(name, out);
     return out;
   }
 
   /** String values in view order, with null preserved. */
   strings(name: string): (string | null)[] {
+    const cached = this.stringCache.get(name);
+    if (cached !== undefined) return cached;
     const column = this.columnMap.get(name);
     const n = this.length;
     const out: (string | null)[] = new Array<string | null>(n).fill(null);
@@ -208,6 +221,7 @@ export class Frame {
         out[i] = value === 2 ? null : value === 1 ? 'true' : 'false';
       }
     }
+    this.stringCache.set(name, out);
     return out;
   }
 

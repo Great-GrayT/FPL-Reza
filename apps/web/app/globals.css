@@ -48,6 +48,28 @@
   --step-4: 3.5rem;
   --step-5: clamp(3rem, 9vw, 6rem);
 
+  /* Series colours for the Lab's charts. Four categorical slots, validated for
+     colour vision deficiency against this paper at every pair, in this fixed
+     order: a series keeps its colour when a filter removes its neighbours.
+     A fifth series is never a generated hue, it folds into "other". */
+  --series-1: #24559a;
+  --series-2: #c8752b;
+  --series-3: #2f7a3f;
+  --series-4: #c0507f;
+  --series-other: #4a5560;
+
+  /* Magnitude: one hue, light to dark. Never a rainbow. */
+  --ramp-1: #e4ebe3;
+  --ramp-2: #bcd4c0;
+  --ramp-3: #8fb79a;
+  --ramp-4: #5c9370;
+  --ramp-5: #2e5e3a;
+
+  /* Polarity: two hues either side of a neutral middle, for a correlation. */
+  --diverge-low: #24559a;
+  --diverge-mid: #d7dbd0;
+  --diverge-high: #b0173e;
+
   --radius: 2px;
   --measure: 68ch;
   --shell: 76rem;
@@ -76,6 +98,22 @@
     --fdr-3: #6a6a44;
     --fdr-4: #8a5340;
     --fdr-5: #8c3a44;
+
+    --series-1: #7fb0f2;
+    --series-2: #e9a35f;
+    --series-3: #74c78a;
+    --series-4: #e78ab4;
+    --series-other: #97a3ae;
+
+    --ramp-1: #1c2430;
+    --ramp-2: #244233;
+    --ramp-3: #2f6b3f;
+    --ramp-4: #4f9a63;
+    --ramp-5: #8ecb9c;
+
+    --diverge-low: #7fb0f2;
+    --diverge-mid: #303842;
+    --diverge-high: #ff6d8c;
   }
 }
 

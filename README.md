@@ -30,6 +30,7 @@ packages/
   store/      Store port and FileStore: the flat file data lake
   ingest/     HTTP client, FPL sources, sync runner
   analytics/  in progress, undocumented here
+  quant/      statistics, simulation, and machine learning, with no dependencies
 apps/
   cli/        in progress, undocumented here
   api/        in progress, undocumented here
@@ -78,6 +79,18 @@ pnpm fpl
 ```
 
 Runs the built CLI (`apps/cli`, still in progress) at `apps/cli/dist/bin.js`.
+
+## The Lab
+
+`/stats` is a quantitative workspace rather than a page of charts. It loads the stored parquet into the reader's own browser (ten seasons of gameweek history, thirty five seasons of results, and the current season's context, about 5 MB fetched a season at a time) and computes everything locally in a Web Worker: screening, distributions, correlations, three dimensional clouds and response surfaces, factor evaluation, models validated walk forward, strategy backtests against a random baseline, seeded simulation, and a portfolio optimiser over the real squad rules.
+
+The build exports that copy itself:
+
+```sh
+pnpm --filter @fpl/web export:lake   # writes apps/web/public/lake/ from data/
+```
+
+`pnpm --filter @fpl/web build` runs it first, so a deployment always ships a copy matching the committed lake. The directory is generated and git ignored.
 
 ## Deploy the site
 

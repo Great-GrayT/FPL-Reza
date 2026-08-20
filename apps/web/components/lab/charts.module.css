@@ -1,0 +1,216 @@
+.figure {
+  margin: 0;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+.zero {
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+.crosshair {
+  stroke: var(--flare);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.whisker {
+  stroke: var(--ink-soft);
+  stroke-width: 1.5;
+}
+
+.tick {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  fill: var(--ink-soft);
+}
+
+.cellValue {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  fill: var(--ink);
+}
+
+.axisLabel {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--ink-soft);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-top: var(--s2);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.legendItem,
+.readoutItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  white-space: nowrap;
+}
+
+.axisNote {
+  color: var(--ink-soft);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-top: var(--s2);
+  padding: var(--s2) var(--s3);
+  background: var(--paper-3);
+  border-radius: var(--radius);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step--1);
+}
+
+.readoutKey {
+  color: var(--flare-ink);
+  font-weight: 600;
+}
+
+.canvasWrap {
+  width: 100%;
+}
+
+.canvas {
+  display: block;
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+/* The coverage grid: 38 gameweeks across, one row per season stored. */
+.coverage {
+  display: grid;
+  gap: 2px;
+}
+
+.coverageRow {
+  display: grid;
+  grid-template-columns: 4.2rem 1fr;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.coverageLabel {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+
+.coverageCells {
+  display: grid;
+  grid-template-columns: repeat(38, 1fr);
+  gap: 1px;
+}
+
+.coverageCell {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--ramp-1);
+  cursor: pointer;
+}
+
+.coverageCell[data-level='0'] {
+  background: color-mix(in srgb, var(--paper-3) 70%, transparent);
+}
+
+.coverageCell[data-level='1'] {
+  background: var(--ramp-2);
+}
+
+.coverageCell[data-level='2'] {
+  background: var(--ramp-3);
+}
+
+.coverageCell[data-level='3'] {
+  background: var(--ramp-4);
+}
+
+.coverageCell[data-level='4'] {
+  background: var(--ramp-5);
+}
+
+.coverageCell:hover,
+.coverageCell:focus-visible {
+  outline: 2px solid var(--flare);
+  outline-offset: 1px;
+}
+
+.viewButton {
+  appearance: none;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  padding: 2px var(--s2);
+  min-height: 1.6rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.viewButton:hover {
+  color: var(--ink);
+}
+
+.viewButton:focus-visible {
+  outline: 2px solid var(--flare);
+  outline-offset: 1px;
+}
+
+/* The sequential ramp, shown as the steps it actually uses. */
+.rampLegend {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.rampLegend span {
+  width: 16px;
+  height: 10px;
+  display: inline-block;
+}
+
+/* A coarse pointer needs a target it can actually hit. The grid stays dense on
+   a mouse, where precision is cheap, and opens up under a thumb. */
+@media (pointer: coarse) {
+  .coverageCell {
+    height: 22px;
+  }
+
+  .viewButton {
+    min-height: 2.75rem;
+    padding-inline: var(--s3);
+  }
+}

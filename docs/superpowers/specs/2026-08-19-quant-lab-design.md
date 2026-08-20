@@ -14,14 +14,14 @@ The constraint that shapes everything: the site is prerendered from a committed 
 
 What the lake actually holds, measured on 2026-08-19:
 
-| Dataset | Rows | Grain | Coverage |
-| --- | --- | --- | --- |
-| player-gameweeks-history | 253,900 | player x season x gameweek | 2016/17 to 2025/26, ten seasons |
-| player-seasons | 2,035 | player x season | totals plus the ICT family |
-| matches | 13,546 | match | 35 seasons, 1992/93 onward |
-| match-details | 760 | match | 2024/25 and 2025/26 only: officials, teamsheets, timeline |
-| players, teams, fixtures, gameweeks | 590, 20, 380, 38 | current season | prices, difficulty, strength, deadlines |
-| grounds, ground-images, managers, match-weather | 20, 19, 137, 16 | context | joins for venue and staff |
+| Dataset                                         | Rows             | Grain                      | Coverage                                                  |
+| ----------------------------------------------- | ---------------- | -------------------------- | --------------------------------------------------------- |
+| player-gameweeks-history                        | 253,900          | player x season x gameweek | 2016/17 to 2025/26, ten seasons                           |
+| player-seasons                                  | 2,035            | player x season            | totals plus the ICT family                                |
+| matches                                         | 13,546           | match                      | 35 seasons, 1992/93 onward                                |
+| match-details                                   | 760              | match                      | 2024/25 and 2025/26 only: officials, teamsheets, timeline |
+| players, teams, fixtures, gameweeks             | 590, 20, 380, 38 | current season             | prices, difficulty, strength, deadlines                   |
+| grounds, ground-images, managers, match-weather | 20, 19, 137, 16  | context                    | joins for venue and staff                                 |
 
 Three coverage holes are stated on screen rather than hidden, because a factor computed across them is a different factor either side of the boundary:
 

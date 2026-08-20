@@ -17,6 +17,7 @@ Read the docs index first, then the pointer file for whichever package you are a
 @packages/config/CLAUDE.md
 @packages/store/CLAUDE.md
 @packages/ingest/CLAUDE.md
+@packages/quant/CLAUDE.md
 
 `packages/analytics`, `apps/api`, and `apps/cli` have no pointer file yet, but each owns a `SKILL.md` and `SPEC.md`. `packages/assets` and `apps/web` have neither: `docs/ARCHITECTURE.md` documents them.
 
