@@ -110,6 +110,16 @@
   border: 1px solid var(--rule);
   border-radius: var(--radius);
   overflow-x: auto;
+  /* The package layout diagram is 1,318px of monospace. Without this the block
+     grows to fit it and the whole document scrolls sideways on a phone. */
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+/* The column the prose sits in has to be allowed to be narrower than its
+   widest child, or nothing inside it can scroll on its own. */
+.doc {
+  min-inline-size: 0;
 }
 
 .doc pre code {
@@ -123,6 +133,10 @@
 .doc :global(.docTableScroll) {
   margin-top: var(--s5);
   overflow-x: auto;
+  /* Without this the wrapper grows to its table instead of scrolling it, since
+     a grid or flex item will not shrink below its content by default. */
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .doc table {

@@ -146,8 +146,10 @@
 /* The name is what a row is, so it stays on screen when the numbers scroll
    sideways. The header cell above it has to outrank both stickies to sit in
    the corner rather than under one of them. */
-.nameHead,
-.nameCell {
+/* `.table` prefixed, because `.table th` outranks a bare class and the name
+   column was right aligning itself under the numeric default. */
+.table .nameHead,
+.table .nameCell {
   position: sticky;
   inset-inline-start: 0;
   z-index: 1;
@@ -160,8 +162,8 @@
   z-index: 3;
 }
 
-.clubHead,
-.clubCell {
+.table .clubHead,
+.table .clubCell {
   text-align: left;
 }
 
@@ -201,7 +203,25 @@
   }
 
   .pane {
-    max-block-size: calc(100vh - 12rem);
+    max-block-size: calc(100vh - 14rem);
+  }
+
+  /* A phone gives the name a third of the screen, not half. The face goes,
+     since at this width it is competing with the number the reader came for,
+     and the position tag goes with it. */
+  .table .nameHead,
+  .table .nameCell {
+    max-inline-size: 8.5rem;
+  }
+
+  .nameCell img,
+  .nameCell .pos {
+    display: none;
+  }
+
+  .table th,
+  .table td {
+    padding-inline: var(--s2);
   }
 }
 
@@ -289,6 +309,7 @@
 }
 
 .club {
+  min-block-size: 2.25rem;
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
@@ -299,4 +320,18 @@
 .club:hover span {
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+
+/* Sentence case and body type, not mono capitals: three lines of shouting
+   above a table is three lines the reader has to get past to reach it. */
+.status {
+  margin: 0 0 var(--s2);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+@media (max-width: 48rem) {
+  .hint {
+    display: none;
+  }
 }

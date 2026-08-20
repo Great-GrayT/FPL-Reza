@@ -627,6 +627,10 @@
 
 .primary,
 .secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 2.75rem;
   font-family: var(--font-mono), monospace;
   font-size: var(--step--1);
   letter-spacing: 0.1em;
@@ -896,6 +900,7 @@
 }
 
 .sortButton {
+  min-block-size: 2.75rem;
   font-family: var(--font-mono), monospace;
   font-size: var(--step--2);
   letter-spacing: 0.08em;

@@ -1,0 +1,191 @@
+/* ------------------------------------------------------------ wide screen */
+
+.wide {
+  display: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.row a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  text-decoration: none;
+  border-block-end: 2px solid transparent;
+}
+
+.row a:hover {
+  border-block-end-color: var(--flare);
+}
+
+.row a[aria-current='page'] {
+  border-block-end-color: var(--ink);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ phone */
+
+/*
+ * The bar is a printed strip along the bottom edge: flat paper, a rule above
+ * it, mono capitals, and the section you are in marked with a bar rather than
+ * a colour, so it reads the same to anyone who cannot separate the two.
+ */
+.bar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 20;
+  background: var(--paper);
+  border-block-start: 1px solid var(--ink);
+  /* The home indicator on a modern phone sits over the bottom edge. */
+  padding-block-end: env(safe-area-inset-bottom, 0);
+}
+
+.bar ul {
+  display: grid;
+  grid-auto-flow: column;
+  /* minmax(0, 1fr), not 1fr: the latter refuses to shrink below the widest
+     label, which made five columns 435px wide on a 390px phone and gave the
+     whole site a horizontal scrollbar. */
+  grid-auto-columns: minmax(0, 1fr);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The track can be 78px wide and the item still refuses to be, because a grid
+   item is min-width:auto: it reports its content's width and takes the page
+   sideways even where the label itself is clipped. */
+.bar li {
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.bar a,
+.bar button {
+  inline-size: 100%;
+  min-block-size: 3.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: var(--s2) 0.15rem;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-block-start: 3px solid transparent;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.bar a[aria-current='page'] {
+  color: var(--ink);
+  font-weight: 600;
+  border-block-start-color: var(--flare);
+}
+
+.bar button[aria-expanded='true'] {
+  color: var(--ink);
+  border-block-start-color: var(--ink);
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  background: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+.sheet {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 3.25rem;
+  z-index: 19;
+  max-block-size: 60vh;
+  overflow-y: auto;
+  padding: var(--s4) var(--s4) var(--s5);
+  background: var(--paper);
+  border-block-start: 1px solid var(--ink);
+  margin-block-end: env(safe-area-inset-bottom, 0);
+}
+
+.sheetHead {
+  margin: 0 0 var(--s2);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.sheetList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0;
+}
+
+.sheetList a {
+  display: flex;
+  align-items: center;
+  min-block-size: 3rem;
+  padding: 0 var(--s2);
+  border-block-end: 1px solid var(--rule);
+  font-size: var(--step--1);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.sheetList a[aria-current='page'] {
+  font-weight: 600;
+  border-inline-start: 2px solid var(--flare);
+  padding-inline-start: var(--s2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet[data-open='true'] {
+    animation: rise 140ms ease-out;
+  }
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(0.75rem);
+    opacity: 0;
+  }
+}
+
+/* Above the breakpoint the phone furniture goes away entirely and the twelve
+   sections sit in one row, which is what a wide screen has room for. */
+@media (min-width: 48rem) {
+  .wide {
+    display: block;
+  }
+
+  .bar,
+  .sheet,
+  .scrim {
+    display: none;
+  }
+}

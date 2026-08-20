@@ -58,6 +58,11 @@
 
 .scroll {
   overflow-x: auto;
+  /* A grid or flex item is min-width:auto by default, so a wrapper meant to
+     scroll instead grows to fit its table and takes the page sideways with it.
+     This is the line that makes overflow-x mean anything. */
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .table {

@@ -53,10 +53,15 @@
   --step--1: 0.8125rem;
   --step-0: 1rem;
   --step-1: 1.25rem;
-  --step-2: 1.75rem;
-  --step-3: 2.5rem;
-  --step-4: 3.5rem;
-  --step-5: clamp(3rem, 9vw, 6rem);
+  /* The display steps are fluid, because a fixed one is a phone with a
+     horizontal scrollbar: Archivo at 125% width sets PLAYERS 411px wide at
+     3.5rem, on a screen 390px across. Only the display sizes scale; body and
+     mono stay put, since shrinking reading text on a small screen is the
+     opposite of what a small screen needs. */
+  --step-2: clamp(1.375rem, 1.1rem + 1.2vw, 1.75rem);
+  --step-3: clamp(1.75rem, 1.2rem + 2.4vw, 2.5rem);
+  --step-4: clamp(2.25rem, 1.4rem + 3.6vw, 3.5rem);
+  --step-5: clamp(2.25rem, 1.3rem + 5vw, 6rem);
 
   /* Series colours for the Lab's charts. Four categorical slots, validated for
      colour vision deficiency against this paper at every pair, in this fixed
@@ -161,6 +166,9 @@ h3 {
   line-height: 1.02;
   margin: 0;
   text-transform: uppercase;
+  /* A backstop for a single word longer than the screen. The fluid steps make
+     this rare; a German club name would still find it. */
+  overflow-wrap: break-word;
 }
 
 a {
@@ -211,8 +219,19 @@ a:hover {
   border-radius: var(--radius);
 }
 
+/*
+ * Hidden from sight, not from a screen reader.
+ *
+ * `position: fixed` rather than `absolute`, which looks like a detail and is
+ * not: an absolutely positioned box takes its containing block from the
+ * nearest positioned ancestor, and where there is none that is the page
+ * itself. A one pixel span sitting at its static position 540px inside a
+ * horizontally scrolling table therefore stretched the document to 540px, and
+ * every page carrying a wide table scrolled sideways because of a label nobody
+ * can see. A fixed box contributes nothing to scrollable overflow.
+ */
 .visually-hidden {
-  position: absolute;
+  position: fixed;
   width: 1px;
   height: 1px;
   padding: 0;
@@ -220,6 +239,41 @@ a:hover {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/*
+ * The touch floor.
+ *
+ * A finger is about 9mm across and a mouse pointer is one pixel, so a control
+ * sized for the second is a control the first cannot hit. Form controls are
+ * raised wholesale on a coarse pointer rather than one at a time, because the
+ * ones that were 32 pixels high were 32 pixels high by default rather than by
+ * decision. Buttons are left alone here: several of this site's are cells in a
+ * grid, where a floor would break the grid rather than the control.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    min-block-size: 2.75rem;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    inline-size: 1.4rem;
+    block-size: 1.4rem;
+  }
+
+  /* A link that carries a crest, a face, or a badge is a control rather than a
+     word in a sentence, so it gets the floor. Links inside prose do not, and
+     should not: WCAG exempts them, and padding a word mid-paragraph to 44px
+     breaks the paragraph to fix nothing. */
+  a:has(img),
+  a:has(svg) {
+    min-block-size: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

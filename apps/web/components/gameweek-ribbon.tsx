@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import styles from './gameweek-ribbon.module.css';
 
 export interface RibbonCell {
@@ -39,66 +39,84 @@ export function GameweekRibbon({
   const best = cells.reduce((max, cell) => Math.max(max, cell.points ?? 0), 1);
   const active = hovered ?? selected ?? null;
   const activeCell = cells.find((cell) => cell.gameweek === active) ?? null;
+  const scroller = useRef<HTMLDivElement>(null);
+
+  // Where the strip scrolls, it opens on the gameweek the season is actually
+  // in. A phone showing August in April is a phone showing nothing.
+  useEffect(() => {
+    const box = scroller.current;
+    if (box === null || box.scrollWidth <= box.clientWidth) return;
+    const current = box.querySelector('[data-current="true"]');
+    if (current instanceof HTMLElement) {
+      box.scrollLeft = Math.max(0, current.offsetLeft - box.clientWidth / 2);
+    }
+  }, [cells]);
 
   return (
     <figure className={styles.wrap}>
       <figcaption className="visually-hidden">{label}</figcaption>
-      <ol
-        className={styles.ribbon}
-        onMouseLeave={() => {
-          setHovered(null);
-        }}
-        aria-describedby={describedBy}
-      >
-        {cells.map((cell, index) => {
-          const height = cell.points === null ? 0 : Math.max(2, (cell.points / best) * 100);
-          return (
-            <li key={cell.gameweek} className={styles.cell}>
-              <button
-                type="button"
-                className={[
-                  styles.button,
-                  cell.isCurrent ? styles.current : '',
-                  active === cell.gameweek ? styles.active : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                style={{
-                  // Staggered fill reads as a season playing out. Suppressed
-                  // wholesale by the reduced motion rule in globals.css.
-                  animationDelay: `${String(index * 24)}ms`,
-                  background:
-                    cell.difficulty === null
-                      ? 'var(--paper-3)'
-                      : `var(--fdr-${String(cell.difficulty)})`,
-                }}
-                onMouseEnter={() => {
-                  setHovered(cell.gameweek);
-                }}
-                onFocus={() => {
-                  setHovered(cell.gameweek);
-                }}
-                onBlur={() => {
-                  setHovered(null);
-                }}
-                onClick={() => {
-                  onSelect?.(selected === cell.gameweek ? null : cell.gameweek);
-                }}
-                aria-pressed={selected === cell.gameweek}
+      <div className={styles.ribbonScroll} ref={scroller}>
+        <ol
+          className={styles.ribbon}
+          onMouseLeave={() => {
+            setHovered(null);
+          }}
+          aria-describedby={describedBy}
+        >
+          {cells.map((cell, index) => {
+            const height = cell.points === null ? 0 : Math.max(2, (cell.points / best) * 100);
+            return (
+              <li
+                key={cell.gameweek}
+                className={styles.cell}
+                data-current={cell.isCurrent ? 'true' : undefined}
               >
-                <span className={styles.bar} style={{ height: `${String(height)}%` }} />
-                <span className="visually-hidden">
-                  Gameweek {cell.gameweek}
-                  {cell.opponent === null
-                    ? ', no fixture'
-                    : `, ${cell.home === true ? 'home to' : 'away at'} ${cell.opponent}`}
-                  {cell.points === null ? ', not played' : `, ${String(cell.points)} points`}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+                <button
+                  type="button"
+                  className={[
+                    styles.button,
+                    cell.isCurrent ? styles.current : '',
+                    active === cell.gameweek ? styles.active : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{
+                    // Staggered fill reads as a season playing out. Suppressed
+                    // wholesale by the reduced motion rule in globals.css.
+                    animationDelay: `${String(index * 24)}ms`,
+                    background:
+                      cell.difficulty === null
+                        ? 'var(--paper-3)'
+                        : `var(--fdr-${String(cell.difficulty)})`,
+                  }}
+                  onMouseEnter={() => {
+                    setHovered(cell.gameweek);
+                  }}
+                  onFocus={() => {
+                    setHovered(cell.gameweek);
+                  }}
+                  onBlur={() => {
+                    setHovered(null);
+                  }}
+                  onClick={() => {
+                    onSelect?.(selected === cell.gameweek ? null : cell.gameweek);
+                  }}
+                  aria-pressed={selected === cell.gameweek}
+                >
+                  <span className={styles.bar} style={{ height: `${String(height)}%` }} />
+                  <span className="visually-hidden">
+                    Gameweek {cell.gameweek}
+                    {cell.opponent === null
+                      ? ', no fixture'
+                      : `, ${cell.home === true ? 'home to' : 'away at'} ${cell.opponent}`}
+                    {cell.points === null ? ', not played' : `, ${String(cell.points)} points`}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
 
       <div className={styles.axis} aria-hidden>
         <span className="num">1</span>

@@ -13,6 +13,32 @@
   height: 5.5rem;
 }
 
+/*
+ * On a phone, 38 cells across 342 pixels is 8 pixels each: a control nobody can
+ * hit and a bar chart nobody can read. So the strip stops dividing the screen
+ * and starts running off it, at a width a thumb can land on, and scrolls. The
+ * cell for the current gameweek is scrolled into view by the component, so the
+ * strip opens where the season actually is rather than in August.
+ */
+@media (pointer: coarse), (max-width: 40rem) {
+  .ribbonScroll {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    margin-inline: calc(-1 * var(--s5));
+    padding-inline: var(--s5);
+  }
+
+  .ribbon {
+    grid-template-columns: repeat(38, 2.75rem);
+    inline-size: max-content;
+  }
+
+  .cell {
+    scroll-snap-align: center;
+  }
+}
+
 .cell {
   display: flex;
   min-width: 0;

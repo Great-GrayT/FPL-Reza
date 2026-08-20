@@ -238,10 +238,10 @@ export function PlayerIndex({ rows }: { rows: readonly IndexRow[] }) {
         </div>
       </div>
 
-      <p className="eyebrow" role="status">
-        {shown.length} of {rows.length} players · sorted by{' '}
-        {COLUMNS.find((column) => column.key === sort)?.title.toLowerCase() ?? 'name'} · press a
-        column to sort by it
+      <p className={styles.status} role="status">
+        {shown.length} of {rows.length} players, sorted by{' '}
+        {COLUMNS.find((column) => column.key === sort)?.title.toLowerCase() ?? 'name'}.{' '}
+        <span className={styles.hint}>Press a column to sort by it.</span>
       </p>
 
       {shown.length === 0 ? (
