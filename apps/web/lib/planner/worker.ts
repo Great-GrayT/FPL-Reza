@@ -102,7 +102,11 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
   }
 
   if (request.kind === 'strategy') {
-    const riskAversion = request.riskAversion / 10;
+    // A reader with no view on risk asks for the best return per unit of it,
+    // and the tangency portfolio's own appetite is the answer to that.
+    const tangency =
+      request.objective === 'sharpe' ? tangencyRisk(pool, request.horizon, request.budget) : null;
+    const riskAversion = tangency === null ? request.riskAversion / 10 : tangency.tenths / 10;
     const found = optimiseSquad(pool, {
       budget: request.budget,
       horizon: request.horizon,
@@ -179,6 +183,11 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
         fingerprint: poolFingerprint(pool),
         freeHand,
         portfolio,
+        riskUsed: {
+          tenths: Math.round(riskAversion * 10),
+          chosen: tangency !== null,
+          sharpe: tangency?.sharpe ?? null,
+        },
       },
     };
   }
@@ -262,6 +271,47 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
 const CLUB_CORRELATION = 0.35;
 
 /**
+ * The risk appetite that maximises return per unit of risk.
+ *
+ * There is no risk free asset here: every fifteen has a spread, because
+ * footballers are not treasury bills. The closest true analogue is the
+ * minimum variance legal squad, the steadiest fifteen the constraints allow,
+ * and that is the zero this measures from. The tangency portfolio is then the
+ * squad maximising `(expected - steadiest) / risk`, which is where the capital
+ * market line touches the frontier, and its own risk aversion is what the
+ * search should use when the reader has no view of their own.
+ *
+ * Returned as tenths, the way the strategy code carries a risk appetite.
+ */
+function tangencyRisk(
+  players: readonly PlannerPlayer[],
+  weeks: number,
+  budget: number,
+): { tenths: number; sharpe: number; riskFree: number } | null {
+  const candidates = candidatesFor(players, weeks);
+  const constraints = { budget, quota: { GKP: 2, DEF: 5, MID: 5, FWD: 3 }, maxPerClub: 3 };
+  const frontier = efficientFrontier(candidates, constraints, {
+    clubCorrelation: CLUB_CORRELATION,
+  });
+  if (frontier.length === 0) return null;
+
+  // The steadiest squad on the frontier stands in for the risk free rate. It
+  // is not riskless and the page says so; it is the least risk on offer.
+  const steadiest = frontier.reduce((best, point) => (point.risk < best.risk ? point : best));
+  let best = { tenths: 0, sharpe: Number.NEGATIVE_INFINITY, riskFree: steadiest.expected };
+  for (const point of frontier) {
+    if (point.risk <= 0) continue;
+    const sharpe = (point.expected - steadiest.expected) / point.risk;
+    if (sharpe > best.sharpe) {
+      // The frontier is solved over a lambda path, so the tangency point comes
+      // with the appetite that produced it: no second search is needed.
+      best = { tenths: Math.round(point.lambda * 10), sharpe, riskFree: steadiest.expected };
+    }
+  }
+  return Number.isFinite(best.sharpe) ? best : null;
+}
+
+/**
  * The frontier of legal squads over the horizon, and where this one sits on it.
  *
  * The candidates are the same pool the search used, summed over the horizon:
@@ -270,19 +320,15 @@ const CLUB_CORRELATION = 0.35;
  * frontier is solved by `@fpl/quant`, which knows nothing about football and is
  * the same code the Lab's portfolio panel runs on, so the two cannot disagree.
  */
-function frontierFor(
-  players: readonly PlannerPlayer[],
-  picks: readonly number[],
-  weeks: number,
-  budget: number,
-): NonNullable<Reply['strategy']>['portfolio'] {
+/** The pool as portfolio candidates, summed over the horizon. */
+function candidatesFor(players: readonly PlannerPlayer[], weeks: number): Candidate[] {
   const sumOver = (values: readonly number[] | undefined): number => {
     let total = 0;
     for (let index = 0; index < weeks; index += 1) total += values?.[index] ?? 0;
     return total;
   };
 
-  const candidates: Candidate[] = players.map((player) => ({
+  return players.map((player) => ({
     id: player.code,
     name: player.name,
     group: player.position,
@@ -298,6 +344,15 @@ function frontierFor(
       ),
     ),
   }));
+}
+
+function frontierFor(
+  players: readonly PlannerPlayer[],
+  picks: readonly number[],
+  weeks: number,
+  budget: number,
+): NonNullable<Reply['strategy']>['portfolio'] {
+  const candidates = candidatesFor(players, weeks);
 
   const frontier = efficientFrontier(
     candidates,

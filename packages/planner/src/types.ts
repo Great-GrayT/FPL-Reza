@@ -89,6 +89,13 @@ export const DEFAULT_RULES: PlanRules = {
  */
 export type LockMode = 'always' | 'start';
 
+/**
+ * What a search maximises: points less a stated multiple of the spread, or the
+ * best return per unit of risk, which is the tangency portfolio and needs no
+ * appetite from the reader at all.
+ */
+export type Objective = 'mean' | 'sharpe';
+
 export interface Lock {
   code: number;
   mode: LockMode;
@@ -126,6 +133,12 @@ export interface PlanOptions {
    * player one week and buys him back the next.
    */
   minTransferGain?: number;
+  /**
+   * How many transfers a wildcard or free hit bundle may make. The unlimited
+   * chips are searched with a bounded greedy rebuild rather than a full
+   * re-optimisation inside every beam state, and this is that bound.
+   */
+  wildcardDepth?: number;
   /**
    * Players the plan may never sell. A lock is a constraint and never a bonus:
    * a locked player is not scored more highly, he is simply present, so the

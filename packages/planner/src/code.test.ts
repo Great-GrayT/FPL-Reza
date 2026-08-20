@@ -36,6 +36,7 @@ const strategy: Strategy = {
   chips: [],
   squad: [],
   locks: [],
+  objective: 'mean',
   seed: 7,
   fingerprint: 'ABC123',
 };
@@ -187,6 +188,7 @@ describe('version 2', () => {
     maxTransfersPerWeek: 2,
     chips: ['bench_boost'],
     squad: [11, 22, 33],
+    objective: 'sharpe',
     locks: [
       { code: 22, mode: 'always' },
       { code: 11, mode: 'start' },
@@ -200,6 +202,7 @@ describe('version 2', () => {
     assert.equal(decoded.startGameweek, 3);
     assert.equal(decoded.endGameweek, 10);
     assert.equal(decoded.maxTransfersPerWeek, 2);
+    assert.equal(decoded.objective, 'sharpe');
     assert.deepEqual(decoded.squad, [11, 22, 33]);
     assert.deepEqual(
       [...decoded.locks].sort((a, b) => a.code - b.code),
@@ -219,6 +222,7 @@ describe('version 2', () => {
     assert.equal(decoded.endGameweek, 10);
     assert.deepEqual(decoded.squad, []);
     assert.deepEqual(decoded.locks, []);
+    assert.equal(decoded.objective, 'mean');
   });
 
   it('is refused when a character is wrong', () => {
@@ -240,6 +244,7 @@ describe('rebasing a code onto today', () => {
     chips: [],
     squad: [],
     locks: [],
+    objective: 'mean',
     seed: 7,
     fingerprint: 'ABC',
   };

@@ -22,9 +22,11 @@ In: fifteen player codes, the money left in tenths, a code to player index, and 
 
 In: a squad, the index into the horizon, the rules, the risk appetite, and the chip in play. Out: the starters, the bench, the captain, the vice captain, and the points the week is worth. Errors: none. Notes: the eleven comes from `bestStartingEleven` in `@fpl/analytics`, so the planner and the site cannot disagree about which eleven is legal. The captain is the highest projected starter, doubled, or trebled under the chip; a bench boost is the only case where a bench player's projection enters the objective.
 
-### movesFor(squad, week, index, byPosition, rules, options, chipsAvailable): Move[]
+### movesFor(squad, week, index, byPosition, rules, options, chipsAvailable, locked): Move[]
 
-In: the squad, the gameweek, the pool indexed by position, and the per week limits. Out: the candidate moves, always including the move of doing nothing. Errors: none. Notes: the two transfer space over six hundred candidates is millions of pairs, so it is not enumerated. Each held player is paired with the best few affordable replacements of his own position, and pairs are formed from the best of those singles. This is the one heuristic in the package, and the alternative is a search nobody can run inside a page load.
+In: the squad, the gameweek, the pool indexed by position, and the per week limits. Out: the candidate moves, always including the move of doing nothing. Errors: none. Notes: all four chips are moves, so the search decides the week each is played rather than taking it as a setting. Bench boost and triple captain are valuation changes and cost nothing structural. The wildcard and the free hit are a rebuild of the squad in one gameweek, searched greedily up to `wildcardDepth` (8) swaps rather than by re-optimising inside every beam state, and valued differently on purpose: a free hit values only that gameweek, because the squad reverts at the next deadline, while a wildcard values the rest of the horizon, because it keeps what it buys. The free hit is also exempt from the no-buy-back rule, since holding a player for ninety minutes and handing him back is what the chip is for. Measured over 510 players and eight gameweeks: 131 ms with all four chips against 81 ms with none, and the plan played all four for 34 points.
+
+The two transfer space over six hundred candidates is millions of pairs, so it is not enumerated. Each held player is paired with the best few affordable replacements of his own position, and pairs are formed from the best of those singles. This is the one heuristic in the package, and the alternative is a search nobody can run inside a page load.
 
 ### applyMove(squad, move, week, index, rules): Squad | null
 

@@ -45,7 +45,15 @@ const POSITIONS: Position[] = ['GKP', 'DEF', 'MID', 'FWD'];
  * which in the real game loses money, since a sale returns only half of any
  * rise. Stated, not fitted.
  */
-export const DEFAULT_MIN_TRANSFER_GAIN = 0.5;
+export /**
+ * How many swaps a wildcard or free hit bundle may make.
+ *
+ * Eight is most of a squad, which is what a wildcard is for, and it keeps the
+ * bundle build inside one pass per beam state rather than a re-optimisation.
+ */
+const DEFAULT_WILDCARD_DEPTH = 8;
+
+const DEFAULT_MIN_TRANSFER_GAIN = 0.5;
 
 /** The value the objective puts on a player in one gameweek. */
 function valueOf(player: PlannerPlayer, week: number, riskAversion: number): number {
@@ -193,7 +201,7 @@ function movesFor(
       PlanOptions,
       'maxTransfersPerWeek' | 'candidatesPerWeek' | 'riskAversion' | 'minTransferGain'
     >
-  >,
+  > & { wildcardDepth: number; horizon: number },
   chipsAvailable: readonly Chip[],
   locked: ReadonlySet<number>,
 ): Move[] {
@@ -252,7 +260,115 @@ function movesFor(
     }
   }
 
+  // The two unlimited chips are a different kind of move: not "which one
+  // transfer", but "rebuild the squad this week". Re-solving the whole squad
+  // inside every beam state would run the optimiser hundreds of times, so the
+  // bundle is built greedily, one best swap at a time, up to a stated depth.
+  // That is a heuristic and it is named as one on the page.
+  for (const chip of chipsAvailable) {
+    if (chip !== 'wildcard' && chip !== 'free_hit') continue;
+    const bundle = rebuild(squad, week, index, byPosition, rules, { ...options, locked }, chip);
+    if (bundle.out.length > 0) moves.push({ ...bundle, chip });
+  }
+
   return moves;
+}
+
+/**
+ * The squad a week of unlimited transfers can buy, built one best swap at a
+ * time.
+ *
+ * A free hit values only this gameweek, because the squad reverts at the next
+ * deadline and everything it buys is gone; a wildcard keeps what it buys, so it
+ * values the rest of the horizon. That single difference is the whole of what
+ * separates the two chips, and it is why they cannot share a valuation.
+ */
+function rebuild(
+  squad: Squad,
+  week: number,
+  index: Map<number, PlannerPlayer>,
+  byPosition: Map<Position, PlannerPlayer[]>,
+  rules: PlanRules,
+  options: Required<
+    Pick<
+      PlanOptions,
+      'maxTransfersPerWeek' | 'candidatesPerWeek' | 'riskAversion' | 'minTransferGain'
+    >
+  > & { wildcardDepth: number; locked: ReadonlySet<number>; horizon: number },
+  chip: 'wildcard' | 'free_hit',
+): { out: number[]; in: number[] } {
+  const out: number[] = [];
+  const into: number[] = [];
+  let working = squad;
+
+  // A transfer under a chip really is free, so the threshold that stops churn
+  // when a free transfer is only notionally free does not apply here.
+  const horizon = chip === 'free_hit' ? 1 : Math.max(1, options.horizon - week);
+
+  const worth = (player: PlannerPlayer): number => {
+    let total = 0;
+    for (let step = 0; step < horizon; step += 1) {
+      const points = player.projections[week + step] ?? 0;
+      const spread = player.spreads?.[week + step] ?? 0;
+      total += points - options.riskAversion * spread;
+    }
+    return total;
+  };
+
+  for (let step = 0; step < options.wildcardDepth; step += 1) {
+    let bestGain = 0;
+    let bestOut: number | null = null;
+    let bestIn: number | null = null;
+
+    for (const outCode of working.picks) {
+      if (options.locked.has(outCode)) continue;
+      const outPlayer = index.get(outCode);
+      if (outPlayer === undefined) continue;
+      const receipts = sellingPrice(
+        working.purchasePrices.get(outCode) ?? outPlayer.price,
+        outPlayer.price,
+      );
+      const outValue = worth(outPlayer);
+
+      for (const candidate of (byPosition.get(outPlayer.position) ?? []).slice(
+        0,
+        options.candidatesPerWeek,
+      )) {
+        if (candidate.available === false) continue;
+        if (working.picks.includes(candidate.code)) continue;
+        if (candidate.price > working.bank + receipts) continue;
+        const gain = worth(candidate) - outValue;
+        if (gain <= bestGain) continue;
+        const picks = working.picks.map((code) => (code === outCode ? candidate.code : code));
+        if (!isLegal(picks, working.bank + receipts - candidate.price, index, rules)) continue;
+        bestGain = gain;
+        bestOut = outCode;
+        bestIn = candidate.code;
+      }
+    }
+
+    if (bestOut === null || bestIn === null) break;
+    const incoming = index.get(bestIn);
+    const outgoing = index.get(bestOut);
+    if (incoming === undefined || outgoing === undefined) break;
+    const receipts = sellingPrice(
+      working.purchasePrices.get(bestOut) ?? outgoing.price,
+      outgoing.price,
+    );
+    const purchases = new Map(working.purchasePrices);
+    purchases.delete(bestOut);
+    purchases.set(bestIn, incoming.price);
+    working = {
+      ...working,
+      picks: working.picks.map((code) => (code === bestOut ? bestIn : code)),
+      purchasePrices: purchases,
+      bank: working.bank + receipts - incoming.price,
+    };
+    out.push(bestOut);
+    into.push(bestIn);
+  }
+
+  return { out, in: into };
 }
 
 function applyMove(
@@ -269,9 +385,14 @@ function applyMove(
   // is an artefact of two assumptions this planner makes, that a free transfer
   // costs nothing and that prices hold. Rather than let those assumptions
   // produce a visibly silly ledger, the search is refused the move and says so.
+  // A free hit is exempt: it holds its squad for ninety minutes and hands it
+  // back, so buying a player you sold in gameweek 3 for one week in gameweek 7
+  // is not the churn this rule exists to stop, it is what the chip is for.
   const sold = new Set(squad.sold ?? []);
-  for (const code of move.in) {
-    if (sold.has(code)) return null;
+  if (move.chip !== 'free_hit') {
+    for (const code of move.in) {
+      if (sold.has(code)) return null;
+    }
   }
 
   const picks = squad.picks.filter((code) => !move.out.includes(code));
@@ -327,6 +448,7 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
   const candidatesPerWeek = options.candidatesPerWeek ?? 12;
   const minTransferGain = options.minTransferGain ?? DEFAULT_MIN_TRANSFER_GAIN;
   const locked = new Set(options.locked ?? []);
+  const wildcardDepth = options.wildcardDepth ?? DEFAULT_WILDCARD_DEPTH;
 
   const index = new Map(players.map((player) => [player.code, { ...player }]));
   const byPosition = new Map<Position, PlannerPlayer[]>();
@@ -396,7 +518,14 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
         index,
         byPosition,
         rules,
-        { maxTransfersPerWeek, candidatesPerWeek, riskAversion, minTransferGain },
+        {
+          maxTransfersPerWeek,
+          candidatesPerWeek,
+          riskAversion,
+          minTransferGain,
+          wildcardDepth,
+          horizon: options.horizon,
+        },
         chipsAvailable,
         locked,
       );
@@ -425,11 +554,18 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
             : Math.max(0, state.squad.freeTransfers - transfers) + 1,
         );
 
+        // A free hit is the one move whose squad does not survive the week:
+        // it buys an eleven for this gameweek and the game hands the old squad
+        // back at the next deadline. So the week is *valued* on what it bought
+        // and the state *carries* what it had, which is the difference between
+        // a free hit and a wildcard and the reason they cannot share a branch.
+        const carried = move.chip === 'free_hit' ? state.squad : squad;
+
         next.push({
           squad: {
-            ...squad,
+            ...carried,
             freeTransfers,
-            chipsUsed: move.chip === null ? squad.chipsUsed : [...squad.chipsUsed, move.chip],
+            chipsUsed: move.chip === null ? carried.chipsUsed : [...carried.chipsUsed, move.chip],
           },
           weeks: [
             ...state.weeks,

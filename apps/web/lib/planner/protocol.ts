@@ -67,8 +67,13 @@ export interface StrategyRequest extends PoolEnvelope {
   budget: number;
   horizon: number;
   startGameweek: number;
-  /** In tenths, the way the code carries it. */
+  /** In tenths, the way the code carries it. Ignored when the objective is sharpe. */
   riskAversion: number;
+  /**
+   * `sharpe` asks the search to find the appetite instead of taking one: it
+   * solves the tangency portfolio and uses that point's own risk aversion.
+   */
+  objective?: 'mean' | 'sharpe';
   freeTransfers: number;
   maxTransfersPerWeek?: number;
   chips: Chip[];
@@ -171,6 +176,8 @@ export interface SolvedStrategy {
   freeHand: FreeHandWeek[];
   /** Null where the frontier could not be solved under these constraints. */
   portfolio: PortfolioView | null;
+  /** The appetite actually used, in tenths, and where it came from. */
+  riskUsed: { tenths: number; chosen: boolean; sharpe: number | null };
 }
 
 /**

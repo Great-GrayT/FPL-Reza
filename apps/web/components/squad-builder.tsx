@@ -29,7 +29,9 @@ import {
   StrategyCodeError,
   decodeStrategy,
   encodeStrategy,
+  type Chip,
   type LockMode,
+  type Objective,
   type Strategy,
 } from '@fpl/planner';
 import { send } from '@/lib/planner/client';
@@ -85,6 +87,14 @@ export interface BuilderTeam {
 }
 
 type SortKey = 'projected' | 'points' | 'price' | 'form' | 'ownership' | 'value';
+
+/** Every chip, since the search can now decide the week for all four. */
+const ALL_CHIPS: { chip: Chip; label: string }[] = [
+  { chip: 'wildcard', label: 'Wildcard' },
+  { chip: 'free_hit', label: 'Free hit' },
+  { chip: 'bench_boost', label: 'Bench boost' },
+  { chip: 'triple_captain', label: 'Triple captain' },
+];
 
 const SORTS: { key: SortKey; label: string; metric: string }[] = [
   { key: 'projected', label: 'Projected', metric: 'projection' },
@@ -167,8 +177,40 @@ export function SquadBuilder({
   const [query, setQuery] = useState('');
   const [position, setPosition] = useState<Position | 'ALL'>('ALL');
   const [club, setClub] = useState<'ALL' | number>('ALL');
-  const [maxPrice, setMaxPrice] = useState(150);
+  /**
+   * The dearest and cheapest players in the pool, which is where the price
+   * filter's ends belong. Hardcoding 150 put the top of the slider below
+   * Haaland at 155, so the highest setting still hid the most expensive player
+   * in the game: a filter's upper bound has to be unreachable, or it is a
+   * filter nobody knows is filtering.
+   */
+  const priceRange = useMemo(() => {
+    const prices = players.map((player) => player.price);
+    return {
+      floor: prices.length === 0 ? 38 : Math.min(...prices),
+      ceiling: prices.length === 0 ? 155 : Math.max(...prices),
+    };
+  }, [players]);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  const priceCap = maxPrice ?? priceRange.ceiling;
   const [sort, setSort] = useState<SortKey>('projected');
+  /**
+   * The rest of the filters.
+   *
+   * A list of six hundred names is not a list anybody reads: it is a list they
+   * scroll past. Every filter here answers a question a manager actually asks
+   * while picking, and each one is a floor rather than a range, because "at
+   * least this much" is how the questions are phrased ("who starts", "who is
+   * fit", "who is under ten percent owned").
+   */
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [minMinutes, setMinMinutes] = useState(0);
+  const [minStarts, setMinStarts] = useState(0);
+  const [maxOwnership, setMaxOwnership] = useState(100);
+  const [minPoints, setMinPoints] = useState(0);
+  const [minPer90, setMinPer90] = useState(0);
+  const [hasFixture, setHasFixture] = useState(false);
+  const [maxDifficulty, setMaxDifficulty] = useState(5);
   /** The player picked up, by pointer or by keyboard. */
   const [holding, setHolding] = useState<PlayerId | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -183,6 +225,21 @@ export function SquadBuilder({
    * whole period. A player with no entry here is free.
    */
   const [locks, setLocks] = useState<Record<number, LockMode>>({});
+
+  /**
+   * The whole question the search is asked, in one place.
+   *
+   * This page decides; the plan page explains. Every setting therefore lives
+   * here and travels in the code, so a strategy is reproducible from the code
+   * alone and the explanation cannot be of a different question from the one
+   * that was asked.
+   */
+  const [budget, setBudget] = useState(INITIAL_BUDGET);
+  const [freeTransfers, setFreeTransfers] = useState(1);
+  const [maxTransfers, setMaxTransfers] = useState(2);
+  const [risk, setRisk] = useState(0);
+  const [objective, setObjective] = useState<Objective>('mean');
+  const [chips, setChips] = useState<Chip[]>([]);
   /** The pitch itself, so the corner panel knows when it has left the screen. */
   const pitchRef = useRef<HTMLDivElement>(null);
   const [searching, setSearching] = useState(false);
@@ -291,7 +348,23 @@ export function SquadBuilder({
       .filter((player) => {
         if (position !== 'ALL' && player.position !== position) return false;
         if (club !== 'ALL' && player.teamId !== club) return false;
-        if (player.price > maxPrice) return false;
+        if (player.price > priceCap) return false;
+        if (onlyAvailable && player.availability !== 'available') return false;
+        if (player.minutes < minMinutes) return false;
+        if (player.starterReliability < minStarts) return false;
+        if (player.ownership > maxOwnership) return false;
+        if (player.totalPoints < minPoints) return false;
+        if (player.pointsPer90 < minPer90) return false;
+        // A player whose club blanks in the next three has no fixture to be
+        // picked for, which is a different objection from being out of form.
+        if (hasFixture && player.next.length === 0) return false;
+        if (
+          maxDifficulty < 5 &&
+          player.next.length > 0 &&
+          Math.min(...player.next.map((fixture) => fixture.difficulty)) > maxDifficulty
+        ) {
+          return false;
+        }
         if (needle === '') return true;
         const clubName = teamById.get(player.teamId)?.name.toLowerCase() ?? '';
         return player.webName.toLowerCase().includes(needle) || clubName.includes(needle);
@@ -300,7 +373,46 @@ export function SquadBuilder({
         sort === 'price' ? a.price - b.price : sortValue(b, sort) - sortValue(a, sort),
       )
       .slice(0, 120);
-  }, [players, position, club, maxPrice, query, sort, teamById]);
+  }, [
+    players,
+    position,
+    club,
+    priceCap,
+    query,
+    sort,
+    teamById,
+    onlyAvailable,
+    minMinutes,
+    minStarts,
+    maxOwnership,
+    minPoints,
+    minPer90,
+    hasFixture,
+    maxDifficulty,
+  ]);
+
+  const filtersOn =
+    onlyAvailable ||
+    minMinutes > 0 ||
+    minStarts > 0 ||
+    maxOwnership < 100 ||
+    minPoints > 0 ||
+    minPer90 > 0 ||
+    hasFixture ||
+    maxDifficulty < 5 ||
+    priceCap < priceRange.ceiling;
+
+  const clearFilters = useCallback(() => {
+    setOnlyAvailable(false);
+    setMinMinutes(0);
+    setMinStarts(0);
+    setMaxOwnership(100);
+    setMinPoints(0);
+    setMinPer90(0);
+    setHasFixture(false);
+    setMaxDifficulty(5);
+    setMaxPrice(null);
+  }, []);
 
   const autoFill = useCallback(() => {
     const complete = autoPick(players, projection, { keep: picks, budget: INITIAL_BUDGET });
@@ -442,17 +554,29 @@ export function SquadBuilder({
       version: 2,
       startGameweek: gameweek,
       endGameweek: gameweek + weeks - 1,
-      budget: INITIAL_BUDGET,
-      riskAversion: 0,
-      freeTransfers: 1,
-      maxTransfersPerWeek: 2,
-      chips: [],
+      budget,
+      riskAversion: risk,
+      objective,
+      freeTransfers,
+      maxTransfersPerWeek: maxTransfers,
+      chips,
       squad: [],
       locks: lockList,
       seed: 7,
       fingerprint: '',
     });
-  }, [solve, gameweek, weeks, lockList]);
+  }, [
+    solve,
+    gameweek,
+    weeks,
+    lockList,
+    budget,
+    risk,
+    objective,
+    freeTransfers,
+    maxTransfers,
+    chips,
+  ]);
 
   /**
    * The plan as the forecast reads it: one row per gameweek, with the names the
@@ -532,6 +656,15 @@ export function SquadBuilder({
           }),
         ),
       );
+      // A code is the whole question, so pasting one adopts the whole
+      // configuration: anything less would solve a different strategy under
+      // someone else's code.
+      setBudget(strategy.budget);
+      setRisk(strategy.riskAversion);
+      setObjective(strategy.objective);
+      setFreeTransfers(strategy.freeTransfers);
+      setMaxTransfers(strategy.maxTransfersPerWeek);
+      setChips(strategy.chips);
       solve(strategy);
     } catch (error: unknown) {
       setSearchError(
@@ -805,6 +938,140 @@ export function SquadBuilder({
               </p>
             </fieldset>
 
+            {/* Everything the search is asked, in one place. This page owns
+                the question and the plan page explains the answer, so a
+                setting that lived on the other page would be a second question
+                nobody encoded. All of it travels in the code. */}
+            <fieldset className={styles.config}>
+              <legend className={styles.solverLabel}>Money and transfers</legend>
+              <div className={styles.configGrid}>
+                <label className={styles.field}>
+                  <span>Budget {formatPrice(budget)}</span>
+                  <input
+                    type="range"
+                    min={800}
+                    max={1200}
+                    step={1}
+                    value={budget}
+                    onChange={(event) => {
+                      setBudget(Number(event.target.value));
+                    }}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span>Free transfers held</span>
+                  <select
+                    value={freeTransfers}
+                    onChange={(event) => {
+                      setFreeTransfers(Number(event.target.value));
+                    }}
+                  >
+                    {[1, 2, 3, 4, 5].map((count) => (
+                      <option key={count} value={count}>
+                        {count}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.field}>
+                  <span>Transfers a week</span>
+                  <select
+                    value={maxTransfers}
+                    onChange={(event) => {
+                      setMaxTransfers(Number(event.target.value));
+                    }}
+                  >
+                    {[1, 2, 3].map((count) => (
+                      <option key={count} value={count}>
+                        {count}
+                        {count > 1 ? ' (hits allowed)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset className={styles.config}>
+              <legend className={styles.solverLabel}>Risk</legend>
+              <div className={styles.lockButtons} role="group">
+                <button
+                  type="button"
+                  className={objective === 'sharpe' ? styles.goalOn : styles.goal}
+                  onClick={() => {
+                    setObjective('sharpe');
+                  }}
+                >
+                  Find the optimum
+                </button>
+                <button
+                  type="button"
+                  className={objective === 'mean' ? styles.goalOn : styles.goal}
+                  onClick={() => {
+                    setObjective('mean');
+                  }}
+                >
+                  I will set it
+                </button>
+              </div>
+              {objective === 'mean' ? (
+                <label className={styles.field}>
+                  <span>
+                    Appetite {(risk / 10).toFixed(1)}{' '}
+                    {risk < 0 ? '(chasing)' : risk > 0 ? '(protecting)' : '(neutral)'}
+                  </span>
+                  <input
+                    type="range"
+                    min={-20}
+                    max={20}
+                    step={1}
+                    value={risk}
+                    onChange={(event) => {
+                      setRisk(Number(event.target.value));
+                    }}
+                  />
+                </label>
+              ) : (
+                <p className={styles.solverNote}>
+                  The search solves the tangency portfolio: the squad with the best return per unit
+                  of risk, measured from the steadiest legal fifteen rather than from a riskless
+                  asset, because no squad is riskless. The appetite becomes an output, and the plan
+                  page prints the one it found.
+                </p>
+              )}
+            </fieldset>
+
+            <fieldset className={styles.config}>
+              <legend className={styles.solverLabel}>Chips available</legend>
+              <div className={styles.lockButtons} role="group">
+                {ALL_CHIPS.map((entry) => (
+                  <button
+                    key={entry.chip}
+                    type="button"
+                    className={chips.includes(entry.chip) ? styles.goalOn : styles.goal}
+                    aria-pressed={chips.includes(entry.chip)}
+                    onClick={() => {
+                      setChips((current) =>
+                        current.includes(entry.chip)
+                          ? current.filter((chip) => chip !== entry.chip)
+                          : [...current, entry.chip],
+                      );
+                    }}
+                  >
+                    {entry.label}
+                  </button>
+                ))}
+              </div>
+              <p className={styles.solverNote}>
+                A chip you hold is a chip the search may play, and it decides the week: the wildcard
+                and the free hit are searched as a rebuild of the squad that gameweek, up to eight
+                transfers, and the free hit hands the old squad back the week after. Nothing is
+                played unless it beats holding it to the end of the horizon.
+              </p>
+            </fieldset>
+
             {/* Fixing players is the question the search exists to answer for
                 a manager who already owns a team: not "which fifteen is best"
                 but "which fifteen is best given these". The two modes are two
@@ -1053,20 +1320,147 @@ export function SquadBuilder({
 
             <label className={styles.field}>
               <span>
-                Max <MetricTip id="price">price</MetricTip> {formatPrice(maxPrice)}
+                Max <MetricTip id="price">price</MetricTip> {formatPrice(priceCap)}
+                {priceCap >= priceRange.ceiling && ' (everyone)'}
               </span>
               <input
                 type="range"
-                min={38}
-                max={150}
+                min={priceRange.floor}
+                max={priceRange.ceiling}
                 step={1}
-                value={maxPrice}
+                value={priceCap}
                 onChange={(event) => {
                   setMaxPrice(Number(event.target.value));
                 }}
               />
             </label>
           </div>
+
+          {/* The second rank of filters: fitness, minutes, reliability,
+              ownership, output, and whether there is a fixture at all. Each is
+              a floor, because that is how the question is asked while picking:
+              "who starts", "who is fit", "who is under ten percent owned". */}
+          <details className={styles.moreFilters}>
+            <summary>
+              More filters
+              {filtersOn && <span className={styles.filterMark}> · on</span>}
+            </summary>
+
+            <div className={styles.filters}>
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={onlyAvailable}
+                  onChange={(event) => {
+                    setOnlyAvailable(event.target.checked);
+                  }}
+                />
+                <span>Fit only</span>
+              </label>
+
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={hasFixture}
+                  onChange={(event) => {
+                    setHasFixture(event.target.checked);
+                  }}
+                />
+                <span>Has a fixture in the next three</span>
+              </label>
+
+              <label className={styles.field}>
+                <span>Minutes at least {minMinutes}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={2500}
+                  step={90}
+                  value={minMinutes}
+                  onChange={(event) => {
+                    setMinMinutes(Number(event.target.value));
+                  }}
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span>Finishes at least {minStarts}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={minStarts}
+                  onChange={(event) => {
+                    setMinStarts(Number(event.target.value));
+                  }}
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span>Owned at most {maxOwnership}%</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={maxOwnership}
+                  onChange={(event) => {
+                    setMaxOwnership(Number(event.target.value));
+                  }}
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span>Points at least {minPoints}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={250}
+                  step={5}
+                  value={minPoints}
+                  onChange={(event) => {
+                    setMinPoints(Number(event.target.value));
+                  }}
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span>Per ninety at least {minPer90.toFixed(1)}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={minPer90}
+                  onChange={(event) => {
+                    setMinPer90(Number(event.target.value));
+                  }}
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span>
+                  Easiest of the next three at most {maxDifficulty}
+                  {maxDifficulty === 5 && ' (any)'}
+                </span>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  step={1}
+                  value={maxDifficulty}
+                  onChange={(event) => {
+                    setMaxDifficulty(Number(event.target.value));
+                  }}
+                />
+              </label>
+
+              <button type="button" className={styles.secondary} onClick={clearFilters}>
+                Clear filters
+              </button>
+            </div>
+          </details>
 
           <div className={styles.sorts} role="group" aria-label="Sort by">
             {SORTS.map((option) => (

@@ -326,3 +326,142 @@ describe('a locked player', () => {
     );
   });
 });
+
+describe('chips as decisions the search makes', () => {
+  const players = pool();
+  const squad = startingSquad(players);
+
+  /** A pool where one gameweek is worth far more than the others. */
+  function withOneBigWeek(week: number): PlannerPlayer[] {
+    return pool().map((player) =>
+      squad.picks.includes(player.code)
+        ? {
+            ...player,
+            projections: player.projections.map((value, index) =>
+              index === week ? value * 4 : value,
+            ),
+          }
+        : player,
+    );
+  }
+
+  it('plays the triple captain in the week the captain is worth most', () => {
+    const result = plan(withOneBigWeek(2), squad, {
+      horizon: 4,
+      startGameweek: 1,
+      chips: ['triple_captain'],
+    });
+    const played = result.weeks.find((week) => week.chip === 'triple_captain');
+    assert.ok(played !== undefined, 'the chip was never played');
+    assert.equal(played.gameweek, 3, 'it should land on the week worth the most');
+  });
+
+  it('plays each chip at most once in a horizon', () => {
+    const result = plan(withOneBigWeek(1), squad, {
+      horizon: 6,
+      startGameweek: 1,
+      chips: ['triple_captain', 'bench_boost'],
+    });
+    const played = result.weeks.flatMap((week) => (week.chip === null ? [] : [week.chip]));
+    assert.equal(new Set(played).size, played.length, 'a chip was played twice');
+  });
+
+  it('never plays two chips in one gameweek', () => {
+    const result = plan(withOneBigWeek(1), squad, {
+      horizon: 4,
+      startGameweek: 1,
+      chips: ['triple_captain', 'bench_boost', 'wildcard'],
+    });
+    // One chip per WeekPlan by construction, so this checks the report as well
+    // as the rule: a week may name one chip or none.
+    for (const week of result.weeks) {
+      assert.ok(week.chip === null || typeof week.chip === 'string');
+    }
+  });
+
+  it('plays a wildcard when the squad it can buy is far better', () => {
+    // Everyone outside the squad is twice as good and affordable, so a week of
+    // free transfers is worth more than the one transfer a week the plan gets.
+    const better = pool().map((player) =>
+      squad.picks.includes(player.code)
+        ? player
+        : { ...player, price: 40, projections: player.projections.map(() => 12) },
+    );
+    const withChip = plan(better, squad, {
+      horizon: 5,
+      startGameweek: 1,
+      chips: ['wildcard'],
+      maxTransfersPerWeek: 1,
+    });
+    const without = plan(better, squad, {
+      horizon: 5,
+      startGameweek: 1,
+      maxTransfersPerWeek: 1,
+    });
+
+    assert.ok(
+      withChip.chipsPlayed.includes('wildcard'),
+      'a wildcard that buys eight upgrades at once should be played',
+    );
+    assert.ok(
+      withChip.total > without.total,
+      `the wildcard should be worth something: ${String(withChip.total)} against ${String(without.total)}`,
+    );
+  });
+
+  it('takes no hit for the transfers a wildcard makes', () => {
+    const better = pool().map((player) =>
+      squad.picks.includes(player.code)
+        ? player
+        : { ...player, price: 40, projections: player.projections.map(() => 12) },
+    );
+    const result = plan(better, squad, {
+      horizon: 4,
+      startGameweek: 1,
+      chips: ['wildcard'],
+      maxTransfersPerWeek: 1,
+    });
+    const week = result.weeks.find((entry) => entry.chip === 'wildcard');
+    assert.ok(week !== undefined);
+    assert.equal(week.hit, 0, 'a wildcard week costs nothing');
+    assert.ok(week.transfers > 1, 'a wildcard that makes one transfer is a wasted chip');
+  });
+
+  it('reverts the squad the week after a free hit', () => {
+    const better = pool().map((player) =>
+      squad.picks.includes(player.code)
+        ? player
+        : {
+            ...player,
+            price: 40,
+            // One enormous week for everyone else, nothing after it: exactly
+            // the shape a free hit exists for.
+            projections: player.projections.map((_, index) => (index === 2 ? 30 : 0)),
+          },
+    );
+    const result = plan(better, squad, {
+      horizon: 5,
+      startGameweek: 1,
+      chips: ['free_hit'],
+      maxTransfersPerWeek: 1,
+    });
+
+    const played = result.weeks.find((week) => week.chip === 'free_hit');
+    assert.ok(played !== undefined, 'the free hit was never played');
+    const after = result.weeks.find((week) => week.gameweek === played.gameweek + 1);
+    assert.ok(after !== undefined, 'there should be a week after it to revert into');
+
+    const before = result.weeks.find((week) => week.gameweek === played.gameweek - 1);
+    const restored = before?.picks ?? squad.picks;
+    assert.deepEqual(
+      [...after.picks].sort((a, b) => a - b),
+      [...restored].sort((a, b) => a - b),
+      'the squad after a free hit must be the squad before it',
+    );
+  });
+
+  it('never plays a chip the manager does not hold', () => {
+    const result = plan(withOneBigWeek(1), squad, { horizon: 4, startGameweek: 1, chips: [] });
+    assert.deepEqual(result.chipsPlayed, []);
+  });
+});

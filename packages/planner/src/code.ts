@@ -1,4 +1,4 @@
-import type { Chip, Lock, LockMode } from './types.js';
+import type { Chip, Lock, LockMode, Objective } from './types.js';
 
 /**
  * A strategy as a code.
@@ -57,6 +57,15 @@ export interface Strategy {
   squad: number[];
   /** Players fixed in the squad, and for how long. */
   locks: Lock[];
+  /**
+   * What the search is maximising.
+   *
+   * `mean` takes the risk appetite as given and maximises points less that
+   * many standard deviations. `sharpe` says the reader has no view on risk and
+   * asks for the best return per unit of it, which is the tangency portfolio,
+   * and the appetite is then an output rather than an input.
+   */
+  objective: Objective;
   /** Seed, so the same code returns the same answer on the same data. */
   seed: number;
   /** Hash of the pool this was solved against, which is what detects drift. */
@@ -137,6 +146,9 @@ export function encodeStrategy(strategy: Strategy): string {
         .join('.')}`,
     );
   }
+  // Only the non-default travels: an absent O reads as the mean objective, so
+  // every code minted before the tangency search existed still decodes.
+  if (strategy.objective === 'sharpe') parts.push('OS');
   if (strategy.locks.length > 0) {
     parts.push(
       `K${[...strategy.locks]
@@ -247,6 +259,9 @@ export function decodeStrategy(code: string): Strategy {
             }
             return { code: parseBase36(entry.slice(1), 'a locked player'), mode };
           }),
+    // Absent means the mean objective, which is what version 2 codes minted
+    // before the tangency search existed were all solved with.
+    objective: (found.get('O') ?? 'M') === 'S' ? 'sharpe' : 'mean',
     fingerprint: required('L', 'data fingerprint'),
   };
 
