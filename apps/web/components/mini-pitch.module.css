@@ -100,3 +100,13 @@
     inset-inline-end: var(--s3);
   }
 }
+
+/* The same drawing, used as a preview of a squad being assembled: in the flow
+   rather than pinned to a corner, and never animated in. */
+.panel[data-inline='true'] {
+  position: static;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  inset: auto;
+}

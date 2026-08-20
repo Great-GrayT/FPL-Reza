@@ -27,12 +27,34 @@ const WIDTH = 320;
 const HEIGHT = 200;
 const PAD = { top: 14, right: 14, bottom: 30, left: 40 };
 
-export function Frontier({ portfolio }: { portfolio: PortfolioView }) {
+export interface PlottedLineup {
+  id: string;
+  label: string;
+  expected: number;
+  risk: number;
+}
+
+export function Frontier({
+  portfolio,
+  added = [],
+}: {
+  portfolio: PortfolioView;
+  /** Line-ups a reader put beside the plan's, drawn on the same axes. */
+  added?: readonly PlottedLineup[];
+}) {
   const points = [...portfolio.frontier].sort((a, b) => a.risk - b.risk);
   if (points.length < 2) return null;
 
-  const risks = [...points.map((point) => point.risk), portfolio.held.risk];
-  const returns = [...points.map((point) => point.expected), portfolio.held.expected];
+  const risks = [
+    ...points.map((point) => point.risk),
+    portfolio.held.risk,
+    ...added.map((entry) => entry.risk),
+  ];
+  const returns = [
+    ...points.map((point) => point.expected),
+    portfolio.held.expected,
+    ...added.map((entry) => entry.expected),
+  ];
   const minRisk = Math.min(...risks);
   const maxRisk = Math.max(...risks);
   const minReturn = Math.min(...returns);
@@ -96,6 +118,17 @@ export function Frontier({ portfolio }: { portfolio: PortfolioView }) {
         >
           <title>{`This squad: ${portfolio.held.expected.toFixed(1)} points, spread ${portfolio.held.risk.toFixed(1)}`}</title>
         </circle>
+
+        {/* Added line-ups, keyed to the table beneath by shape and index. A
+            scatter read by colour alone excludes anyone who cannot separate
+            two of them, so each carries its own mark. */}
+        {added.map((entry, index) => (
+          <g key={entry.id} className={styles.added} data-index={index % 5}>
+            <circle cx={x(entry.risk)} cy={y(entry.expected)} r={3.4}>
+              <title>{`${entry.label}: ${entry.expected.toFixed(1)} points, spread ${entry.risk.toFixed(1)}`}</title>
+            </circle>
+          </g>
+        ))}
 
         <text className={styles.axisLabel} x={PAD.left} y={HEIGHT - 8}>
           Spread over the horizon

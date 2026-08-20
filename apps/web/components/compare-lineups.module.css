@@ -1,0 +1,243 @@
+/* Comparison, at the terminal's own density: a table of candidates, a control
+   strip, and a picker that opens in place rather than in a dialog, because the
+   scatter it feeds is directly above and a modal would hide the thing being
+   compared against. */
+
+.compare {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.66rem;
+  max-inline-size: var(--measure);
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 0.68rem;
+}
+
+.table th {
+  text-align: start;
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 0.05rem 0.3rem;
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 0.05rem 0.3rem;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.right {
+  text-align: end;
+}
+
+.code {
+  color: var(--ink-soft);
+  font-size: 0.6rem;
+  max-inline-size: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The key that ties a row to its dot on the scatter above. Five shapes rather
+   than five colours alone, since a scatter read by colour excludes anyone who
+   cannot separate two of them. */
+.key {
+  display: inline-block;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  margin-inline-end: 0.3rem;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+
+.key[data-index='0'] {
+  background: var(--ink);
+}
+.key[data-index='1'] {
+  border-radius: 50%;
+  background: var(--ink);
+}
+.key[data-index='2'] {
+  transform: rotate(45deg);
+  background: var(--paper);
+}
+.key[data-index='3'] {
+  background: var(--flare);
+}
+.key[data-index='4'] {
+  border-radius: 50%;
+  background: var(--flare);
+}
+
+.remove {
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 0 0.2rem;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.remove:hover {
+  color: var(--ink);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  padding-top: 0.2rem;
+  border-top: 1px solid var(--rule);
+}
+
+.button {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--paper-2);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--ink-soft);
+  font-size: 0.64rem;
+}
+
+.working,
+.error {
+  font-size: 0.64rem;
+}
+
+.error {
+  color: var(--flare-ink, var(--ink));
+  font-weight: 600;
+}
+
+.builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.4rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--rule);
+}
+
+@media (width < 40rem) {
+  .builder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.pickers,
+.draft {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+}
+
+.field {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.label {
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.input {
+  inline-size: 100%;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.68rem;
+}
+
+.results,
+.draftList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.result,
+.drop {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.result:hover,
+.drop:hover {
+  background: var(--paper-2);
+}
+
+.resultMeta,
+.draftPos {
+  color: var(--ink-soft);
+  font-size: 0.6rem;
+}
+
+.draftHead {
+  margin: 0;
+  font-size: 0.64rem;
+  color: var(--ink-soft);
+}
+
+.legalNote {
+  margin: 0;
+  font-size: 0.62rem;
+  color: var(--ink-soft);
+}
+
+.preview {
+  padding-top: 0.3rem;
+}

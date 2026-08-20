@@ -34,18 +34,24 @@ export function MiniPitch({
   players,
   watch,
   label,
+  alwaysShown = false,
 }: {
   players: readonly MiniPlayer[];
   /** The real pitch. The panel appears exactly when this leaves the screen. */
   watch: RefObject<HTMLElement | null>;
   label: string;
+  /**
+   * Drawn in place rather than pinned to the corner. The same drawing serves as
+   * a preview of a squad being assembled, where there is no pitch to watch.
+   */
+  alwaysShown?: boolean;
 }) {
-  const [away, setAway] = useState(false);
+  const [away, setAway] = useState(alwaysShown);
   const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const target = watch.current;
-    if (target === null || typeof IntersectionObserver === 'undefined') return;
+    if (alwaysShown || target === null || typeof IntersectionObserver === 'undefined') return;
 
     // Any part of the pitch showing counts as visible: a panel that appeared
     // while a sliver of the real thing was still on screen would be two
@@ -60,7 +66,7 @@ export function MiniPitch({
     return () => {
       observer.disconnect();
     };
-  }, [watch]);
+  }, [watch, alwaysShown]);
 
   const starters = players.filter((player) => player.starter);
   if (starters.length === 0) return null;
@@ -70,6 +76,7 @@ export function MiniPitch({
       ref={panel}
       className={styles.panel}
       data-shown={away ? 'true' : undefined}
+      data-inline={alwaysShown ? 'true' : undefined}
       // Hidden from everything, not just from sight, while it is off screen:
       // a duplicate eleven in the tab order is a maze for a keyboard.
       aria-hidden={away ? undefined : 'true'}

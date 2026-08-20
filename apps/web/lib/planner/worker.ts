@@ -183,6 +183,70 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
     };
   }
 
+  if (request.kind === 'compare') {
+    const riskAversion = request.riskAversion / 10;
+    const byCode = new Map(pool.map((player) => [player.code, player]));
+    const missing = request.squad.filter((code) => !byCode.has(code));
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        error: `this line-up holds ${String(missing.length)} players who are not in the pool`,
+      };
+    }
+
+    const priced = request.squad.map((code) => byCode.get(code)?.price ?? 0);
+    const spent = priced.reduce((total, price) => total + price, 0);
+    const start: Squad = {
+      picks: [...request.squad],
+      purchasePrices: new Map(request.squad.map((code, index) => [code, priced[index] ?? 0])),
+      bank: Math.max(0, request.budget - spent),
+      freeTransfers: request.freeTransfers,
+      chipsUsed: [],
+    };
+
+    // Off, the fifteen are held exactly as given, which is what "what is my
+    // team worth" means; on, they are where the plan starts and it may trade.
+    const solved = plan(pool, start, {
+      horizon: request.horizon,
+      startGameweek: request.startGameweek,
+      riskAversion,
+      chips: request.chips,
+      maxTransfersPerWeek: request.optimise ? request.maxTransfersPerWeek : 0,
+      ...(request.optimise ? {} : { locked: request.squad }),
+    });
+
+    // The scatter's axes are squad level for every point on it, the frontier
+    // included, so the compared line-up is measured the same way: mixing a plan
+    // total into an axis of squad totals would put two different quantities on
+    // one chart and invite a reader to compare them.
+    const scored = frontierFor(
+      pool,
+      solved.weeks[0]?.picks ?? request.squad,
+      request.horizon,
+      request.budget,
+    );
+    const spreads = solved.weeks.map((week, index) =>
+      weekSpread(week.starters, index, week.captain),
+    );
+
+    return {
+      ok: true,
+      compared: {
+        picks: solved.weeks[0]?.picks ?? [...request.squad],
+        expected: scored?.held.expected ?? 0,
+        risk: scored?.held.risk ?? 0,
+        cost: scored?.held.cost ?? spent,
+        planTotal: Math.round(solved.total * 10) / 10,
+        planSpread:
+          Math.round(Math.sqrt(spreads.reduce((total, value) => total + value * value, 0)) * 10) /
+          10,
+        transfers: solved.transfers,
+        hits: solved.hits,
+        fingerprint: poolFingerprint(pool),
+      },
+    };
+  }
+
   const result = plan(pool, squadFrom(request), {
     horizon: request.horizon,
     startGameweek: request.startGameweek,

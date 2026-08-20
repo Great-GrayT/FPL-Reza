@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { shirtUrl } from '@fpl/assets/urls';
 import { formatPrice, type Position } from '@fpl/core';
 import {
@@ -16,6 +16,7 @@ import {
   type WeekPlan,
 } from '@fpl/planner';
 import { classes } from '@/lib/classes';
+import { CompareLineups, codeForCandidate, type Candidate } from './compare-lineups';
 import { Frontier, RiskShare } from './frontier';
 import {
   Captaincy,
@@ -28,7 +29,7 @@ import {
   type WeekRow,
 } from './planner-panels';
 import { MiniPitch, type MiniPlayer } from './mini-pitch';
-import { usePlannerRun } from '@/lib/planner/client';
+import { send, usePlannerRun } from '@/lib/planner/client';
 import type { PlannerPool } from '@/lib/planner/projections';
 import styles from './planner.module.css';
 
@@ -169,6 +170,74 @@ export function Planner({
   );
 
   const planned = { running: solved.running, error: solved.error, data: solved.data?.plan ?? null };
+
+  /**
+   * Line-ups a reader put beside the plan's own.
+   *
+   * They are solved one at a time through the worker rather than derived here,
+   * because a squad's worth is the same search the rest of the page rests on
+   * and a second implementation would be a second opinion.
+   */
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [comparing, setComparing] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
+
+  const addCandidate = useCallback(
+    (squadPicks: number[], optimiseIt: boolean, label: string) => {
+      if (strategy === null) return;
+      setComparing(true);
+      setCompareError(null);
+      send({
+        kind: 'compare',
+        poolGeneration: POOL_GENERATION,
+        players: pool.players,
+        matches: pool.matches,
+        gameweeks: pool.gameweeks,
+        squad: squadPicks,
+        budget: strategy.budget,
+        horizon: Math.min(weeks, horizon),
+        startGameweek: strategy.startGameweek,
+        riskAversion: strategy.riskAversion,
+        freeTransfers: strategy.freeTransfers,
+        maxTransfersPerWeek: strategy.maxTransfersPerWeek,
+        chips: strategy.chips,
+        optimise: optimiseIt,
+      })
+        .then((reply) => {
+          const result = reply.compared;
+          if (result === undefined) throw new Error('that line-up could not be scored');
+          setCandidates((current) => [
+            ...current,
+            {
+              id: `${label}-${String(current.length)}-${String(Date.now())}`,
+              label,
+              picks: result.picks,
+              optimised: optimiseIt,
+              result,
+              code: codeForCandidate(strategy, result.picks, result.fingerprint),
+            },
+          ]);
+        })
+        .catch((error: unknown) => {
+          setCompareError(
+            error instanceof Error ? error.message : 'that line-up could not be scored',
+          );
+        })
+        .finally(() => {
+          setComparing(false);
+        });
+    },
+    [strategy, pool.players, pool.matches, pool.gameweeks, weeks, horizon],
+  );
+
+  const removeCandidate = useCallback((id: string) => {
+    setCandidates((current) => current.filter((entry) => entry.id !== id));
+  }, []);
+
+  /** The strategy changed, so squads scored against the old one no longer apply. */
+  useEffect(() => {
+    setCandidates([]);
+  }, [code]);
 
   /** The default question the builder asks, for a reader who arrives with none. */
   const explainDefault = useCallback(() => {
@@ -464,10 +533,29 @@ export function Planner({
                   span={7}
                   note="the best fifteen at nine risk appetites"
                 >
-                  <Frontier portfolio={portfolio} />
+                  <Frontier
+                    portfolio={portfolio}
+                    added={candidates.map((candidate) => ({
+                      id: candidate.id,
+                      label: candidate.label,
+                      expected: candidate.result.expected,
+                      risk: candidate.result.risk,
+                    }))}
+                  />
                 </Panel>
                 <Panel title="Where the risk sits" span={5}>
                   <RiskShare portfolio={portfolio} />
+                </Panel>
+                <Panel title="Compare line-ups" span={12} note="each one carries its own code">
+                  <CompareLineups
+                    pool={pool}
+                    strategy={strategy}
+                    candidates={candidates}
+                    onAdd={addCandidate}
+                    onRemove={removeCandidate}
+                    running={comparing}
+                    error={compareError}
+                  />
                 </Panel>
               </>
             )}

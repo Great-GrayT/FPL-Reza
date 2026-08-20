@@ -111,3 +111,33 @@
     grid-column: 1 / -1;
   }
 }
+
+/* An added line-up: the reader's own squad on the optimiser's axes. Marked by
+   shape as well as fill, since a chart read by colour alone excludes anyone
+   who cannot separate two of them. */
+.added circle {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 1.4;
+}
+
+.added[data-index='0'] circle {
+  fill: var(--ink);
+}
+
+.added[data-index='1'] circle {
+  fill: var(--paper);
+  stroke-dasharray: 2 1.5;
+}
+
+.added[data-index='2'] circle {
+  fill: var(--bonus);
+}
+
+.added[data-index='3'] circle {
+  fill: var(--pitch);
+}
+
+.added[data-index='4'] circle {
+  fill: var(--ink-soft);
+}

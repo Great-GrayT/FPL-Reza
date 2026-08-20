@@ -80,7 +80,47 @@ export interface StrategyRequest extends PoolEnvelope {
   seed: number;
 }
 
-export type Request = PlanRequest | AutoRequest | OptimiseRequest | StrategyRequest;
+/**
+ * Score one line-up on the same axes the frontier is drawn on, so a reader can
+ * put their own squad beside the optimiser's and see the trade rather than
+ * argue about it.
+ *
+ * `optimise` is the difference between two questions. Off, the fifteen are held
+ * exactly as given for the whole horizon, which answers "what is my team
+ * worth". On, they are the squad the plan starts from and it may transfer over
+ * the horizon, which answers "what is my team worth if I manage it".
+ */
+export interface CompareRequest extends PoolEnvelope {
+  kind: 'compare';
+  squad: number[];
+  budget: number;
+  horizon: number;
+  startGameweek: number;
+  riskAversion: number;
+  freeTransfers: number;
+  maxTransfersPerWeek: number;
+  chips: Chip[];
+  optimise: boolean;
+}
+
+export interface ComparedLineup {
+  /** The fifteen actually scored, which differs from the input when optimised. */
+  picks: number[];
+  /** Sum of the fifteen's projections over the horizon: the frontier's y axis. */
+  expected: number;
+  /** Portfolio standard deviation of those fifteen: the frontier's x axis. */
+  risk: number;
+  cost: number;
+  /** What the plan makes of it, which is a different number and says so. */
+  planTotal: number;
+  planSpread: number;
+  transfers: number;
+  hits: number;
+  fingerprint: string;
+}
+
+export type Request =
+  PlanRequest | AutoRequest | OptimiseRequest | StrategyRequest | CompareRequest;
 
 export interface Reply {
   id: number;
@@ -91,6 +131,7 @@ export interface Reply {
   squad?: { picks: number[]; bank: number };
   optimisation?: OptimisedSquad;
   strategy?: SolvedStrategy;
+  compared?: ComparedLineup;
 }
 
 /** What the optimiser reports back, flattened for the structured clone. */
