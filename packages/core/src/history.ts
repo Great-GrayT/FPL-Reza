@@ -100,6 +100,17 @@ export const historicPlayerGameweekSchema = z.object({
   expectedGoals: z.number().nonnegative().nullable(),
   expectedAssists: z.number().nonnegative().nullable(),
   expectedGoalsConceded: z.number().nonnegative().nullable(),
+  /**
+   * The ICT family, which the archive carries per gameweek and this schema did
+   * not. Threat is the one worth having: it is built from shot volume and shot
+   * location, so together with expected goals it separates a player taking many
+   * poor shots from one taking a few good ones, which expected goals alone
+   * cannot. Creativity is its equivalent for chances made.
+   */
+  influence: z.number().nonnegative().nullable(),
+  creativity: z.number().nonnegative().nullable(),
+  threat: z.number().nonnegative().nullable(),
+  ictIndex: z.number().nonnegative().nullable(),
   /** FPL's own projection for that gameweek, where the archive recorded one. */
   expectedPoints: z.number().nullable(),
 });

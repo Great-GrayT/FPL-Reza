@@ -21,6 +21,7 @@ export const DATASETS = {
   matches: 'matches',
   matchDetails: 'match-details',
   managers: 'managers',
+  managerSpells: 'manager-spells',
   grounds: 'grounds',
   groundImages: 'ground-images',
   matchWeather: 'match-weather',

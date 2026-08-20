@@ -18,4 +18,5 @@ export * from './odds.js';
 export * from './transfers.js';
 export * from './matches.js';
 export * from './grounds.js';
+export * from './spells.js';
 export * from './providers.js';

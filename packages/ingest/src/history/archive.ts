@@ -143,6 +143,13 @@ export function parseArchiveSeason(
         expectedGoals: measuresXg ? num(row['expected_goals']) : null,
         expectedAssists: measuresXg ? num(row['expected_assists']) : null,
         expectedGoalsConceded: measuresXg ? num(row['expected_goals_conceded']) : null,
+        // The ICT family is in every archive season, including the ones before
+        // expected goals existed, so it is the only measure of shot volume and
+        // location the lake can reach for 2016/17 through 2021/22.
+        influence: num(row['influence']),
+        creativity: num(row['creativity']),
+        threat: num(row['threat']),
+        ictIndex: num(row['ict_index']),
         expectedPoints: num(row['xP']),
       }),
     );

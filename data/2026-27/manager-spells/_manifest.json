@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "manager-spells",
+      "partition": null,
+      "capturedAt": "2026-08-20T00:31:59.196Z",
+      "rows": 53,
+      "bytes": 11722,
+      "format": "jsonl",
+      "file": "2026-27/manager-spells/_all/2026-08-20T00-31-59-196Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "manager-spells",
+      "partition": null,
+      "capturedAt": "2026-08-20T00:33:54.698Z",
+      "rows": 128,
+      "bytes": 28462,
+      "format": "jsonl",
+      "file": "2026-27/manager-spells/_all/2026-08-20T00-33-54-698Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "manager-spells",
+      "partition": null,
+      "capturedAt": "2026-08-20T00:36:15.638Z",
+      "rows": 144,
+      "bytes": 31995,
+      "format": "jsonl",
+      "file": "2026-27/manager-spells/_all/2026-08-20T00-36-15-638Z.jsonl"
+    }
+  ]
+}

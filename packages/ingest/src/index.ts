@@ -26,3 +26,4 @@ export * from './pl/map.js';
 export * from './pl/source.js';
 export * from './weather/source.js';
 export * from './grounds/wikimedia.js';
+export * from './managers/wikidata.js';

@@ -44,6 +44,7 @@ import {
   weatherSource,
   wikimediaHttp,
   groundImagesSource,
+  managerSpellsSource,
   type HttpClient,
   type RulesDocument,
   type SyncReport,
@@ -610,6 +611,32 @@ function registerOfficial(
       const http = wikimediaHttp({ logger: deps.logger });
 
       const report = await runSync([groundImagesSource(http)], {
+        season,
+        store: deps.store,
+        logger: deps.logger,
+        capturedAt: now(),
+      });
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+      if (report.failed > 0) process.exitCode = 1;
+    });
+
+  official
+    .command('managers')
+    .description('Read dated manager spells for every club from Wikidata')
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: { season?: string; json?: boolean }) => {
+      const season = resolveSeason(options.season, deps.config);
+      // Wikimedia's client, since Wikidata is the same estate and asks for the
+      // same etiquette: a descriptive user agent and serial requests.
+      const http = wikimediaHttp({ logger: deps.logger });
+
+      const report = await runSync([managerSpellsSource(http)], {
         season,
         store: deps.store,
         logger: deps.logger,
