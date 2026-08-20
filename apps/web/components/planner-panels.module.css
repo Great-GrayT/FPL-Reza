@@ -1,0 +1,205 @@
+/* ---------------------------------------------------------------------------
+   The terminal.
+
+   A plan is a set of decisions a reader wants to interrogate, and interrogating
+   means comparing: this week's points against its band, the captain's margin
+   against the transfer that week, the frontier against the squad on it. So the
+   page is a grid of small panels rather than a column of sections, dense enough
+   that two of them are on screen at once, and every panel answers exactly one
+   question.
+
+   Density is the brief, taken literally: hairline gaps, a type scale of its
+   own well below the site's body step, leading barely above the cap height,
+   and padding measured in fractions of a rem. Nothing here is set by the
+   reading scale used everywhere else, because this page is read the way an
+   instrument panel is read, by scanning for a figure rather than by reading a
+   line. Browser zoom still works on all of it, which is the escape hatch.
+   --------------------------------------------------------------------------- */
+
+.panel,
+.table,
+.chartRow {
+  --dense: 0.68rem;
+  --dense-small: 0.6rem;
+}
+
+.panel {
+  grid-column: span 12;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: 0.1rem 0.35rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+
+.panelTitle {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--dense-small);
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.panelNote {
+  font-size: var(--dense-small);
+  color: var(--ink-soft);
+}
+
+.panelBody {
+  padding: 0.3rem 0.35rem;
+  min-inline-size: 0;
+  overflow-x: auto;
+  font-size: var(--dense);
+  line-height: 1.25;
+}
+
+@media (width >= 60rem) {
+  .panel[data-span='3'] {
+    grid-column: span 3;
+  }
+  .panel[data-span='4'] {
+    grid-column: span 4;
+  }
+  .panel[data-span='5'] {
+    grid-column: span 5;
+  }
+  .panel[data-span='6'] {
+    grid-column: span 6;
+  }
+  .panel[data-span='7'] {
+    grid-column: span 7;
+  }
+  .panel[data-span='8'] {
+    grid-column: span 8;
+  }
+  .panel[data-span='9'] {
+    grid-column: span 9;
+  }
+}
+
+@media (width >= 40rem) and (width < 60rem) {
+  .panel[data-span='3'],
+  .panel[data-span='4'],
+  .panel[data-span='5'],
+  .panel[data-span='6'] {
+    grid-column: span 6;
+  }
+}
+
+/* ------------------------------------------------------------------ charts */
+
+.chartRow {
+  display: grid;
+  gap: var(--s1);
+}
+
+.spark {
+  inline-size: 100%;
+  block-size: 2.6rem;
+}
+
+.line {
+  stroke: var(--ink);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+/* One standard deviation of that week's own eleven, drawn rather than printed
+   because the shape of the uncertainty is the thing a total cannot show. */
+.band {
+  fill: var(--bonus);
+  opacity: 0.35;
+}
+
+.weekScale {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--dense-small);
+  line-height: 1.1;
+  color: var(--ink-soft);
+}
+
+.figureLine {
+  margin: 0;
+  font-size: var(--dense-small);
+  color: var(--ink-soft);
+}
+
+.flat {
+  margin: 0;
+  font-size: var(--dense-small);
+  color: var(--ink-soft);
+  line-height: 1.3;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--dense);
+  line-height: 1.2;
+}
+
+.table th {
+  text-align: start;
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--dense-small);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 0.05rem 0.3rem;
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 0.05rem 0.3rem;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.right {
+  text-align: end;
+}
+
+/* A week where the armband barely matters, or where half the squad blanks:
+   marked in the row rather than explained in a footnote nobody reaches. */
+.table tr[data-close='true'] td,
+.table tr[data-warn='true'] td {
+  background: var(--paper-2);
+}
+
+.table tr[data-warn='true'] td:first-child {
+  box-shadow: inset 2px 0 0 var(--flare);
+}
+
+.total td {
+  border-top: 1px solid var(--rule-strong);
+  color: var(--ink-soft);
+}
+
+.caption {
+  caption-side: bottom;
+  text-align: start;
+  padding-top: 0.2rem;
+  color: var(--ink-soft);
+  font-size: var(--dense-small);
+  line-height: 1.25;
+  white-space: normal;
+}

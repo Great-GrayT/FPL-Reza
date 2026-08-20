@@ -18,8 +18,14 @@ import styles from './site-nav.module.css';
  * bar along the bottom: the four a manager opens every week, plus everything
  * else behind a sheet. That is the platform convention on both phones people
  * actually hold, it is thumb reachable, and it costs 56 pixels instead of 219.
- * Above the breakpoint none of it applies and the twelve sit in one row, which
- * is what a wide screen has room for.
+ * On a wide screen the twelve used to sit in one row, and that row was most of
+ * the header's width: mono capitals with generous tracking, twelve of them,
+ * wrapping to two lines on anything short of a desktop and pushing every page's
+ * own controls down with it. Twelve destinations is a site map, not navigation.
+ * So the row now carries the seven a manager moves between and the rest sits
+ * behind one "More" menu, at a smaller step with tighter tracking. The sheet on
+ * a phone and the menu on a desktop hold the same list, so there is one answer
+ * to "where is everything else" rather than two.
  */
 
 const PRIMARY = [
@@ -29,14 +35,14 @@ const PRIMARY = [
   { href: '/matches', label: 'Matches' },
   { href: '/builder', label: 'Build' },
   { href: '/planner', label: 'Plan' },
-  { href: '/scout', label: 'Scout' },
+  { href: '/stats', label: 'Lab' },
 ];
 
 const SECONDARY = [
+  { href: '/scout', label: 'Scout' },
   { href: '/managers', label: 'Managers' },
   { href: '/referees', label: 'Referees' },
   { href: '/grounds', label: 'Grounds' },
-  { href: '/stats', label: 'Analysis' },
   { href: '/glossary', label: 'Glossary' },
   { href: '/how-it-works', label: 'How it works' },
 ];
@@ -78,7 +84,7 @@ export function SiteNav() {
     <>
       <nav aria-label="Sections" className={styles.wide}>
         <ul className={styles.row}>
-          {[...PRIMARY, ...SECONDARY].map((item) => (
+          {PRIMARY.map((item) => (
             <li key={item.href}>
               <Link
                 href={item.href}
@@ -88,6 +94,36 @@ export function SiteNav() {
               </Link>
             </li>
           ))}
+          <li className={styles.moreWrap}>
+            <button
+              type="button"
+              className={styles.more}
+              aria-expanded={open}
+              aria-controls="more-sections"
+              data-current={
+                SECONDARY.some((item) => isCurrent(pathname, item.href)) ? 'true' : undefined
+              }
+              onClick={() => {
+                setOpen((current) => !current);
+              }}
+            >
+              More
+            </button>
+            {open && (
+              <ul className={styles.menu}>
+                {SECONDARY.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
           <li className={styles.install}>
             <InstallApp />
           </li>

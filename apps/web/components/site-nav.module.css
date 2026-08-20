@@ -4,25 +4,96 @@
   display: none;
 }
 
+/* Seven destinations, not twelve, at a smaller step with tighter tracking: the
+   row used to take most of the header's width and wrap onto a second line
+   before a page had said anything. */
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s4);
+  align-items: center;
+  gap: var(--s3);
   list-style: none;
   margin: 0;
   padding: 0;
   font-family: var(--font-mono), monospace;
-  font-size: var(--step--1);
-  letter-spacing: 0.08em;
+  font-size: var(--step--2);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .row a {
   display: inline-flex;
   align-items: center;
-  min-block-size: 2.75rem;
+  min-block-size: 2.25rem;
   text-decoration: none;
   border-block-end: 2px solid transparent;
+  white-space: nowrap;
+}
+
+/* Everything else, behind one control. The menu holds the same list the phone
+   sheet does, so there is one answer to "where is the rest of the site". */
+.moreWrap {
+  position: relative;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.more:hover {
+  color: var(--ink);
+  border-block-end-color: var(--flare);
+}
+
+.more[data-current='true'] {
+  color: var(--ink);
+  border-block-end-color: var(--ink);
+  font-weight: 600;
+}
+
+.menu {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  z-index: 20;
+  min-inline-size: 11rem;
+  list-style: none;
+  margin: 0;
+  padding: var(--s2);
+  display: grid;
+  gap: 0.1rem;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.menu a {
+  display: block;
+  padding: 0.35rem var(--s2);
+  min-block-size: 0;
+  border: 0;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.menu a:hover {
+  background: var(--paper-2);
+}
+
+.menu a[aria-current='page'] {
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--ink);
 }
 
 .install {

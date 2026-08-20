@@ -17,6 +17,16 @@ import {
 } from '@fpl/planner';
 import { classes } from '@/lib/classes';
 import { Frontier, RiskShare } from './frontier';
+import {
+  Captaincy,
+  CumulativeSeries,
+  Exposure,
+  Panel,
+  PointsSeries,
+  Spend,
+  ValueSeries,
+  type WeekRow,
+} from './planner-panels';
 import { MiniPitch, type MiniPlayer } from './mini-pitch';
 import { usePlannerRun } from '@/lib/planner/client';
 import type { PlannerPool } from '@/lib/planner/projections';
@@ -211,124 +221,49 @@ export function Planner({
     });
   }, [week, byCode]);
 
+  const weekRows: WeekRow[] = useMemo(
+    () =>
+      (plan?.weeks ?? []).map((entry, index) => ({
+        ...entry,
+        spread: solved.data?.spreads[index] ?? 0,
+      })),
+    [plan, solved.data],
+  );
+
+  const portfolio = solved.data?.portfolio ?? null;
+
   return (
-    <div className={styles.page}>
-      <header className={styles.head}>
-        <p className={styles.eyebrow}>
-          From gameweek {fromGameweek} · {horizon} left
+    <div className={styles.terminal}>
+      {/* One line of masthead. The page is an instrument panel, so what it is
+          for is stated in the strategy panel rather than in three paragraphs
+          above the fold. */}
+      <header className={styles.rail}>
+        <h1 className={styles.railTitle}>The plan</h1>
+        <p className={styles.railNote}>
+          Decided on the <a href="/builder">builder</a>, explained here.
         </p>
-        <h1 className={styles.title}>The plan, explained</h1>
-        <p className={styles.standfirst}>
-          One search decides a squad, on the <a href="/builder">team builder</a>, and this page
-          explains what it decided: what each gameweek is expected to be worth and how sure that is,
-          who comes in and who goes out, what a hit costs, who wears the armband, and where a chip
-          earns more than holding it. The strategy arrives as a code and is solved again on
-          today&apos;s data, so a plan that has gone stale says so instead of looking current.
+        <p className={`num ${styles.railCode}`}>
+          {strategy === null
+            ? 'no strategy loaded'
+            : `GW ${String(strategy.startGameweek)}\u2013${String(strategy.endGameweek)}`}
         </p>
       </header>
 
-      {/* The question, in words. Every one of these came from the code rather
-          than from a control here, because a page that could change them would
-          be deciding again, which is the thing that made the two pages
-          disagree in the first place. */}
-      {strategy !== null && (
-        <section className={styles.controls} aria-label="The strategy being explained">
-          <dl className={styles.question}>
-            <div>
-              <dt>Window</dt>
-              <dd className="num">
-                GW {strategy.startGameweek}&ndash;{strategy.endGameweek}
-              </dd>
-            </div>
-            <div>
-              <dt>Budget</dt>
-              <dd className="num">{formatPrice(strategy.budget)}</dd>
-            </div>
-            <div>
-              <dt>Risk</dt>
-              <dd>
-                {RISKS.find((entry) => entry.value === Math.sign(strategy.riskAversion))?.label ??
-                  'Neutral'}
-              </dd>
-            </div>
-            <div>
-              <dt>Transfers a week</dt>
-              <dd className="num">{strategy.maxTransfersPerWeek}</dd>
-            </div>
-            <div>
-              <dt>Chips</dt>
-              <dd>
-                {strategy.chips.length === 0 ? 'none' : strategy.chips.map(chipLabel).join(', ')}
-              </dd>
-            </div>
-            <div>
-              <dt>Fixed players</dt>
-              <dd className="num">
-                {strategy.locks.length === 0
-                  ? 'none'
-                  : `${String(strategy.locks.filter((lock) => lock.mode === 'start').length)} at the start, ${String(strategy.locks.filter((lock) => lock.mode === 'always').length)} all period`}
-              </dd>
-            </div>
-          </dl>
-
-          {read !== null && 'elapsed' in read && read.elapsed > 0 && (
-            <p className={styles.note}>
-              This code opened at gameweek {strategy.startGameweek - read.elapsed} and{' '}
-              {read.elapsed === 1 ? 'a gameweek has' : `${String(read.elapsed)} gameweeks have`}{' '}
-              been played since, so it is solved over the {weeks} that are left of its window rather
-              than replanned to a later end.
-            </p>
-          )}
-
-          {solved.data !== null &&
-            strategy.fingerprint !== '' &&
-            solved.data.fingerprint !== strategy.fingerprint && (
-              <p className={styles.note}>
-                The prices or projections have moved since this code was minted, so this is that
-                question answered again on today&apos;s data rather than the squad its author saw.
-              </p>
-            )}
-        </section>
+      {solved.running && (
+        <p className={styles.working} role="status">
+          Solving.
+        </p>
       )}
-
-      {/* Nothing to explain: say so and point at the page that decides, rather
-          than inventing a squad here and reintroducing the disagreement. */}
-      {strategy === null && (
-        <section className={styles.controls} aria-label="Nothing to explain yet">
-          <p className={styles.standfirst}>
-            This page explains a strategy rather than choosing one. Build a squad on the{' '}
-            <a href="/builder">team builder</a>, then press &ldquo;Explain this plan&rdquo;, or
-            paste a code here.
-          </p>
-          {codeError !== null && (
-            <p className={styles.error} role="alert">
-              {codeError}
-            </p>
-          )}
-          <div className={styles.paste}>
-            <label className={styles.legend} htmlFor="planner-code">
-              Strategy code
-            </label>
-            <input
-              id="planner-code"
-              className={classes(styles.codeInput, 'num')}
-              value={pasted}
-              spellCheck={false}
-              placeholder="FPL2-G3-EA-B1000-..."
-              onChange={(event) => {
-                setPasted(event.target.value);
-              }}
-            />
-            <button type="button" className={styles.choice} onClick={runPasted}>
-              Explain it
-            </button>
-            <button type="button" className={styles.choice} onClick={explainDefault}>
-              Or explain the best squad for the next {Math.min(8, horizon)} gameweeks
-            </button>
-          </div>
-        </section>
+      {solved.error !== null && (
+        <p className={styles.error} role="alert">
+          {solved.error}
+        </p>
       )}
-
+      {codeError !== null && (
+        <p className={styles.error} role="alert">
+          {codeError}
+        </p>
+      )}
       {missing.length > 0 && (
         <p className={styles.error} role="alert">
           This code holds {missing.length} {missing.length === 1 ? 'player' : 'players'} who
@@ -337,106 +272,233 @@ export function Planner({
         </p>
       )}
 
-      {plan !== null && (
-        <dl className={styles.summary} aria-label="What the plan is worth">
-          <Figure label="Expected" value={plan.total.toFixed(1)} note="points, after every hit" />
-          <Figure
-            label="Over holding"
-            value={`${plan.excess >= 0 ? '+' : ''}${plan.excess.toFixed(1)}`}
-            note="against keeping the same fifteen"
-            emphasis={plan.excess > 0}
-          />
-          <Figure
-            label="Transfers"
-            value={String(plan.transfers)}
-            note={`${String(plan.hits)} points of hits`}
-          />
-          <Figure
-            label="Chips"
-            value={plan.chipsPlayed.length === 0 ? 'held' : String(plan.chipsPlayed.length)}
-            note={
-              plan.chipsPlayed.length === 0
-                ? 'none earned its place'
-                : plan.chipsPlayed.map(chipLabel).join(', ')
-            }
-          />
-          <Figure
-            label="Explored"
-            value={plan.explored.toLocaleString('en-GB')}
-            note="squads searched"
-          />
-        </dl>
-      )}
+      <div className={styles.grid}>
+        {strategy === null ? (
+          <Panel title="Nothing to explain yet" span={12}>
+            <p className={styles.emptyNote}>
+              This page explains a strategy rather than choosing one. Build a squad on the{' '}
+              <a href="/builder">team builder</a> and press &ldquo;Explain this plan&rdquo;, paste a
+              code here, or start from the default question.
+            </p>
+            <div className={styles.paste}>
+              <label className={styles.legend} htmlFor="planner-code">
+                Strategy code
+              </label>
+              <input
+                id="planner-code"
+                className={classes(styles.codeInput, 'num')}
+                value={pasted}
+                spellCheck={false}
+                placeholder="FPL2-G3-EA-B1000-..."
+                onChange={(event) => {
+                  setPasted(event.target.value);
+                }}
+              />
+              <button type="button" className={styles.choice} onClick={runPasted}>
+                Explain it
+              </button>
+              <button type="button" className={styles.choice} onClick={explainDefault}>
+                Best squad, next {Math.min(8, horizon)} gameweeks
+              </button>
+            </div>
+          </Panel>
+        ) : (
+          <>
+            <Panel title="Strategy" span={4} note={code === null ? undefined : 'from a code'}>
+              <dl className={styles.question}>
+                <div>
+                  <dt>Window</dt>
+                  <dd className="num">
+                    GW {strategy.startGameweek}&ndash;{strategy.endGameweek}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Budget</dt>
+                  <dd className="num">{formatPrice(strategy.budget)}</dd>
+                </div>
+                <div>
+                  <dt>Risk</dt>
+                  <dd>
+                    {RISKS.find((entry) => entry.value === Math.sign(strategy.riskAversion))
+                      ?.label ?? 'Neutral'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Transfers/wk</dt>
+                  <dd className="num">{strategy.maxTransfersPerWeek}</dd>
+                </div>
+                <div>
+                  <dt>Chips</dt>
+                  <dd>
+                    {strategy.chips.length === 0
+                      ? 'none'
+                      : strategy.chips.map(chipLabel).join(', ')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Fixed</dt>
+                  <dd className="num">
+                    {strategy.locks.length === 0
+                      ? 'none'
+                      : `${String(strategy.locks.filter((lock) => lock.mode === 'start').length)}S ${String(strategy.locks.filter((lock) => lock.mode === 'always').length)}A`}
+                  </dd>
+                </div>
+              </dl>
+              {read !== null && 'elapsed' in read && read.elapsed > 0 && (
+                <p className={styles.panelNote}>
+                  Opened at gameweek {strategy.startGameweek - read.elapsed};{' '}
+                  {read.elapsed === 1
+                    ? 'one gameweek has'
+                    : `${String(read.elapsed)} gameweeks have`}{' '}
+                  been played, so it is solved over the {weeks} left of its window rather than
+                  replanned to a later end.
+                </p>
+              )}
+              {solved.data !== null &&
+                strategy.fingerprint !== '' &&
+                solved.data.fingerprint !== strategy.fingerprint && (
+                  <p className={styles.panelNote}>
+                    Prices or projections have moved since this code was minted, so this is the same
+                    question answered again rather than the squad its author saw.
+                  </p>
+                )}
+            </Panel>
 
-      {planned.running && (
-        <p className={styles.working} role="status">
-          Searching.
-        </p>
-      )}
-      {planned.error !== null && (
-        <p className={styles.error} role="alert">
-          {planned.error}
-        </p>
-      )}
+            {plan !== null && (
+              <Panel title="Verdict" span={8} note={`${String(plan.explored)} states`}>
+                <dl className={styles.summary}>
+                  <Figure
+                    label="Expected"
+                    value={plan.total.toFixed(1)}
+                    note={`plus or minus ${(solved.data?.spread ?? 0).toFixed(1)}`}
+                  />
+                  <Figure
+                    label="Over holding"
+                    value={`${plan.excess >= 0 ? '+' : ''}${plan.excess.toFixed(1)}`}
+                    note="against keeping the fifteen"
+                    emphasis={plan.excess > 0}
+                  />
+                  <Figure
+                    label="Transfers"
+                    value={String(plan.transfers)}
+                    note={`${String(plan.hits)} points of hits`}
+                  />
+                  <Figure
+                    label="Chips"
+                    value={plan.chipsPlayed.length === 0 ? 'held' : String(plan.chipsPlayed.length)}
+                    note={
+                      plan.chipsPlayed.length === 0
+                        ? 'none earned its place'
+                        : plan.chipsPlayed.map(chipLabel).join(', ')
+                    }
+                  />
+                  <Figure
+                    label="Searched"
+                    value={(solved.data?.optimisation.evaluated ?? 0).toLocaleString('en-GB')}
+                    note={`beat ${(solved.data?.optimisation.baseline ?? 0).toFixed(1)}`}
+                  />
+                </dl>
+              </Panel>
+            )}
 
-      {plan !== null && (
-        <Calendar
-          plan={plan}
-          calendar={pool.calendar}
-          deadlineOf={deadlineOf}
-          selected={week?.gameweek ?? null}
-          onSelect={setSelected}
-        />
-      )}
+            {plan !== null && (
+              <Panel title="Gameweeks" span={12} note="press a column">
+                <Calendar
+                  plan={plan}
+                  calendar={pool.calendar}
+                  deadlineOf={deadlineOf}
+                  selected={week?.gameweek ?? null}
+                  onSelect={setSelected}
+                />
+              </Panel>
+            )}
 
-      {week !== null && (
-        <WeekView
-          week={week}
-          index={week.gameweek - fromGameweek}
-          byCode={byCode}
-          clubByCode={clubByCode}
-          pitchRef={pitchRef}
-          freeHand={
-            solved.data?.freeHand.find((entry) => entry.gameweek === week.gameweek)?.swaps ?? []
-          }
-        />
-      )}
+            {weekRows.length > 0 && (
+              <>
+                <Panel title="Expected points" span={6} note="band is one standard deviation">
+                  <PointsSeries weeks={weekRows} />
+                </Panel>
+                <Panel title="Running total" span={6}>
+                  <CumulativeSeries weeks={weekRows} />
+                </Panel>
+              </>
+            )}
 
-      {/* The calendar, the ledger, and the caveats are all about the eleven
-          above them, so the eleven stays in the corner once it scrolls away. */}
+            {week !== null && (
+              <Panel title={`Gameweek ${String(week.gameweek)}`} span={7}>
+                <WeekView
+                  week={week}
+                  index={week.gameweek - fromGameweek}
+                  byCode={byCode}
+                  clubByCode={clubByCode}
+                  pitchRef={pitchRef}
+                  freeHand={
+                    solved.data?.freeHand.find((entry) => entry.gameweek === week.gameweek)
+                      ?.swaps ?? []
+                  }
+                />
+              </Panel>
+            )}
+
+            {weekRows.length > 0 && (
+              <>
+                <Panel title="Captaincy" span={5}>
+                  <Captaincy weeks={weekRows} byCode={byCode} fromGameweek={fromGameweek} />
+                </Panel>
+                <Panel title="Exposure" span={6}>
+                  <Exposure weeks={weekRows} byCode={byCode} calendar={pool.calendar} />
+                </Panel>
+                <Panel title="Where the money is" span={6}>
+                  <Spend picks={week?.picks ?? []} byCode={byCode} bank={week?.bank ?? 0} />
+                </Panel>
+                <Panel title="Team value" span={6}>
+                  <ValueSeries weeks={weekRows} />
+                </Panel>
+              </>
+            )}
+
+            {portfolio !== null && (
+              <>
+                <Panel
+                  title="Risk and return"
+                  span={7}
+                  note="the best fifteen at nine risk appetites"
+                >
+                  <Frontier portfolio={portfolio} />
+                </Panel>
+                <Panel title="Where the risk sits" span={5}>
+                  <RiskShare portfolio={portfolio} />
+                </Panel>
+              </>
+            )}
+
+            <Panel title="What this does not know" span={12}>
+              <ul className={styles.caveatList}>
+                <li>
+                  Projections are a stated heuristic over recent scoring, fixture difficulty, and
+                  how reliably a player starts. They are not a forecast of one match.
+                </li>
+                <li>
+                  Prices are held at today&apos;s. A rise the plan cannot see makes a later transfer
+                  dearer than it looks here.
+                </li>
+                <li>
+                  The band treats gameweeks, and the eleven inside one, as independent draws. Two
+                  players at one club share a clean sheet, so the real spread is wider than the one
+                  drawn.
+                </li>
+                <li>
+                  An injury, a rotation, or a manager changing his mind resets everything after it,
+                  which is why a plan is worth remaking each week rather than following to the
+                  letter.
+                </li>
+              </ul>
+            </Panel>
+          </>
+        )}
+      </div>
+
       <MiniPitch players={miniSquad} watch={pitchRef} label="The eleven this gameweek" />
-
-      {/* The plan's band is a consequence of the fifteen it holds, and on its
-          own it says nothing about whether that was a good trade. The frontier
-          is what answers that: the best return available at every level of
-          risk, with this squad drawn on it. */}
-      {solved.data?.portfolio != null && (
-        <section className={styles.portfolio} aria-labelledby="portfolio-head">
-          <h2 id="portfolio-head" className={styles.sectionHead}>
-            The squad as a portfolio
-          </h2>
-          <Frontier portfolio={solved.data.portfolio} />
-          <RiskShare portfolio={solved.data.portfolio} />
-        </section>
-      )}
-
-      <section className={styles.caveat} aria-label="What this does not know">
-        <h2 className={styles.caveatHead}>What the plan does not know</h2>
-        <ul className={styles.caveatList}>
-          <li>
-            Projections are a stated heuristic over recent scoring, fixture difficulty, and how
-            reliably a player starts. They are not a forecast of one match.
-          </li>
-          <li>
-            Prices are held at today&apos;s. A rise the plan cannot see makes a later transfer
-            dearer than it looks here.
-          </li>
-          <li>
-            An injury, a rotation, or a manager changing his mind resets everything after it, which
-            is why a plan is worth remaking each week rather than following to the letter.
-          </li>
-        </ul>
-      </section>
     </div>
   );
 }

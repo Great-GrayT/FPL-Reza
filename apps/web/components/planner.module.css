@@ -729,3 +729,147 @@
   text-transform: uppercase;
   margin: 0 0 var(--s4);
 }
+
+/* ---------------------------------------------------------------------------
+   The terminal shell.
+
+   Every panel is a cell in one twelve column grid with a single hairline gap,
+   so two instruments sit side by side and a reader compares them without
+   scrolling between. The masthead is one line: on a page whose job is density,
+   a standfirst is three paragraphs of nothing to interrogate.
+   --------------------------------------------------------------------------- */
+
+/* Wider than the site's reading measure on purpose: this page is scanned, not
+   read, and every rem of width is another column of figures. */
+.terminal {
+  max-inline-size: 120rem;
+  margin-inline: auto;
+  padding: var(--s3) var(--s2) var(--s6);
+}
+
+.rail {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 var(--s3);
+  padding-bottom: 0.2rem;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 2px;
+}
+
+.railTitle {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step-0);
+  font-stretch: expanded;
+  text-transform: uppercase;
+}
+
+.railNote {
+  margin: 0;
+  font-size: 0.6rem;
+  color: var(--ink-soft);
+}
+
+.railCode {
+  margin: 0 0 0 auto;
+  font-size: 0.6rem;
+  color: var(--ink-soft);
+}
+
+/* One hairline between panels, so the grid reads as a single ruled sheet
+   rather than as a dozen floating cards. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 2px;
+  align-items: stretch;
+}
+
+.emptyNote {
+  margin: 0 0 var(--s3);
+  font-size: var(--step--1);
+  max-inline-size: var(--measure);
+}
+
+.panelNote {
+  margin: var(--s2) 0 0;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+/* --------------------------------------------- density inside the panels
+
+   The calendar, the pitch, the ledger, and the summary were all drawn for a
+   full width section on an article page. Inside a panel they are instruments,
+   so their type comes down to the terminal's own scale and their padding to
+   hairlines. Overriding here rather than in each component keeps the reading
+   scale intact everywhere else on the site. */
+
+.grid .summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s4);
+  margin: 0;
+}
+
+.grid .summary > div {
+  display: grid;
+  gap: 0;
+}
+
+.grid .question {
+  gap: 0 var(--s3);
+  font-size: 0.68rem;
+}
+
+.grid .question dt,
+.grid .summary dt {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+}
+
+.grid .question dd {
+  font-size: 0.72rem;
+}
+
+.grid .summary dd {
+  font-size: var(--step-0);
+  line-height: 1.15;
+}
+
+.grid .caveatList {
+  margin: 0;
+  padding-inline-start: 0.9rem;
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+
+.grid .ledger {
+  margin: 0;
+}
+
+.grid .ledgerHead {
+  font-size: 0.6rem;
+  margin: 0 0 0.15rem;
+}
+
+.grid .ledgerList,
+.grid .ledgerRow,
+.grid .ledgerNone,
+.grid .ledgerNote,
+.grid .tokenKey {
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+.grid .week {
+  margin: 0;
+}
+
+.grid .pitch {
+  max-inline-size: 22rem;
+}
