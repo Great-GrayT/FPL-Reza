@@ -28,6 +28,8 @@ export type ComponentName =
 
 export type Task = 'regression' | 'classification';
 
+export type Grain = 'player' | 'club';
+
 export interface ComponentSpec {
   name: ComponentName;
   task: Task;
@@ -39,6 +41,19 @@ export interface ComponentSpec {
   target: (row: FeatureRow) => number | null;
   /** Classes, for a classification component. */
   classes?: string[];
+  /**
+   * What one row of this component describes. A clean sheet belongs to a club
+   * match: fitting it per player repeats one target eleven times, which inflates
+   * the sample without adding information and puts the same match on both sides
+   * of a fold boundary through two different players.
+   */
+  grain?: Grain;
+  /**
+   * Whether the mechanism differs enough by position to fit one model per
+   * position. It is a candidate rather than a decision: the pipeline fits both
+   * and keeps whichever scores better on the same folds.
+   */
+  segmentByPosition?: boolean;
 }
 
 /** Sixty minutes is the threshold every appearance rule in the game turns on. */
@@ -64,6 +79,7 @@ export const COMPONENTS: ComponentSpec[] = [
   {
     name: 'goalRate',
     task: 'regression',
+    segmentByPosition: true,
     description: 'Goals per ninety minutes, among players who were on the pitch.',
     eligible: played,
     target: (row) => per90(row.actual.goals, row.actual.minutes),
@@ -71,6 +87,7 @@ export const COMPONENTS: ComponentSpec[] = [
   {
     name: 'assistRate',
     task: 'regression',
+    segmentByPosition: true,
     description: 'Assists per ninety minutes, among players who were on the pitch.',
     eligible: played,
     target: (row) => per90(row.actual.assists, row.actual.minutes),
@@ -78,6 +95,7 @@ export const COMPONENTS: ComponentSpec[] = [
   {
     name: 'cleanSheet',
     task: 'classification',
+    grain: 'club',
     description:
       'Whether the club kept a clean sheet, among players who reached the sixty minutes the rule requires.',
     classes: ['conceded', 'clean sheet'],
@@ -87,6 +105,7 @@ export const COMPONENTS: ComponentSpec[] = [
   {
     name: 'concededRate',
     task: 'regression',
+    grain: 'club',
     description:
       'Goals conceded per ninety while on the pitch, which is what the penalty is charged on.',
     eligible: played,
@@ -102,6 +121,7 @@ export const COMPONENTS: ComponentSpec[] = [
   {
     name: 'bpsRate',
     task: 'regression',
+    segmentByPosition: true,
     description:
       'Bonus points system score per ninety. Bonus is awarded on this, so it is what a bonus prediction has to start from.',
     eligible: played,
@@ -110,6 +130,7 @@ export const COMPONENTS: ComponentSpec[] = [
   {
     name: 'cardRate',
     task: 'classification',
+    segmentByPosition: true,
     description:
       'Whether he was booked or sent off, which is a rare event and therefore a calibration problem.',
     classes: ['no card', 'carded'],
@@ -149,10 +170,20 @@ export function targetsFor(component: ComponentSpec, rows: readonly FeatureRow[]
 
   const indexes: number[] = [];
   const values: number[] = [];
+  // One row per club match for a club grain component: the first eligible
+  // player of each club match stands for it, since every one of them carries
+  // the identical target and the features used are the club's own.
+  const seen = new Set<string>();
+
   rows.forEach((row, index) => {
     if (!component.eligible(row)) return;
     const value = component.target(row);
     if (value === null || !Number.isFinite(value)) return;
+    if (component.grain === 'club') {
+      const key = `${row.season}:${String(row.gameweek)}:${String(row.teamCode ?? 0)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+    }
     indexes.push(index);
     values.push(value);
   });

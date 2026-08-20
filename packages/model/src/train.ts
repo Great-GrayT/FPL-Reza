@@ -8,7 +8,7 @@ import {
   type Dataset,
   type Model,
 } from '@fpl/quant';
-import { FEATURE_NAMES, type FeatureRow } from './features.js';
+import { CLUB_FEATURE_NAMES, FEATURE_NAMES, type FeatureRow } from './features.js';
 import { COMPONENTS, targetsFor, type ComponentName, type ComponentSpec } from './targets.js';
 
 /**
@@ -61,6 +61,14 @@ export interface Ablation {
   earned: boolean;
 }
 
+/** One position's fit, where a component is segmented. */
+export interface SegmentFit {
+  position: string;
+  rows: number;
+  score: number;
+  standardError: number;
+}
+
 export interface ComponentFit {
   component: ComponentName;
   task: 'regression' | 'classification';
@@ -79,6 +87,17 @@ export interface ComponentFit {
   ablations: Ablation[];
   seed: number;
   featureNames: string[];
+  /** Whether one row is a player's match or a club's. */
+  grain: 'player' | 'club';
+  /**
+   * How a per position fit compared with the pooled one, where the component
+   * is a segmentation candidate. Null where it is not.
+   */
+  segments: SegmentFit[] | null;
+  /** Mean score across the segments, weighted by rows, against the pooled score. */
+  segmentedScore: number | null;
+  /** Which of the two is shipped, decided by the score rather than by taste. */
+  chosen: 'pooled' | 'segmented';
   /** The fitted model, for scoring. Not serialised by this type. */
   model: Model;
 }
@@ -148,7 +167,16 @@ export function fitComponent(
     });
 
   const metric = metricFor(spec.task);
-  const keep = keepIndexes();
+  // A club grain component reads only the club's own features: a striker's
+  // rolling goal rate says nothing about whether his club keeps a clean sheet,
+  // and handing it over invites the model to fit the player who happened to
+  // stand for that club match.
+  const keep =
+    spec.grain === 'club'
+      ? FEATURE_NAMES.map((_, index) => index).filter((index) =>
+          CLUB_FEATURE_NAMES.includes(FEATURE_NAMES[index] ?? ''),
+        )
+      : keepIndexes();
   const dataset = datasetOf(rows, targets.rows, keep);
   const validation = crossValidate(dataset, targets.values, splits, fit, {
     task: spec.task,
@@ -193,6 +221,59 @@ export function fitComponent(
     });
   }
 
+  // Segmentation is measured, not assumed: the same folds, one model per
+  // position, and the pooled model keeps its place unless the segments beat it.
+  let segments: SegmentFit[] | null = null;
+  let segmentedScore: number | null = null;
+  if (spec.segmentByPosition === true) {
+    segments = [];
+    let weighted = 0;
+    let counted = 0;
+    for (const position of ['GKP', 'DEF', 'MID', 'FWD']) {
+      const subset = targets.rows
+        .map((rowIndex, position2) => ({ rowIndex, position2 }))
+        .filter(({ rowIndex }) => rows[rowIndex]?.position === position);
+      if (subset.length < 800) continue;
+
+      const subsetRows = subset.map((entry) => entry.rowIndex);
+      const subsetValues = Float64Array.from(
+        subset,
+        (entry) => targets.values[entry.position2] ?? 0,
+      );
+      const subsetPeriods = Int32Array.from(subsetRows, (index) => rows[index]?.period ?? 0);
+      const subsetSplits = walkForwardSplits(subsetPeriods, {
+        minimumTrainPeriods: 12,
+        testPeriods: 4,
+        embargoPeriods: 1,
+        window: 'rolling',
+        windowPeriods: 76,
+      }).filter((_, index) => index % stride === 0);
+      if (subsetSplits.length === 0) continue;
+
+      const subsetData = datasetOf(rows, subsetRows, keep);
+      const scored = crossValidate(subsetData, subsetValues, subsetSplits, fit, {
+        task: spec.task,
+        metric,
+      });
+      segments.push({
+        position,
+        rows: subsetRows.length,
+        score: scored.mean,
+        standardError: scored.standardError,
+      });
+      if (Number.isFinite(scored.mean)) {
+        weighted += scored.mean * subsetRows.length;
+        counted += subsetRows.length;
+      }
+    }
+    segmentedScore = counted === 0 ? null : weighted / counted;
+  }
+
+  const chosen: 'pooled' | 'segmented' =
+    segmentedScore !== null && segmentedScore > validation.mean + validation.standardError
+      ? 'segmented'
+      : 'pooled';
+
   return {
     component: spec.name,
     task: spec.task,
@@ -226,6 +307,10 @@ export function fitComponent(
     ablations,
     seed,
     featureNames: keep.map((index) => FEATURE_NAMES[index] ?? ''),
+    grain: spec.grain ?? 'player',
+    segments,
+    segmentedScore,
+    chosen,
     model,
   };
 }

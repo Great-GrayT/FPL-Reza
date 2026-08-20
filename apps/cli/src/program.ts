@@ -1,5 +1,6 @@
 import { Command, InvalidArgumentError, Option } from 'commander';
 import { seasonForDate, type Config } from '@fpl/config';
+import { trainModels } from '@fpl/model';
 import {
   NotFoundError,
   POSITIONS,
@@ -533,6 +534,23 @@ interface OfficialOptionsRaw {
   json?: boolean;
 }
 
+interface ModelTrainOptionsRaw {
+  season?: string;
+  seasons?: string;
+  folds?: number;
+  rounds?: number;
+  seed?: number;
+  dryRun?: boolean;
+  json?: boolean;
+}
+
+/**
+ * The seasons a model is fitted on by default: the six the lake carries
+ * teamsheets for, so every feature family is available on every row of the
+ * training window rather than on a fraction of it.
+ */
+const DEFAULT_TRAINING_SEASONS = ['2020/21', '2021/22', '2022/23', '2023/24', '2024/25', '2025/26'];
+
 interface WeatherOptionsRaw {
   season?: string;
   windowDays?: number;
@@ -552,6 +570,100 @@ function registerOfficial(
   streams: Streams,
   now: () => Date,
 ): void {
+  const model = program.command('model').description('Fit and inspect the expected points models');
+
+  model
+    .command('train')
+    .description('Fit every component over the lake and write the ones that beat a shuffled target')
+    .option('--season <season>', 'season the lake is filed under, e.g. 2026/27')
+    .option('--seasons <labels>', 'comma separated archive seasons to train on')
+    .option('--folds <n>', 'validation folds; each is a full refit', parseIntOption)
+    .option('--rounds <n>', 'boosting rounds per fit', parseIntOption)
+    .option('--seed <n>', 'seed, so a run repeats exactly', parseIntOption)
+    .option('--dry-run', 'report the scores without writing any artifact')
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: ModelTrainOptionsRaw) => {
+      const season = resolveSeason(options.season, deps.config);
+      const seasons =
+        options.seasons === undefined
+          ? DEFAULT_TRAINING_SEASONS
+          : options.seasons
+              .split(',')
+              .map((entry) => entry.trim())
+              .filter((entry) => entry !== '');
+
+      const report = await trainModels(deps.store, {
+        season,
+        seasons,
+        ...(options.folds === undefined ? {} : { folds: options.folds }),
+        ...(options.rounds === undefined ? {} : { rounds: options.rounds }),
+        ...(options.seed === undefined ? {} : { seed: options.seed }),
+        ...(options.dryRun === true ? { dryRun: true } : {}),
+      });
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+
+      writeLine(
+        streams,
+        `${report.featureRows.toLocaleString('en-GB')} rows, ${String(report.features)} features, ` +
+          `${report.seasons.join(', ')}, seed ${String(report.seed)}`,
+      );
+      writeTable(streams, {
+        columns: [
+          'component',
+          'rows',
+          'metric',
+          'score',
+          'error',
+          'null',
+          'ships',
+          'leading feature',
+        ],
+        rows: report.fits.map((fit) => [
+          fit.component,
+          fit.rows.toLocaleString('en-GB'),
+          fit.metric,
+          fit.score.toFixed(4),
+          fit.standardError.toFixed(4),
+          fit.nullScore.toFixed(3),
+          fit.beatsNull ? 'yes' : 'no',
+          fit.topFeatures[0] ?? '',
+        ]),
+      });
+
+      const ablations = report.fits.flatMap((fit) =>
+        fit.ablations.map((ablation) => [
+          fit.component,
+          ablation.name,
+          ablation.gain.toFixed(4),
+          ablation.earned ? 'earned' : 'not earned',
+        ]),
+      );
+      if (ablations.length > 0) {
+        writeLine(streams, '');
+        writeTable(streams, {
+          columns: ['component', 'feature group', 'gain', 'verdict'],
+          rows: ablations,
+        });
+      }
+
+      if (report.refused.length > 0) {
+        writeLine(
+          streams,
+          `
+not written, because they did not beat a shuffled target: ${report.refused.join(', ')}`,
+        );
+      }
+      writeLine(
+        streams,
+        `
+${String(report.written.length)} artifacts written in ${String(Math.round(report.elapsedMs / 1000))}s`,
+      );
+    });
+
   const official = program
     .command('official')
     .description('Ingest the Premier League official record and match conditions');

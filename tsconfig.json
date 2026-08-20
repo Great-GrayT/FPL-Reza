@@ -9,6 +9,7 @@
     { "path": "packages/analytics" },
     { "path": "packages/quant" },
     { "path": "packages/model" },
+    { "path": "packages/planner" },
     { "path": "apps/cli" },
     { "path": "apps/api" }
   ]

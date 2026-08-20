@@ -23,6 +23,7 @@
     "@fpl/config": "workspace:*",
     "@fpl/core": "workspace:*",
     "@fpl/ingest": "workspace:*",
+    "@fpl/model": "workspace:*",
     "@fpl/store": "workspace:*",
     "commander": "^13.1.0",
     "zod": "^3.24.1"

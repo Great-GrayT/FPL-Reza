@@ -1,4 +1,5 @@
 import { tenureAt, type HistoricPlayerGameweek, type Match } from '@fpl/core';
+import { estimateStrength, type StrengthModel } from '@fpl/analytics';
 import { duelsFor, describeSlot, slotOf, type Slot } from './duel.js';
 import type { Panel } from './panel.js';
 
@@ -83,6 +84,20 @@ export const FEATURE_NAMES: string[] = [
   'selected_by',
   'is_home',
   'gameweek',
+  // Position, one column per class. A pooled model cannot tell a keeper from a
+  // striker without it, and was inferring position from correlated features
+  // such as the save rate and the price, which costs it depth it needs
+  // elsewhere.
+  'is_goalkeeper',
+  'is_defender',
+  'is_midfielder',
+  'is_forward',
+  // A player FPL reclassified is the case where his history describes a
+  // different job from the one he is about to do: a winger listed as a
+  // midfielder last season and a forward this one has a goal rate that means
+  // something different in each. The flag is what lets a model discount the
+  // rows before the change.
+  'position_changed',
   'rest_days',
   'team_matches_14_days',
   // The club, measured from its own matches rather than from the player's rows.
@@ -95,6 +110,16 @@ export const FEATURE_NAMES: string[] = [
   'opponent_clean_sheets_6',
   'opponent_points_6',
   'strength_gap',
+  // Attack and defence as ratios to the division average, weighted across
+  // seasons and shrunk towards it for a club with a short record. Six matches of
+  // form is a club's mood; this is its level, which is what a clean sheet turns
+  // on.
+  'team_attack',
+  'team_defence',
+  'opponent_attack',
+  'opponent_defence',
+  'expected_goals_for',
+  'expected_goals_against',
   // The manager, which is the largest discontinuity a club's form can have.
   'manager_days',
   'manager_new',
@@ -254,6 +279,9 @@ export function buildFeatures(panel: Panel, options: BuildOptions = {}): BuildRe
     return built;
   };
 
+  const shapes = buildShapeIndex(panel);
+  const strength = buildStrengthIndex(panel.matches);
+
   const seasonIndex = new Map<string, number>();
   for (const row of panel.rows) {
     if (!seasonIndex.has(row.season)) seasonIndex.set(row.season, seasonIndex.size);
@@ -292,7 +320,16 @@ export function buildFeatures(panel: Panel, options: BuildOptions = {}): BuildRe
           teamCode,
           opponentCode,
           wasHome: row.wasHome,
-          values: valuesFor(row, state.past, teamCode, opponentCode, panel, historyFor),
+          values: valuesFor(
+            row,
+            state.past,
+            teamCode,
+            opponentCode,
+            panel,
+            historyFor,
+            shapes,
+            strength,
+          ),
           actual: row,
         });
       } else if (wanted === null || wanted.has(row.season)) {
@@ -313,6 +350,8 @@ function valuesFor(
   opponentCode: number | null,
   panel: Panel,
   historyFor: (teamCode: number) => TeamMatch[],
+  shapes: ShapeIndex,
+  strength: StrengthIndex,
 ): Float64Array {
   const values: number[] = [];
 
@@ -385,6 +424,12 @@ function valuesFor(
   values.push(row.selectedBy ?? NA);
   values.push(row.wasHome === null ? NA : row.wasHome ? 1 : 0);
   values.push(row.gameweek);
+  values.push(row.position === 'GKP' ? 1 : 0);
+  values.push(row.position === 'DEF' ? 1 : 0);
+  values.push(row.position === 'MID' ? 1 : 0);
+  values.push(row.position === 'FWD' ? 1 : 0);
+  const earlier = past[Math.max(0, past.length - 12)]?.position ?? null;
+  values.push(earlier === null || row.position === null ? NA : earlier === row.position ? 0 : 1);
 
   const clubMatches = teamCode === null ? [] : historyFor(teamCode);
   const recent = before(clubMatches, row.kickoff, 6);
@@ -424,6 +469,12 @@ function valuesFor(
           mean(opponentRecent.map((entry) => entry.points)),
   );
 
+  // Order is the contract: these values are read back by position against
+  // FEATURE_NAMES, so a block pushed out of order relabels every feature after
+  // it. That happened once, and it presented as a club's manager record being
+  // the best predictor of how many goals it conceded.
+  values.push(...strengthValues(row, teamCode, opponentCode, strength));
+
   const tenure =
     teamCode === null || row.kickoff === null
       ? null
@@ -441,8 +492,14 @@ function valuesFor(
   values.push(tenure === null ? NA : underManager.length);
   values.push(underManager.length === 0 ? NA : mean(underManager.map((entry) => entry.points)));
 
-  values.push(...shapeValues(row, teamCode, opponentCode, panel));
+  values.push(...shapeValues(row, past, teamCode, opponentCode, panel, shapes));
 
+  // A mismatch here is silent and total, so it is checked rather than trusted.
+  if (values.length !== FEATURE_NAMES.length) {
+    throw new Error(
+      `feature count ${String(values.length)} does not match the ${String(FEATURE_NAMES.length)} names declared`,
+    );
+  }
   return Float64Array.from(values);
 }
 
@@ -459,64 +516,218 @@ function sumOf(rows: readonly HistoricPlayerGameweek[], measure: RollingMeasure)
 }
 
 /**
- * Where the shape puts him, and who that puts him against.
+ * The two clubs' levels, and the goals that level implies for this fixture.
  *
- * Only available where a teamsheet is, which is the six most recent seasons.
- * Everything here is missing for the rest rather than guessed, and the model is
- * told which rows those are by the values themselves being missing.
+ * The last two are the ones the clean sheet and conceding components need: a
+ * club's expected goals against in this match, which is the opponent's attack
+ * times this club's defence times the division's own rate, with home advantage
+ * split either side. That is the same arithmetic the match forecast uses, so a
+ * projection and a forecast cannot disagree about the same fixture.
  */
-function shapeValues(
+function strengthValues(
   row: HistoricPlayerGameweek,
   teamCode: number | null,
   opponentCode: number | null,
+  strength: StrengthIndex,
+): number[] {
+  if (teamCode === null || opponentCode === null || row.kickoff === null) {
+    return [NA, NA, NA, NA, NA, NA];
+  }
+  const model = strength.at(row.kickoff);
+  if (model === null) return [NA, NA, NA, NA, NA, NA];
+
+  const own = model.teams.get(teamCode);
+  const other = model.teams.get(opponentCode);
+  if (own === undefined || other === undefined) return [NA, NA, NA, NA, NA, NA];
+
+  const home = row.wasHome === true;
+  const advantage = Math.sqrt(model.homeAdvantage);
+  const scale = home ? advantage : 1 / advantage;
+  const goalsFor = model.baseline * own.attack * other.defence * scale;
+  const goalsAgainst = (model.baseline * other.attack * own.defence) / scale;
+
+  return [own.attack, own.defence, other.attack, other.defence, goalsFor, goalsAgainst];
+}
+
+/**
+ * Where the shape puts him, and who that puts him against, from before kickoff.
+ *
+ * The first version of this read the teamsheet of the match being predicted,
+ * which leaks: a slot exists only for a player who started, so "has a slot" is
+ * "started", which is what the minutes component is trying to predict. It duly
+ * scored 0.885 and named the shape flag as its most important feature, which is
+ * the shape of a model that has been told the answer.
+ *
+ * So every value here comes from before this match: the slot he occupied the
+ * last time a teamsheet named him, the shape his club named most recently, and
+ * the shape the opponent named most recently. Those are all knowable on the
+ * Friday, which is when a manager is picking a squad.
+ */
+function shapeValues(
+  row: HistoricPlayerGameweek,
+  past: readonly HistoricPlayerGameweek[],
+  teamCode: number | null,
+  opponentCode: number | null,
   panel: Panel,
+  shapes: ShapeIndex,
 ): number[] {
   const missing = [NA, NA, NA, NA, NA, NA];
   if (teamCode === null || opponentCode === null || row.kickoff === null) return missing;
 
-  const match = panel.matches.find(
-    (candidate) =>
-      candidate.kickoff !== null &&
-      Math.abs(candidate.kickoff.getTime() - (row.kickoff?.getTime() ?? 0)) < 6 * 3_600_000 &&
-      ((candidate.homeTeamCode === teamCode && candidate.awayTeamCode === opponentCode) ||
-        (candidate.awayTeamCode === teamCode && candidate.homeTeamCode === opponentCode)),
-  );
-  if (match === undefined) return missing;
+  const opponentShape = shapes.lastFormation(opponentCode, row.kickoff);
+  const slot = shapes.lastSlot(row.playerCode, row.kickoff);
+  if (slot === null || opponentShape === null) {
+    return [NA, NA, NA, NA, NA, shapes.stability(teamCode, row.kickoff)];
+  }
 
-  const detail = panel.detailOf(match.matchId);
-  if (detail === null) return missing;
-
-  const own = detail.sheets.find((sheet) => sheet.teamCode === teamCode);
-  const other = detail.sheets.find((sheet) => sheet.teamCode === opponentCode);
-  if (own === undefined || other === undefined) return missing;
-
-  // The formation rows hold the provider's person ids, not FPL codes: the two
-  // number the same footballer differently, and matching a code against a
-  // person id silently finds nobody. The lineup carries both, so it is the
-  // bridge, and a player the sheet does not name has no slot rather than a
-  // guessed one.
-  const personId = own.lineup.find((entry) => entry.playerCode === row.playerCode)?.personId;
-  if (personId === undefined) return missing;
-
-  const slot = slotOf(own.formationRows, personId);
-  if (slot === null) return missing;
-
-  const duels = duelsFor(slot, other.formationRows);
+  const duels = duelsFor(slot, opponentShape.rows);
   const share = (band: string): number =>
     duels
       .filter((duel) => describeSlot(duel.slot).endsWith(band))
       .reduce((total, duel) => total + duel.weight, 0);
 
+  void past;
   return [
     lateralOfSlot(slot),
     advancementOfSlot(slot),
     share('defence'),
     share('midfield'),
     share('attack'),
-    // A club that named the same shape last time is a club whose next shape is
-    // predictable, which is what makes the slot features worth anything.
-    own.formation === null ? NA : 1,
+    shapes.stability(teamCode, row.kickoff),
   ];
+}
+
+interface FormationRecord {
+  kickoff: number;
+  label: string | null;
+  rows: number[][];
+}
+
+interface SlotRecord {
+  kickoff: number;
+  slot: Slot;
+}
+
+/**
+ * Club strength as it stood before each gameweek.
+ *
+ * `estimateStrength` reads every completed match it is given, so handing it the
+ * whole archive would let a model know how a club finished the season it is
+ * being asked to predict. It is therefore recomputed once per gameweek from the
+ * matches played before that gameweek opened, which is 38 fits a season rather
+ * than one per row, and is the difference between a legitimate feature and a
+ * time machine.
+ */
+export interface StrengthIndex {
+  at: (kickoff: Date) => StrengthModel | null;
+}
+
+export function buildStrengthIndex(matches: readonly Match[]): StrengthIndex {
+  const played = matches
+    .filter(
+      (match) => match.kickoff !== null && match.homeScore !== null && match.awayScore !== null,
+    )
+    .sort((a, b) => (a.kickoff?.getTime() ?? 0) - (b.kickoff?.getTime() ?? 0));
+
+  const cache = new Map<string, StrengthModel | null>();
+  const WEEK = 7 * 86_400_000;
+
+  return {
+    at: (kickoff) => {
+      // One model per week rather than per match: a club's estimated level does
+      // not move within a round, and 38 fits a season is affordable where one
+      // per row is not.
+      const bucket = Math.floor(kickoff.getTime() / WEEK);
+      const key = String(bucket);
+      const cached = cache.get(key);
+      if (cached !== undefined) return cached;
+
+      const before = played.filter((match) => (match.kickoff?.getTime() ?? 0) < bucket * WEEK);
+      const model = before.length < 40 ? null : estimateStrength(before);
+      cache.set(key, model);
+      return model;
+    },
+  };
+}
+
+export interface ShapeIndex {
+  /** The shape a club last named before an instant. */
+  lastFormation: (teamCode: number, at: Date) => FormationRecord | null;
+  /** The slot a player last occupied before an instant. */
+  lastSlot: (playerCode: number, at: Date) => Slot | null;
+  /** Share of a club's last six shapes that matched its most recent one. */
+  stability: (teamCode: number, at: Date) => number;
+}
+
+/**
+ * Every teamsheet in the lake, indexed by club and by player, in time order.
+ *
+ * Built once for a run rather than searched per row: a linear scan of six
+ * seasons of matches for each of eighty thousand rows is a quarter of a billion
+ * comparisons, which is the difference between a minute and an afternoon.
+ */
+export function buildShapeIndex(panel: Panel): ShapeIndex {
+  const formations = new Map<number, FormationRecord[]>();
+  const slots = new Map<number, SlotRecord[]>();
+
+  for (const match of panel.matches) {
+    if (match.kickoff === null) continue;
+    const detail = panel.detailOf(match.matchId);
+    if (detail === null) continue;
+    const kickoff = match.kickoff.getTime();
+
+    for (const sheet of detail.sheets) {
+      const record: FormationRecord = {
+        kickoff,
+        label: sheet.formation,
+        rows: sheet.formationRows.map((formationRow) => [...formationRow]),
+      };
+      const bucket = formations.get(sheet.teamCode);
+      if (bucket === undefined) formations.set(sheet.teamCode, [record]);
+      else bucket.push(record);
+
+      for (const entry of sheet.lineup) {
+        if (entry.playerCode === null) continue;
+        const slot = slotOf(sheet.formationRows, entry.personId);
+        if (slot === null) continue;
+        const playerBucket = slots.get(entry.playerCode);
+        if (playerBucket === undefined) slots.set(entry.playerCode, [{ kickoff, slot }]);
+        else playerBucket.push({ kickoff, slot });
+      }
+    }
+  }
+
+  for (const bucket of formations.values()) bucket.sort((a, b) => a.kickoff - b.kickoff);
+  for (const bucket of slots.values()) bucket.sort((a, b) => a.kickoff - b.kickoff);
+
+  const latestBefore = <T extends { kickoff: number }>(
+    bucket: T[] | undefined,
+    at: number,
+  ): T | null => {
+    if (bucket === undefined || bucket.length === 0) return null;
+    let low = 0;
+    let high = bucket.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if ((bucket[mid]?.kickoff ?? 0) < at) low = mid + 1;
+      else high = mid;
+    }
+    return low === 0 ? null : (bucket[low - 1] ?? null);
+  };
+
+  return {
+    lastFormation: (teamCode, at) => latestBefore(formations.get(teamCode), at.getTime()),
+    lastSlot: (playerCode, at) => latestBefore(slots.get(playerCode), at.getTime())?.slot ?? null,
+    stability: (teamCode, at) => {
+      const bucket = formations.get(teamCode);
+      if (bucket === undefined) return NA;
+      const time = at.getTime();
+      const recent = bucket.filter((entry) => entry.kickoff < time).slice(-6);
+      const latest = recent[recent.length - 1];
+      if (latest === undefined || recent.length < 2) return NA;
+      return recent.filter((entry) => entry.label === latest.label).length / recent.length;
+    },
+  };
 }
 
 function lateralOfSlot(slot: Slot): number {
@@ -528,3 +739,26 @@ function advancementOfSlot(slot: Slot): number {
   if (outfield <= 1) return slot.row === 0 ? 0 : 1;
   return slot.row === 0 ? 0 : (slot.row - 1) / (outfield - 1);
 }
+
+/**
+ * The features that describe a club's match rather than a player's part in it.
+ *
+ * A clean sheet is a property of a club match, not of a footballer: eleven
+ * players carry the same target, so fitting it per player multiplies the rows
+ * without adding information and lets one match sit in a training fold and a
+ * test fold at the same time through two different players. The components that
+ * predict club events are therefore fitted on one row per club match, using
+ * only these features.
+ */
+export const CLUB_FEATURE_NAMES: string[] = FEATURE_NAMES.filter(
+  (name) =>
+    name.startsWith('team_') ||
+    name.startsWith('opponent_') ||
+    name.startsWith('manager_') ||
+    name.startsWith('expected_goals_') ||
+    name === 'strength_gap' ||
+    name === 'is_home' ||
+    name === 'gameweek' ||
+    name === 'rest_days' ||
+    name === 'formation_stability',
+);

@@ -279,10 +279,12 @@ export function managerSpellsSource(http: HttpClient, options: ManagerSpellOptio
     requires: [DATASETS.teams],
 
     async *run(context: SourceContext): AsyncIterable<SourceBatch> {
-      const teams = await context.store.read<Team>(
-        { season: context.season, dataset: DATASETS.teams },
-        teamSchema,
-      );
+      // Every club in the record, not the twenty playing now. Built from the
+      // current team list alone, this source left West Ham, Leicester, Burnley,
+      // Southampton and Wolves with no manager at all, which is 38 percent of
+      // the club matches in the training window carrying a missing feature
+      // rather than a wrong one, and therefore invisible.
+      const teams = await allClubs(context);
 
       const groundEntities = await readGroundEntities(context);
       // FPL names a club "Man Utd" and "Spurs", which a Wikidata search does
@@ -327,6 +329,43 @@ export function managerSpellsSource(http: HttpClient, options: ManagerSpellOptio
       yield { dataset: DATASETS.managerSpells, rows: spells, format: 'jsonl' };
     },
   };
+}
+
+/**
+ * Every club the official record names, with its permanent code.
+ *
+ * A club that was relegated in 2018 still played the matches a model is fitted
+ * on, and its manager is as much a fact about those matches as the current
+ * champions' is about this week's.
+ */
+async function allClubs(context: SourceContext): Promise<Team[]> {
+  const byCode = new Map<number, string>();
+
+  const partitions = await context.store
+    .partitions({ season: context.season, dataset: DATASETS.matches })
+    .catch(() => [] as string[]);
+  for (const partition of partitions) {
+    const matches = await context.store
+      .read<Match>({ season: context.season, dataset: DATASETS.matches, partition }, matchSchema)
+      .catch(() => [] as Match[]);
+    for (const match of matches) {
+      byCode.set(match.homeTeamCode, match.homeTeamName);
+      byCode.set(match.awayTeamCode, match.awayTeamName);
+    }
+  }
+
+  if (byCode.size === 0) {
+    // No official record: fall back to whoever is playing now, which is the
+    // old behaviour and better than nothing.
+    return context.store.read<Team>(
+      { season: context.season, dataset: DATASETS.teams },
+      teamSchema,
+    );
+  }
+
+  return [...byCode.entries()]
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .map(([code, name]) => ({ code, name }) as Team);
 }
 
 /**

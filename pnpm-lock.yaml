@@ -80,6 +80,9 @@ importers:
       '@fpl/ingest':
         specifier: workspace:*
         version: link:../../packages/ingest
+      '@fpl/model':
+        specifier: workspace:*
+        version: link:../../packages/model
       '@fpl/store':
         specifier: workspace:*
         version: link:../../packages/store
@@ -210,6 +213,18 @@ importers:
       zod:
         specifier: ^3.24.1
         version: 3.25.76
+
+  packages/planner:
+    dependencies:
+      '@fpl/analytics':
+        specifier: workspace:*
+        version: link:../analytics
+      '@fpl/core':
+        specifier: workspace:*
+        version: link:../core
+      '@fpl/quant':
+        specifier: workspace:*
+        version: link:../quant
 
   packages/quant: {}
 
