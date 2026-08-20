@@ -36,11 +36,17 @@ In: the pool and the gameweek. Out: nothing; prices move by the rise probability
 
 ### plan(players, start, options): Plan
 
-In: the pool, the opening squad, and the options (horizon, first gameweek, beam width, transfers a week, discount, risk appetite, chips). Out: a `Plan`: one `WeekPlan` per gameweek, the total after every hit, what holding the same fifteen would have scored, the excess over it, the transfers, the hits, the chips played, and the states explored. Errors: none. Notes: a beam search keeping the best `beamWidth` states per gameweek, deduplicated by sorted picks so two routes to the same squad do not both occupy the beam. A later point is discounted at 0.97, which prefers points now and stops the search hoarding value it never spends. Because doing nothing is always a candidate, the plan can never be worth less than holding.
+In: the pool, the opening squad, and the options (horizon, first gameweek, beam width, transfers a week, discount, risk appetite, chips, the least a transfer must gain). Out: a `Plan`: one `WeekPlan` per gameweek, the total after every hit, what holding the same fifteen would have scored, the excess over it, the transfers, the hits, the chips played, and the states explored. Errors: none. Notes: a beam search keeping the best `beamWidth` states per gameweek, deduplicated by sorted picks so two routes to the same squad do not both occupy the beam. A later point is discounted at 0.97, which prefers points now and stops the search hoarding value it never spends.
 
-### holdValue(players, squad, options): number
+The line that takes no transfer at all is carried outside the beam and compared against it at the end. Every plan claims to beat holding the same fifteen, and a beam cannot make that claim on its own: the holding line looks worse in gameweek two precisely because it banked a transfer, gets pruned, and the plan then reports a total below the number it is measured against. That happened, at minus one point on a real horizon, and `plan.test.ts` now checks the invariant at four beam widths.
 
-In: the pool, a squad, and the same options. Out: what that squad is worth held unchanged across the horizon. Errors: none. Notes: this is the benchmark every plan reports itself against, because a plan that cannot beat doing nothing has found nothing.
+Two rules keep the ledger enterable. A transfer must gain more than `minTransferGain` (0.5 by default) rather than merely gain, and a player sold earlier in the horizon may never be bought back. Both exist because a free transfer is only free in the model: without them the plan sold a forward in gameweek 3, bought him back in gameweek 4, and did the same with two defenders, which is optimal under the assumptions and is not a plan anybody enters.
+
+### encodeStrategy(strategy) / decodeStrategy(code) / poolFingerprint(players)
+
+In: a strategy, or a code, or the pool. Out: a legible code such as `FPL1-G3-H8-B1000-R0-T1-S7-LABC123-X4F`; the strategy it carries; or a hash of the prices and projections a strategy was solved against. Errors: `decodeStrategy` throws `StrategyCodeError` naming what is wrong, and refuses a mistyped code rather than solving a different strategy silently.
+
+Notes: the code carries the question, never the answer. Fifteen names are the answer to "best over eight gameweeks, a hundred million, neutral risk, keeping these two", and the answer moves every time a price does while the question does not, so pasting a code solves it again on today's data. The cost of that choice is stated on the page: a code cannot reproduce the exact squad someone else saw once the data has moved. What it can do instead is say so, which is what the fingerprint is for. Two base 36 check characters catch a single typo with probability 1295 in 1296, kept players are sorted so two readers who picked the same squad produce the same code, and the whole thing is upper case because it is read aloud.
 
 ### optimiseSquad(players, options): SquadOptimisation | null
 

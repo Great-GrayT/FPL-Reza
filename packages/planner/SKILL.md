@@ -10,6 +10,8 @@ status: active
 
 Owns the plan: the beam search over transfer states (`plan.ts`), the legality check every state is built through (`isLegal`), the weekly valuation that solves the best eleven and the captain, the transfer move generator, the price advance, and the opening squad picker (`open.ts`).
 
+Owns the strategy code (`code.ts`): the legible, checksummed encoding of the question a search was asked, the fingerprint of the data it was solved against, and the errors a mistyped code produces.
+
 Owns the squad optimiser too (`optimise.ts`): the iterated local search that answers which fifteen to hold over a horizon, with the frontier prune that decides which players are worth considering, the admissible bound that lets most candidates be skipped without being scored, and the cheapest legal fallback the search starts from when the greedy picker cannot fill a squad.
 
 Does not own: projections. It takes a projection per player per gameweek and never computes one, which is what keeps the optimiser testable against numbers a test writes by hand and lets a reader substitute their own view of a player without touching the search. Projections come from `packages/model` through `apps/web/lib/planner/projections.ts`.
@@ -31,6 +33,10 @@ Does not own: projections. It takes a projection per player per gameweek and nev
 - **The candidate skip must stay a bound, not a guess.** `ceiling` is safe because it can never be below the true gain: the search therefore never misses a move it would have preferred. Replacing it with an estimate turns a proven search into an unproven one, and nothing on screen would show the difference.
 - **Dominance is per gameweek, never on the mean.** Pruning on a mean discards the player who blanks this week and plays twice the next, which is exactly the player a horizon exists to find.
 - **The search says what it cost and what it beat.** `evaluated`, `improvements`, `rounds`, `converged`, and `baseline` are part of the answer, not diagnostics. A squad presented as optimal with nothing to check it against is a claim the reader cannot argue with.
+- **A code carries the question, never the answer.** Encoding the solved squad would produce a code that silently goes stale as prices move. Encoding the inputs plus a fingerprint means a paste re-solves on today's data and can say that the data moved. Never add the picks to the code to make sharing "exact": exact and current cannot both be true.
+- **A refused code is better than a wrong one.** `decodeStrategy` checksums before it parses and names what is missing. Loosening that to be forgiving would mean solving a strategy nobody asked for and showing no sign of it.
+- **The holding line is not a beam state.** It is carried separately because the claim every plan prints depends on it surviving, and a beam prunes on the discounted score, which is exactly what a banked transfer looks worst on.
+- **A free transfer is not free.** The minimum gain and the no-buy-back rule are both stated thresholds, not fitted ones, and both exist because the model prices a transfer at zero while the game does not. Removing either brings the churn back.
 - **The test fixture spreads clubs by the global player code, not the position index.** Assigning by position index puts the first of every position at the same club, which makes the first fifteen picks four players from it. That was a real bug in the fixture, and `isLegal` is what caught it.
 
 ## Related

@@ -50,11 +50,25 @@ Worth not rediscovering, all on the real 592 player pool:
 - **The allocation free eleven evaluator is the rest.** Reusing buffers and sorting by insertion in `bestElevenValue` was another 4.6x, and it is pinned against `bestStartingEleven` by a test.
 - **Per gameweek dominance keeps roughly twice the candidates** that mean dominance does and costs nothing now the bound is in place.
 
+## The strategy code, and what it is not
+
+`/builder` mints a code per search (`FPL1-G3-H8-B1000-R0-T1-S7-L4C91-XZC`) and runs a pasted one. It carries the question and a fingerprint of the data, never the answer, so a paste re-solves on today's prices and reports drift rather than hiding it.
+
+There is no FPL compatibility to be had, and this was checked rather than assumed: the game publishes no import format, and changing a team is an authenticated POST to `/api/my-team/{id}/` needing the manager's own login. Automating that would mean handling their password, which is out of scope by choice.
+
+## Three planner bugs the forecast exposed
+
+All three were invisible until the plan was drawn week by week:
+
+- **The plan could score below holding**, by a point, because the holding line sat in the beam and got pruned: a state that banks a transfer looks worst on exactly the discounted score the beam sorts on. It is now carried outside the beam and compared at the end, and the invariant is tested at four beam widths.
+- **The plan churned.** It sold a forward in gameweek 3 and bought him back in gameweek 4, twice over. Optimal under the model, since a free transfer costs nothing and prices are flat, and unenterable in real life. Fixed with two stated rules: a minimum gain of half a point, and no buying back a player sold earlier in the horizon.
+- **The value chart was a flat line** presented as a measurement, because no player's rise probability reaches the half point the price model needs. It now says so in a sentence instead.
+
 ## Blockers and open threads
 
 - The rules page is client rendered and yields nothing. Both write paths refuse the empty document (`isUsableRulesDocument`), so the lake has no rules dataset and the API answers 404 for `/rules`. Fixing it means finding the JSON the page fetches, not loosening the guard.
 - Price rise probabilities on the planner are a stated heuristic over ownership and recent scoring, because FPL publishes net transfers only for the live gameweek and the lake does not store them. Storing that column is what unblocks the fitted price model.
-- `/builder` searches at a risk aversion of zero and its pool therefore ships without spreads, which saves 288 KB. Adding a risk control there means putting the spreads back in `apps/web/app/builder/page.tsx`.
+- Price rises never fire. `riseProbability` tops out around 0.45 and `advancePrices` moves a price only at 0.5, so no plan ever changes a squad's value. Either the threshold or the probability is wrong; storing FPL's net transfer counts is what would settle it.
 - Manager coverage was widened to every club in the official record rather than the current twenty, but the coverage figure has not been re measured since that run.
 - `FileStore` assumes a single writer per dataset. Concurrent syncs of the same dataset race the manifest; there is no locking.
 

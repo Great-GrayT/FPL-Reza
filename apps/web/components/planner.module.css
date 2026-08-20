@@ -335,7 +335,7 @@
   padding: var(--s4) var(--s3);
   background-color: var(--turf);
   background-image: repeating-linear-gradient(
-    to bottom,
+    to right,
     var(--turf) 0,
     var(--turf) 6.25%,
     var(--turf-2) 6.25%,

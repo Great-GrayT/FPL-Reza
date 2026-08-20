@@ -24,17 +24,19 @@ import {
 } from '@fpl/analytics';
 import { shirtUrl } from '@fpl/assets/urls';
 import { classes } from '@/lib/classes';
+import { StrategyCodeError, decodeStrategy, encodeStrategy, type Strategy } from '@fpl/planner';
 import { send } from '@/lib/planner/client';
-import type { OptimisedSquad } from '@/lib/planner/protocol';
+import type { SolvedStrategy } from '@/lib/planner/protocol';
 import type { PlannerPool } from '@/lib/planner/projections';
+import { HorizonForecast, type ForecastWeek } from './horizon-forecast';
 import { MetricTip } from './metric-tip';
 import { PersonPhoto } from './person-photo';
 import styles from './squad-builder.module.css';
 
 /**
  * The squad on a printed pitch: the tactics plan from a matchday programme,
- * drawn in ink on flat green at the real 105 by 68 proportion, with each player
- * a club shirt pinned above a paper name tag. The tag is where the numbers go,
+ * drawn in ink on flat green and seen from behind a goal, with each player a
+ * club shirt pinned above a paper name tag. The tag is where the numbers go,
  * because a figure printed on grass is a figure nobody can read.
  *
  * Every tag carries what a choice is actually made on: the price, the projection
@@ -167,10 +169,12 @@ export function SquadBuilder({
   const [goalKey, setGoalKey] = useState('two');
   const [keepPicks, setKeepPicks] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [found, setFound] = useState<(OptimisedSquad & { seconds: number; weeks: number }) | null>(
-    null,
-  );
+  const [found, setFound] = useState<
+    (SolvedStrategy & { seconds: number; weeks: number; code: string; stale: boolean }) | null
+  >(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [pasted, setPasted] = useState('');
+  const [week, setWeek] = useState<number | null>(null);
   const liveRegion = useRef<HTMLParagraphElement>(null);
 
   const byId = useMemo(() => new Map(players.map((player) => [player.id, player])), [players]);
@@ -305,56 +309,169 @@ export function SquadBuilder({
   );
 
   /**
-   * Hand the squad to the search.
+   * Solve a strategy: the best fifteen over the horizon, and the plan that
+   * carries it there.
    *
    * The reader's own picks are kept only when they ask, because the whole point
    * of the search is that the best fifteen is rarely the one a ranking would
    * have assembled, and locking a slot is a claim they should make deliberately.
    */
-  const optimise = useCallback(() => {
-    setSearching(true);
-    setSearchError(null);
-    say('Searching for the best squad.');
-    const keep = keepPicks
-      ? picks.flatMap((id) => {
-          const code = codeById.get(id);
-          return code === undefined ? [] : [code];
-        })
-      : [];
+  const solve = useCallback(
+    (strategy: Strategy) => {
+      setSearching(true);
+      setSearchError(null);
+      say('Searching for the best squad.');
 
-    send({
-      kind: 'optimise',
-      poolGeneration: POOL_GENERATION,
-      players: pool.players,
-      budget: INITIAL_BUDGET,
+      send({
+        kind: 'strategy',
+        poolGeneration: POOL_GENERATION,
+        players: pool.players,
+        matches: pool.matches,
+        gameweeks: pool.gameweeks,
+        budget: strategy.budget,
+        horizon: strategy.horizon,
+        startGameweek: strategy.startGameweek,
+        riskAversion: strategy.riskAversion,
+        freeTransfers: strategy.freeTransfers,
+        chips: strategy.chips,
+        keep: strategy.keep,
+        seed: strategy.seed,
+      })
+        .then((reply) => {
+          const result = reply.strategy;
+          if (result === undefined) throw new Error('the search returned nothing');
+
+          // The code is minted from the fingerprint the worker actually solved
+          // against, not the one the reader pasted, so a code copied from this
+          // page always describes the data that produced it. A pasted code
+          // whose fingerprint no longer matches is reported rather than hidden.
+          const solvedFor: Strategy = { ...strategy, fingerprint: result.fingerprint };
+          setFound({
+            ...result,
+            seconds: reply.elapsed / 1000,
+            weeks: strategy.horizon,
+            code: encodeStrategy(solvedFor),
+            stale: strategy.fingerprint !== '' && strategy.fingerprint !== result.fingerprint,
+          });
+          setWeek(null);
+          setPicks(
+            result.optimisation.picks.flatMap((code) => {
+              const id = idByCode.get(code);
+              return id === undefined ? [] : [id];
+            }),
+          );
+          say(
+            `Search finished. ${result.optimisation.points.toFixed(1)} points over ${String(strategy.horizon)} gameweeks, ${(result.optimisation.points - result.optimisation.baseline).toFixed(1)} more than the ranking.`,
+          );
+        })
+        .catch((error: unknown) => {
+          setSearchError(error instanceof Error ? error.message : 'the search failed');
+        })
+        .finally(() => {
+          setSearching(false);
+        });
+    },
+    [pool.players, pool.matches, pool.gameweeks, idByCode, say],
+  );
+
+  const optimise = useCallback(() => {
+    solve({
+      version: 1,
+      startGameweek: gameweek,
       horizon: weeks,
+      budget: INITIAL_BUDGET,
       riskAversion: 0,
-      keep,
-    })
-      .then((reply) => {
-        const result = reply.optimisation;
-        if (result === undefined) throw new Error('the search returned nothing');
-        // The horizon travels with the answer rather than being read off the
-        // control, so changing the goal after a search cannot relabel a result
-        // as covering a period it never searched.
-        setFound({ ...result, seconds: reply.elapsed / 1000, weeks });
-        setPicks(
-          result.picks.flatMap((code) => {
-            const id = idByCode.get(code);
-            return id === undefined ? [] : [id];
-          }),
-        );
-        say(
-          `Search finished. ${result.points.toFixed(1)} points over ${String(weeks)} gameweeks, ${(result.points - result.baseline).toFixed(1)} more than the ranking.`,
-        );
-      })
-      .catch((error: unknown) => {
-        setSearchError(error instanceof Error ? error.message : 'the search failed');
-      })
-      .finally(() => {
-        setSearching(false);
-      });
-  }, [keepPicks, picks, codeById, idByCode, pool.players, weeks, say]);
+      freeTransfers: 1,
+      chips: [],
+      keep: keepPicks
+        ? picks.flatMap((id) => {
+            const code = codeById.get(id);
+            return code === undefined ? [] : [code];
+          })
+        : [],
+      seed: 7,
+      fingerprint: '',
+    });
+  }, [solve, gameweek, weeks, keepPicks, picks, codeById]);
+
+  /**
+   * The plan as the forecast reads it: one row per gameweek, with the names the
+   * transfers move and whether the squad blanks or doubles that week. Blank and
+   * double are asked of this squad rather than of the league, because a blank
+   * nobody in the fifteen is playing through is not this squad's blank.
+   */
+  const nameByCode = useMemo(
+    () => new Map(pool.players.map((player) => [player.code, player.name])),
+    [pool.players],
+  );
+  const forecastWeeks: ForecastWeek[] = useMemo(() => {
+    if (found === null) return [];
+    const calendar = new Map(pool.calendar.map((entry) => [entry.gameweek, entry]));
+    const clubOf = new Map(pool.players.map((player) => [player.code, player.teamCode]));
+    const named = (codes: readonly number[]): string[] =>
+      codes.map((code) => nameByCode.get(code) ?? `player ${String(code)}`);
+
+    return found.plan.weeks.map((entry, index) => {
+      const clubs = new Set(entry.picks.map((code) => clubOf.get(code) ?? 0));
+      const marks = calendar.get(entry.gameweek);
+      return {
+        gameweek: entry.gameweek,
+        expectedPoints: entry.expectedPoints,
+        spread: found.spreads[index] ?? 0,
+        squadValue: entry.squadValue,
+        bank: entry.bank,
+        transfersIn: named(entry.transfersIn),
+        transfersOut: named(entry.transfersOut),
+        hit: entry.hit,
+        chip: entry.chip,
+        captain: entry.captain === null ? null : (nameByCode.get(entry.captain) ?? null),
+        blank: (marks?.blanks ?? []).some((code) => clubs.has(code)),
+        double: (marks?.doubles ?? []).some((code) => clubs.has(code)),
+      } satisfies ForecastWeek;
+    });
+  }, [found, pool.calendar, pool.players, nameByCode]);
+
+  /**
+   * Scrubbing to a gameweek puts that week's fifteen on the pitch. It sets the
+   * squad rather than only the drawing, so the budget, the legality check, and
+   * the eleven all describe the week being looked at instead of one of them
+   * describing a different week.
+   */
+  const selectWeek = useCallback(
+    (gameweek: number | null) => {
+      setWeek(gameweek);
+      if (gameweek === null || found === null) return;
+      const entry = found.plan.weeks.find((row) => row.gameweek === gameweek);
+      if (entry === undefined) return;
+      setPicks(
+        entry.picks.flatMap((code) => {
+          const id = idByCode.get(code);
+          return id === undefined ? [] : [id];
+        }),
+      );
+      say(`Gameweek ${String(gameweek)} on the pitch.`);
+    },
+    [found, idByCode, say],
+  );
+
+  /** Read a code someone pasted and run it, or say exactly what is wrong with it. */
+  const runPasted = useCallback(() => {
+    try {
+      const strategy = decodeStrategy(pasted);
+      setGoalKey(
+        GOALS.find((entry) => entry.weeks === strategy.horizon)?.key ??
+          GOALS[GOALS.length - 1]?.key ??
+          'two',
+      );
+      solve(strategy);
+    } catch (error: unknown) {
+      setSearchError(
+        error instanceof StrategyCodeError
+          ? error.message
+          : 'that code could not be read, so nothing was changed',
+      );
+    }
+  }, [pasted, solve]);
 
   const spentShare = Math.min(100, (cost.spent / cost.budget) * 100);
   const starters = new Set(eleven.starters);
@@ -633,35 +750,116 @@ export function SquadBuilder({
               </p>
             )}
 
+            {/* A code carries the question, not the answer, so pasting one runs
+                the search again on today's data rather than restoring a squad
+                that may no longer be affordable. */}
+            <div className={styles.codeIn}>
+              <label className={styles.codeLabel} htmlFor="strategy-code">
+                Or run someone else&rsquo;s strategy
+              </label>
+              <div className={styles.codeRow}>
+                <input
+                  id="strategy-code"
+                  className={`num ${styles.codeInput}`}
+                  value={pasted}
+                  placeholder="FPL1-G1-H8-…"
+                  spellCheck={false}
+                  autoComplete="off"
+                  onChange={(event) => {
+                    setPasted(event.target.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') runPasted();
+                  }}
+                />
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  disabled={searching || pasted.trim() === ''}
+                  onClick={runPasted}
+                >
+                  Run it
+                </button>
+              </div>
+              <p className={styles.solverNote}>
+                A code is the question, not the answer: the horizon, the budget, the risk, and any
+                players held. Running one solves it again on today&rsquo;s prices, and says so if
+                they have moved since.
+              </p>
+            </div>
+
             {found !== null && (
               <div className={styles.verdict}>
                 <p className={styles.ledger}>
                   <span className={styles.was}>
                     <span className={styles.wasLabel}>By ranking</span>
-                    <span className="num">{found.baseline.toFixed(1)}</span>
+                    <span className="num">{found.optimisation.baseline.toFixed(1)}</span>
                   </span>
                   <span aria-hidden="true" className={styles.arrow}>
                     →
                   </span>
                   <span className={styles.now}>
                     <span className={styles.wasLabel}>By search</span>
-                    <span className="num">{found.points.toFixed(1)}</span>
+                    <span className="num">{found.optimisation.points.toFixed(1)}</span>
                   </span>
                   <span className={styles.gain}>
-                    <span className="num">+{(found.points - found.baseline).toFixed(1)}</span> pts
-                    over {found.weeks} {found.weeks === 1 ? 'gameweek' : 'gameweeks'}
+                    <span className="num">
+                      +{(found.optimisation.points - found.optimisation.baseline).toFixed(1)}
+                    </span>{' '}
+                    pts over {found.weeks} {found.weeks === 1 ? 'gameweek' : 'gameweeks'}
                   </span>
                 </p>
                 <p className={styles.provenance}>
-                  {found.evaluated.toLocaleString('en-GB')} squads scored in{' '}
-                  {found.seconds.toFixed(1)}s, {found.improvements} of them better than the last.{' '}
-                  {found.converged
+                  {found.optimisation.evaluated.toLocaleString('en-GB')} squads scored in{' '}
+                  {found.seconds.toFixed(1)}s, {found.optimisation.improvements} of them better than
+                  the last.{' '}
+                  {found.optimisation.converged
                     ? 'It settled: no transfer and no pair of transfers improves this squad.'
                     : 'It stopped at the search limit rather than settling, so a better squad may exist.'}
                 </p>
+
+                {found.stale && (
+                  <p className={styles.stale} role="status">
+                    That code was solved against different data. Prices or fixtures have moved
+                    since, so this is the same question answered again on today&rsquo;s numbers, not
+                    the squad the code&rsquo;s author saw.
+                  </p>
+                )}
+
+                <div className={styles.codeOut}>
+                  <span className={styles.wasLabel}>This strategy&rsquo;s code</span>
+                  <output className={`num ${styles.code}`}>{found.code}</output>
+                  <button
+                    type="button"
+                    className={styles.secondary}
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(found.code)
+                        .then(() => {
+                          say('Code copied.');
+                        })
+                        .catch(() => {
+                          say('Copying was refused. Select the code and copy it by hand.');
+                        });
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
               </div>
             )}
           </section>
+
+          {found !== null && (
+            <HorizonForecast
+              weeks={forecastWeeks}
+              total={found.plan.total}
+              spread={found.spread}
+              holdTotal={found.plan.holdTotal}
+              selected={week}
+              onSelect={selectWeek}
+            />
+          )}
         </section>
 
         <section className={styles.panel} aria-labelledby="panel">
@@ -1027,34 +1225,39 @@ function Slot({
 }
 
 /**
- * The pitch itself: ink line-work on flat green at the real 105 by 68 ratio, the
- * same proportion `components/pitch.tsx` draws a heatmap on, so a squad and a
- * heatmap describe the same rectangle. Drawn rather than photographed, because
- * every other surface on this site is printed and a photograph of grass here
- * would be the one thing that is not.
+ * The pitch itself, seen from behind a goal, which is the orientation the eleven
+ * are laid out in: the keeper at the bottom and the forwards at the top. It was
+ * drawn side on at first, goals left and right, which left the penalty areas
+ * beside the squad rather than behind it and read as two different pitches on
+ * one page. It is also the shape a phone is.
+ *
+ * Drawn rather than photographed, because every other surface on this site is
+ * printed and a photograph of grass here would be the one thing that is not.
+ * `components/pitch.tsx` still draws the side on rectangle, and should: a
+ * heatmap is measured along the direction of play.
  */
 function PitchLines() {
   return (
     <svg
       className={styles.pitchLines}
-      viewBox="0 0 1050 680"
+      viewBox="0 0 680 1050"
       preserveAspectRatio="none"
       aria-hidden="true"
       focusable="false"
     >
       <g fill="none" stroke="currentColor" strokeWidth="3">
-        <rect x="8" y="8" width="1034" height="664" />
-        <line x1="525" y1="8" x2="525" y2="672" />
-        <circle cx="525" cy="340" r="91" />
-        <rect x="8" y="139" width="165" height="402" />
-        <rect x="8" y="248" width="55" height="184" />
-        <rect x="877" y="139" width="165" height="402" />
-        <rect x="987" y="248" width="55" height="184" />
+        <rect x="8" y="8" width="664" height="1034" />
+        <line x1="8" y1="525" x2="672" y2="525" />
+        <circle cx="340" cy="525" r="91" />
+        <rect x="139" y="8" width="402" height="165" />
+        <rect x="248" y="8" width="184" height="55" />
+        <rect x="139" y="877" width="402" height="165" />
+        <rect x="248" y="987" width="184" height="55" />
       </g>
       <g fill="currentColor">
-        <circle cx="525" cy="340" r="5" />
-        <circle cx="118" cy="340" r="5" />
-        <circle cx="932" cy="340" r="5" />
+        <circle cx="340" cy="525" r="5" />
+        <circle cx="340" cy="118" r="5" />
+        <circle cx="340" cy="932" r="5" />
       </g>
     </svg>
   );

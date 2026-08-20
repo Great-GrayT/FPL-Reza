@@ -226,3 +226,48 @@ describe('planning', () => {
     assert.ok(result.explored > 0);
   });
 });
+
+describe('churn', () => {
+  it('never buys back a player it sold earlier in the horizon', () => {
+    // Two forwards whose projections alternate week by week: without the guard
+    // the plan swaps between them every gameweek, which is what a free transfer
+    // costing nothing rates as optimal and what no manager would enter.
+    const players = pool().map((player) =>
+      player.name === 'FWD0'
+        ? { ...player, projections: [9, 1, 9, 1, 9, 1] }
+        : player.name === 'FWD1'
+          ? { ...player, projections: [1, 9, 1, 9, 1, 9] }
+          : player,
+    );
+    const start = startingSquad(players);
+    const result = plan(players, start, { horizon: 6, startGameweek: 1 });
+
+    const bought = new Set<number>();
+    const soldOff = new Set<number>();
+    for (const week of result.weeks) {
+      for (const code of week.transfersIn) {
+        assert.ok(!soldOff.has(code), `bought back ${String(code)} after selling him`);
+        bought.add(code);
+      }
+      for (const code of week.transfersOut) soldOff.add(code);
+    }
+  });
+});
+
+describe('the claim every plan makes', () => {
+  it('is never worth less than holding the same fifteen', () => {
+    // The holding line used to sit in the beam like any other state, so a beam
+    // full of better looking early states could prune it and the plan could
+    // finish below the number it reports itself against.
+    const players = pool();
+    const start = startingSquad(players);
+    for (const beamWidth of [1, 2, 4, 12]) {
+      const result = plan(players, start, { horizon: 6, startGameweek: 1, beamWidth });
+      assert.ok(
+        result.total >= result.holdTotal - 1e-9,
+        `beam ${String(beamWidth)}: planned ${result.total.toFixed(2)} against holding ${result.holdTotal.toFixed(2)}`,
+      );
+      assert.ok(result.excess >= -1e-9);
+    }
+  });
+});

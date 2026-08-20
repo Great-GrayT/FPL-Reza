@@ -104,11 +104,67 @@ function riseProbability(player: Player, form: number): number {
   return clamp(0.02 + 0.35 * owned * scoring + 0.08 * scoring, 0, 0.6);
 }
 
+/**
+ * A player as the page ships him, which is not how the planner reads him.
+ *
+ * The planner wants a spread and a price rise probability per gameweek, and
+ * both of those are 38 numbers per player that carry almost no information: a
+ * rise probability does not vary by week at all, and a spread varies only with
+ * how many matches the club plays, which is one of three values. Shipping them
+ * literally is 45,000 numbers of pure repetition in a payload a reader waits
+ * for, so the wire carries the scalars and the worker expands them.
+ *
+ * The projections themselves are not compressible this way and are shipped in
+ * full: they are the answer to a different question per player per week.
+ */
+export interface WirePlayer {
+  code: number;
+  name: string;
+  position: PlannerPlayer['position'];
+  teamCode: number;
+  price: number;
+  projections: number[];
+  /** Spread of one match's return. The weekly spread scales with the root of the match count. */
+  spread: number;
+  /** Probability the price rises, which the projection treats as flat over the horizon. */
+  rise: number;
+  available: boolean;
+}
+
 export interface PlannerPool {
-  players: PlannerPlayer[];
+  players: WirePlayer[];
   gameweeks: number[];
   /** Per gameweek, how many clubs have no fixture and how many have two. */
   calendar: { gameweek: number; blanks: number[]; doubles: number[] }[];
+  /** Matches per club per gameweek, in `gameweeks` order: 0 is a blank, 2 a double. */
+  matches: Record<string, number[]>;
+}
+
+/** Turn the wire shape back into what the planner reads. */
+export function expandPool(pool: PlannerPool): PlannerPlayer[] {
+  const weeks = pool.gameweeks.length;
+  return pool.players.map((player) => {
+    const counts = pool.matches[String(player.teamCode)] ?? [];
+    const spreads: number[] = [];
+    const riseProbabilities: number[] = [];
+    for (let week = 0; week < weeks; week += 1) {
+      // Two matches are two independent draws, so the spread grows with the
+      // root of the count rather than with the count.
+      spreads.push(Math.round(player.spread * Math.sqrt(counts[week] ?? 0) * 100) / 100);
+      riseProbabilities.push(player.rise);
+    }
+    return {
+      code: player.code,
+      name: player.name,
+      position: player.position,
+      teamCode: player.teamCode,
+      price: player.price,
+      projections: player.projections,
+      spreads,
+      riseProbabilities,
+      available: player.available,
+    } satisfies PlannerPlayer;
+  });
 }
 
 /**
@@ -129,7 +185,7 @@ export function buildPool(
   const weeks = Array.from({ length: options.horizon }, (_, index) => options.fromGameweek + index);
   const teamCodeOf = new Map(teams.map((team) => [Number(team.id), team.code]));
 
-  const rows: PlannerPlayer[] = players.map((player) => {
+  const rows: WirePlayer[] = players.map((player) => {
     const history = historyOf(Number(player.id));
     const form = rollingForm(history, FORM_WINDOW);
 
@@ -150,7 +206,6 @@ export function buildPool(
     const rise = riseProbability(player, base);
 
     const projections: number[] = [];
-    const spreads: number[] = [];
     for (const week of weeks) {
       const matches = (byWeek.get(week) ?? []).filter(
         (entry) => entry.teamId === Number(player.teamId),
@@ -160,10 +215,6 @@ export function buildPool(
         points += base * fixtureMultiplier(match.difficulty) * minutesMultiplier;
       }
       projections.push(Math.round(points * 100) / 100);
-      // Two matches are two independent draws, so the spread grows with the
-      // root of the count rather than with the count.
-      const perMatch = spread ?? base * SPREAD_FALLBACK_RATIO;
-      spreads.push(Math.round(perMatch * Math.sqrt(Math.max(matches.length, 0)) * 100) / 100);
     }
 
     return {
@@ -173,10 +224,10 @@ export function buildPool(
       teamCode: teamCodeOf.get(Number(player.teamId)) ?? 0,
       price: player.price,
       projections,
-      spreads,
-      riseProbabilities: weeks.map(() => rise),
+      spread: Math.round((spread ?? base * SPREAD_FALLBACK_RATIO) * 100) / 100,
+      rise: Math.round(rise * 100) / 100,
       available: AVAILABILITY_WEIGHT[player.availability] > 0,
-    } satisfies PlannerPlayer;
+    } satisfies WirePlayer;
   });
 
   const calendar = weeks.map((week) => {
@@ -195,5 +246,14 @@ export function buildPool(
     return { gameweek: week, blanks, doubles };
   });
 
-  return { players: rows, gameweeks: weeks, calendar };
+  const matches: Record<string, number[]> = {};
+  for (const team of teams) {
+    const code = teamCodeOf.get(Number(team.id));
+    if (code === undefined) continue;
+    matches[String(code)] = weeks.map(
+      (week) => (byWeek.get(week) ?? []).filter((entry) => entry.teamId === Number(team.id)).length,
+    );
+  }
+
+  return { players: rows, gameweeks: weeks, calendar, matches };
 }

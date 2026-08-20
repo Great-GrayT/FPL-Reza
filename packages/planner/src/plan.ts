@@ -36,6 +36,17 @@ interface State {
 
 const POSITIONS: Position[] = ['GKP', 'DEF', 'MID', 'FWD'];
 
+/**
+ * The least a transfer has to gain before the plan will make it.
+ *
+ * Half a point over the horizon. Below that the search churns: it sells a
+ * player in one gameweek and buys him back in the next to chase a tenth of a
+ * point of fixture difference, which produces a plan nobody would enter and
+ * which in the real game loses money, since a sale returns only half of any
+ * rise. Stated, not fitted.
+ */
+export const DEFAULT_MIN_TRANSFER_GAIN = 0.5;
+
 /** The value the objective puts on a player in one gameweek. */
 function valueOf(player: PlannerPlayer, week: number, riskAversion: number): number {
   const mean = player.projections[week] ?? 0;
@@ -178,7 +189,10 @@ function movesFor(
   byPosition: Map<Position, PlannerPlayer[]>,
   rules: PlanRules,
   options: Required<
-    Pick<PlanOptions, 'maxTransfersPerWeek' | 'candidatesPerWeek' | 'riskAversion'>
+    Pick<
+      PlanOptions,
+      'maxTransfersPerWeek' | 'candidatesPerWeek' | 'riskAversion' | 'minTransferGain'
+    >
   >,
   chipsAvailable: readonly Chip[],
 ): Move[] {
@@ -207,7 +221,13 @@ function movesFor(
 
     for (const candidate of candidates) {
       const gain = valueOf(candidate, week, options.riskAversion) - outValue;
-      if (gain <= 0) continue;
+      // A gain has to be worth making, not merely positive. A free transfer
+      // looks free and is not: taken for a tenth of a point it produces a plan
+      // that sells a player in one gameweek and buys him back in the next,
+      // which no manager would enter and which costs real money in the game,
+      // where a sale returns only half of any rise. The threshold is stated
+      // rather than fitted, and it is the reason a plan holds a squad it likes.
+      if (gain <= options.minTransferGain) continue;
       singles.push({ out: outCode, in: candidate.code, gain, cost: candidate.price - receipts });
     }
   }
@@ -239,6 +259,17 @@ function applyMove(
 ): Squad | null {
   if (move.out.length === 0) return squad;
 
+  // A player sold earlier in this horizon cannot be bought back. It is legal in
+  // the game and the model rates it: a swap each way can be worth a point a
+  // week when the fixtures alternate. It is still a plan nobody enters, and it
+  // is an artefact of two assumptions this planner makes, that a free transfer
+  // costs nothing and that prices hold. Rather than let those assumptions
+  // produce a visibly silly ledger, the search is refused the move and says so.
+  const sold = new Set(squad.sold ?? []);
+  for (const code of move.in) {
+    if (sold.has(code)) return null;
+  }
+
   const picks = squad.picks.filter((code) => !move.out.includes(code));
   let bank = squad.bank;
   const purchasePrices = new Map(squad.purchasePrices);
@@ -258,7 +289,8 @@ function applyMove(
   }
 
   if (!isLegal(picks, bank, index, rules)) return null;
-  return { ...squad, picks, bank, purchasePrices };
+  for (const code of move.out) sold.add(code);
+  return { ...squad, picks, bank, purchasePrices, sold: [...sold] };
 }
 
 /** Prices move between gameweeks, so the squad a plan can afford moves with them. */
@@ -289,6 +321,7 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
   const riskAversion = options.riskAversion ?? 0;
   const maxTransfersPerWeek = options.maxTransfersPerWeek ?? 2;
   const candidatesPerWeek = options.candidatesPerWeek ?? 12;
+  const minTransferGain = options.minTransferGain ?? DEFAULT_MIN_TRANSFER_GAIN;
 
   const index = new Map(players.map((player) => [player.code, { ...player }]));
   const byPosition = new Map<Position, PlannerPlayer[]>();
@@ -301,15 +334,49 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
     );
   }
 
-  let beam: State[] = [
-    {
-      squad: { ...start, purchasePrices: new Map(start.purchasePrices) },
-      weeks: [],
-      score: 0,
-      raw: 0,
-    },
-  ];
+  const opening: State = {
+    squad: { ...start, purchasePrices: new Map(start.purchasePrices) },
+    weeks: [],
+    score: 0,
+    raw: 0,
+  };
+  let beam: State[] = [opening];
+  /** The line that never transfers, kept outside the beam so it cannot be pruned. */
+  let holding: State = opening;
   let explored = 0;
+
+  /** Play one more gameweek of the holding line: the same fifteen, no moves. */
+  const advanceHolding = (state: State, week: number): State => {
+    const valued = valueWeek(state.squad.picks, week, index, rules, riskAversion, null);
+    return {
+      squad: state.squad,
+      weeks: [
+        ...state.weeks,
+        {
+          gameweek: options.startGameweek + week,
+          picks: [...state.squad.picks],
+          starters: valued.starters,
+          bench: valued.bench,
+          captain: valued.captain,
+          viceCaptain: valued.viceCaptain,
+          transfersIn: [],
+          transfersOut: [],
+          transfers: 0,
+          hit: 0,
+          chip: null,
+          expectedPoints: valued.points,
+          bank: state.squad.bank,
+          squadValue: state.squad.picks.reduce(
+            (total, code) => total + (index.get(code)?.price ?? 0),
+            0,
+          ),
+          freeTransfers: Math.min(state.squad.freeTransfers + 1, rules.maxFreeTransfers),
+        },
+      ],
+      score: state.score + valued.points * discount ** week,
+      raw: state.raw + valued.points,
+    };
+  };
 
   for (let week = 0; week < options.horizon; week += 1) {
     const next: State[] = [];
@@ -324,7 +391,7 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
         index,
         byPosition,
         rules,
-        { maxTransfersPerWeek, candidatesPerWeek, riskAversion },
+        { maxTransfersPerWeek, candidatesPerWeek, riskAversion, minTransferGain },
         chipsAvailable,
       );
 
@@ -374,6 +441,13 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
               chip: move.chip,
               expectedPoints: weekPoints,
               bank: squad.bank,
+              // What the fifteen are worth at this week's prices, which is the
+              // half of a team's value the bank does not carry. A plan that
+              // buys a rising player is worth more than its points say.
+              squadValue: squad.picks.reduce(
+                (total, code) => total + (index.get(code)?.price ?? 0),
+                0,
+              ),
               freeTransfers,
             },
           ],
@@ -397,25 +471,25 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
       if (beam.length >= beamWidth) break;
     }
 
+    // The state that has taken no transfer at all is carried whether or not it
+    // is in the top few. Every plan claims to beat holding this fifteen, and a
+    // beam that prunes the holding line cannot make that claim: a state that
+    // looks worse in gameweek two because it banked a transfer is exactly the
+    // state that wins in gameweek six. This is what the claim is made of.
+    holding = advanceHolding(holding, week);
+    if (!beam.some((state) => state.weeks.every((entry) => entry.transfers === 0))) {
+      beam.push(holding);
+    }
+
     advancePrices(index, week);
   }
 
-  const best = beam[0];
-  const holdTotal = holdValue(start.picks, index, rules, options, riskAversion);
-
-  if (best === undefined) {
-    return {
-      weeks: [],
-      total: 0,
-      holdTotal,
-      excess: -holdTotal,
-      transfers: 0,
-      hits: 0,
-      chipsPlayed: [],
-      explored,
-      riskAversion,
-    };
-  }
+  // The better of the search and doing nothing. The beam is sorted on the
+  // discounted score, and what a plan reports is the undiscounted total, so the
+  // comparison that matters is on the total itself.
+  const searched = beam[0];
+  const best = searched === undefined || holding.raw > searched.raw ? holding : searched;
+  const holdTotal = holding.raw;
 
   return {
     weeks: best.weeks,
@@ -428,27 +502,6 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
     explored,
     riskAversion,
   };
-}
-
-/**
- * The same fifteen held all the way through, picking the best eleven each week.
- *
- * Every plan is reported against this, because a plan that cannot beat holding
- * has not found anything and should say so rather than being presented as
- * advice.
- */
-function holdValue(
-  picks: readonly number[],
-  index: Map<number, PlannerPlayer>,
-  rules: PlanRules,
-  options: PlanOptions,
-  riskAversion: number,
-): number {
-  let total = 0;
-  for (let week = 0; week < options.horizon; week += 1) {
-    total += valueWeek(picks, week, index, rules, riskAversion, null).points;
-  }
-  return total;
 }
 
 export { asPlayerId, type PlayerId };

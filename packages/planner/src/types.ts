@@ -48,6 +48,13 @@ export interface Squad {
   /** Transfers that cost nothing this week. FPL banks at most five. */
   freeTransfers: number;
   chipsUsed: Chip[];
+  /**
+   * Players sold earlier in this horizon. A plan may not buy one back: it is
+   * legal in the game, and the model rates it when fixtures alternate, but it
+   * is a plan nobody enters and it is an artefact of assuming a free transfer
+   * costs nothing.
+   */
+  sold?: number[];
 }
 
 export interface PlanRules {
@@ -98,6 +105,12 @@ export interface PlanOptions {
   chips?: Chip[];
   /** Candidate transfers considered per week, ranked by projection gain. */
   candidatesPerWeek?: number;
+  /**
+   * The least a transfer has to gain before it is worth making. A free transfer
+   * is not free: taken for a tenth of a point it produces a plan that sells a
+   * player one week and buys him back the next.
+   */
+  minTransferGain?: number;
 }
 
 export interface WeekPlan {
@@ -117,6 +130,8 @@ export interface WeekPlan {
   /** Expected points for the week, after the hit. */
   expectedPoints: number;
   bank: number;
+  /** What the fifteen are worth at this week's prices, in tenths. */
+  squadValue: number;
   freeTransfers: number;
 }
 

@@ -173,7 +173,7 @@
   padding: var(--s4) var(--s3) var(--s3);
   background-color: var(--turf);
   background-image: repeating-linear-gradient(
-    to bottom,
+    to right,
     var(--turf) 0,
     var(--turf) 6.25%,
     var(--turf-2) 6.25%,
@@ -1101,4 +1101,80 @@
   margin: 0;
   padding: 0;
   font-size: var(--step--1);
+}
+
+/* ------------------------------------------------------------ the code */
+
+.codeOut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule);
+}
+
+/* The code is set as a stamp rather than as prose, because it is a thing to be
+   copied exactly and a reader has to be able to see every character of it. */
+.code {
+  padding: var(--s1) var(--s2);
+  background: var(--paper-2);
+  border: 1px dashed var(--rule-strong);
+  font-size: var(--step--1);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.codeIn {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule);
+}
+
+.codeLabel {
+  display: block;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: var(--s2);
+}
+
+.codeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.codeInput {
+  flex: 1 1 16rem;
+  min-block-size: 2.75rem;
+  padding: var(--s2) var(--s3);
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  font-size: var(--step--1);
+  letter-spacing: 0.04em;
+}
+
+.codeInput:focus-visible {
+  border-color: var(--ink);
+}
+
+.stale {
+  margin: var(--s3) 0 0;
+  padding: var(--s2) var(--s3);
+  border-inline-start: 2px solid var(--bonus);
+  background: var(--paper-2);
+  font-size: var(--step--1);
+  color: var(--ink);
+  max-inline-size: 60ch;
+}
+
+.secondary:disabled {
+  color: var(--ink-soft);
+  border-color: var(--rule);
+  cursor: not-allowed;
 }

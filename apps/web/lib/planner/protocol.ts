@@ -1,4 +1,5 @@
-import type { Chip, Plan, PlannerPlayer } from '@fpl/planner';
+import type { Chip, Plan } from '@fpl/planner';
+import type { WirePlayer } from './projections';
 
 /**
  * The contract between the planner's interface and its worker.
@@ -10,11 +11,21 @@ import type { Chip, Plan, PlannerPlayer } from '@fpl/planner';
  * reader drags the horizon slider.
  */
 
-export interface PlanRequest {
-  kind: 'plan';
-  /** The pool, sent once and cached in the worker by generation. */
+/**
+ * The pool travels with whichever request happens to be first, and is cached in
+ * the worker by generation after that. Every request carries the same envelope
+ * so no request kind has to be the one that loads it.
+ */
+export interface PoolEnvelope {
   poolGeneration: number;
-  players?: PlannerPlayer[];
+  players?: WirePlayer[];
+  /** Matches per club per gameweek, which is what expands a scalar spread. */
+  matches?: Record<string, number[]>;
+  gameweeks?: number[];
+}
+
+export interface PlanRequest extends PoolEnvelope {
+  kind: 'plan';
   /** Codes of the fifteen the plan starts from. */
   squad: number[];
   purchasePrices?: [number, number][];
@@ -28,19 +39,15 @@ export interface PlanRequest {
   beamWidth: number;
 }
 
-export interface AutoRequest {
+export interface AutoRequest extends PoolEnvelope {
   kind: 'auto';
-  poolGeneration: number;
-  players?: PlannerPlayer[];
   budget: number;
   /** Gameweeks the opening squad is chosen to be good over. */
   horizon: number;
 }
 
-export interface OptimiseRequest {
+export interface OptimiseRequest extends PoolEnvelope {
   kind: 'optimise';
-  poolGeneration: number;
-  players?: PlannerPlayer[];
   budget: number;
   /** Gameweeks the squad is chosen to be best over. */
   horizon: number;
@@ -49,7 +56,26 @@ export interface OptimiseRequest {
   keep: number[];
 }
 
-export type Request = PlanRequest | AutoRequest | OptimiseRequest;
+/**
+ * Solve a whole strategy: the best fifteen over the horizon, and then the plan
+ * that carries it through. One request rather than two, because the plan starts
+ * from the squad the optimiser found and a round trip between them would post
+ * the pool twice and leave the page holding two answers that might disagree.
+ */
+export interface StrategyRequest extends PoolEnvelope {
+  kind: 'strategy';
+  budget: number;
+  horizon: number;
+  startGameweek: number;
+  /** In tenths, the way the code carries it. */
+  riskAversion: number;
+  freeTransfers: number;
+  chips: Chip[];
+  keep: number[];
+  seed: number;
+}
+
+export type Request = PlanRequest | AutoRequest | OptimiseRequest | StrategyRequest;
 
 export interface Reply {
   id: number;
@@ -59,6 +85,7 @@ export interface Reply {
   plan?: Plan;
   squad?: { picks: number[]; bank: number };
   optimisation?: OptimisedSquad;
+  strategy?: SolvedStrategy;
 }
 
 /** What the optimiser reports back, flattened for the structured clone. */
@@ -73,6 +100,22 @@ export interface OptimisedSquad {
   rounds: number;
   converged: boolean;
   candidates: Record<string, number>;
+}
+
+/** A strategy solved end to end: the squad, the plan, and the spread around it. */
+export interface SolvedStrategy {
+  optimisation: OptimisedSquad;
+  plan: Plan;
+  /**
+   * Standard deviation of the horizon total, added in quadrature across the
+   * gameweeks, because two gameweeks are two independent draws. It is what puts
+   * a band on the landing point rather than a single line nobody should trust.
+   */
+  spread: number;
+  /** Per gameweek: the spread of that week alone. */
+  spreads: number[];
+  /** The fingerprint of the pool this was actually solved against. */
+  fingerprint: string;
 }
 
 export interface Envelope {

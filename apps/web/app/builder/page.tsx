@@ -94,28 +94,10 @@ export default async function BuilderPage() {
   // projection per remaining gameweek: a blank is a zero and a double is two
   // matches, and a squad chosen on an average of them would be blind to both.
   const remaining = Math.max(1, GAMEWEEKS_PER_SEASON - Number(fromGameweek) + 1);
-  const full = buildPool(players, teams, fixtures, (id: number) => histories.get(id) ?? [], {
+  const pool = buildPool(players, teams, fixtures, (id: number) => histories.get(id) ?? [], {
     fromGameweek: Number(fromGameweek),
     horizon: remaining,
   });
-
-  // The spreads and the price rise probabilities are dropped here, and that is
-  // not a saving for its own sake: this page's search runs at a risk aversion of
-  // zero and never advances a price, so shipping them would be two thirds of the
-  // pool's weight to the reader for numbers nothing on the page reads. Adding a
-  // risk control here means putting the spreads back.
-  const pool = {
-    ...full,
-    players: full.players.map((player) => ({
-      code: player.code,
-      name: player.name,
-      position: player.position,
-      teamCode: player.teamCode,
-      price: player.price,
-      projections: player.projections,
-      ...(player.available === undefined ? {} : { available: player.available }),
-    })),
-  };
 
   const clubs: BuilderTeam[] = teams.map((team) => ({
     id: team.id,

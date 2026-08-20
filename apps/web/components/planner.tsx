@@ -113,6 +113,8 @@ export function Planner({
       kind: 'auto' as const,
       poolGeneration: POOL_GENERATION,
       players: pool.players,
+      matches: pool.matches,
+      gameweeks: pool.gameweeks,
       budget: 1000,
       horizon: Math.min(8, horizon),
     }),
@@ -655,29 +657,35 @@ function Token({
   );
 }
 
-/** Ink line-work at the real 105 by 68 ratio, the rectangle the whole site draws. */
+/**
+ * Ink line-work on a pitch seen from behind a goal, which is the orientation the
+ * eleven are laid out in: a keeper at the bottom and forwards at the top. The
+ * line-work used to be drawn side on, with the goals left and right, which put
+ * the penalty areas beside the squad rather than behind it. It is also the shape
+ * a phone is, so the same drawing works on both.
+ */
 function PitchLines() {
   return (
     <svg
       className={styles.pitchLines}
-      viewBox="0 0 1050 680"
+      viewBox="0 0 680 1050"
       preserveAspectRatio="none"
       aria-hidden="true"
       focusable="false"
     >
       <g fill="none" stroke="currentColor" strokeWidth="3">
-        <rect x="8" y="8" width="1034" height="664" />
-        <line x1="525" y1="8" x2="525" y2="672" />
-        <circle cx="525" cy="340" r="91" />
-        <rect x="8" y="139" width="165" height="402" />
-        <rect x="8" y="248" width="55" height="184" />
-        <rect x="877" y="139" width="165" height="402" />
-        <rect x="987" y="248" width="55" height="184" />
+        <rect x="8" y="8" width="664" height="1034" />
+        <line x1="8" y1="525" x2="672" y2="525" />
+        <circle cx="340" cy="525" r="91" />
+        <rect x="139" y="8" width="402" height="165" />
+        <rect x="248" y="8" width="184" height="55" />
+        <rect x="139" y="877" width="402" height="165" />
+        <rect x="248" y="987" width="184" height="55" />
       </g>
       <g fill="currentColor">
-        <circle cx="525" cy="340" r="5" />
-        <circle cx="118" cy="340" r="5" />
-        <circle cx="932" cy="340" r="5" />
+        <circle cx="340" cy="525" r="5" />
+        <circle cx="340" cy="118" r="5" />
+        <circle cx="340" cy="932" r="5" />
       </g>
     </svg>
   );

@@ -71,13 +71,26 @@
   border-radius: var(--radius);
 }
 
-.tableWrap {
-  overflow-x: auto;
+/* ------------------------------------------------------------------ table */
+
+/* The table is its own scrolling pane, in both directions, and that is what
+   makes the frozen header work at all: a header set to stick inside a wrapper
+   that only scrolls sideways sticks to a box as tall as the table, so it leaves
+   the screen with everything else. Giving the pane a height gives the header
+   something to hold on to. */
+.pane {
+  overflow: auto;
+  max-block-size: calc(100vh - 16rem);
+  min-block-size: 20rem;
+  border: 1px solid var(--rule-strong);
+  /* The scroll pane is the horizontal scroller so the page never becomes one. */
+  overscroll-behavior: contain;
 }
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--step--1);
 }
 
@@ -85,24 +98,147 @@
 .table td {
   padding: var(--s2) var(--s3);
   border-bottom: 1px solid var(--rule);
-  text-align: left;
+  text-align: right;
   white-space: nowrap;
 }
 
 .table thead th {
   position: sticky;
-  top: 4.25rem;
+  inset-block-start: 0;
+  z-index: 2;
   background: var(--paper);
+  padding: 0;
   font-family: var(--font-mono), monospace;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-soft);
-  border-bottom-color: var(--rule-strong);
+  border-bottom: 1px solid var(--ink);
 }
 
-.table tbody tr:hover {
+/* A column head is a control, so it is a button, and it is the full width of
+   its cell so the target is the column rather than the word. */
+.sortButton {
+  inline-size: 100%;
+  min-block-size: 2.75rem;
+  padding: var(--s2) var(--s3);
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.sortButton:hover {
   background: var(--paper-2);
+  color: var(--ink);
+}
+
+.table thead th[aria-sort='descending'],
+.table thead th[aria-sort='ascending'] {
+  color: var(--ink);
+  border-bottom-color: var(--flare);
+}
+
+/* The name is what a row is, so it stays on screen when the numbers scroll
+   sideways. The header cell above it has to outrank both stickies to sit in
+   the corner rather than under one of them. */
+.nameHead,
+.nameCell {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  text-align: left;
+  background: var(--paper);
+  border-inline-end: 1px solid var(--rule-strong);
+}
+
+.nameHead {
+  z-index: 3;
+}
+
+.clubHead,
+.clubCell {
+  text-align: left;
+}
+
+.table tbody tr:hover th,
+.table tbody tr:hover td {
+  background: var(--paper-2);
+}
+
+/* The column being sorted on is the one the reader is reading, so it is the
+   one that is inked rather than dimmed. */
+.table tbody td[data-on='true'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.table tbody td {
+  color: var(--ink-soft);
+}
+
+.pos {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+/* Priority is what a narrow screen drops. Eighteen columns at four pixels each
+   is not a denser table, it is an unreadable one. */
+@media (max-width: 75rem) {
+  .table [data-priority='3'] {
+    display: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .table [data-priority='2'] {
+    display: none;
+  }
+
+  .pane {
+    max-block-size: calc(100vh - 12rem);
+  }
+}
+
+/* The next three, as three opponents shaded by how hard they are. A run is
+   read faster as colour than as three numbers. */
+.runway {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.tick {
+  min-inline-size: 2.6rem;
+  padding: 0.15rem 0.3rem;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  text-align: center;
+  color: var(--ink);
+  background: var(--paper-2);
+}
+
+.tick[data-difficulty='1'],
+.tick[data-difficulty='2'] {
+  background: color-mix(in srgb, var(--pitch) 30%, var(--paper));
+}
+
+.tick[data-difficulty='4'] {
+  background: color-mix(in srgb, var(--flare) 22%, var(--paper));
+}
+
+.tick[data-difficulty='5'] {
+  background: color-mix(in srgb, var(--flare) 42%, var(--paper));
+}
+
+.blank {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
 }
 
 .flag {
