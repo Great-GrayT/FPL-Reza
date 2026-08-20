@@ -17,13 +17,9 @@ import {
   type PlannerPlayer,
   type Squad,
 } from '@fpl/planner';
-import {
-  efficientFrontier,
-  portfolioVariance,
-  riskContributions,
-  type Candidate,
-} from '@fpl/quant';
+import { efficientFrontier, portfolioVariance, riskContributions } from '@fpl/quant';
 import { expandPool } from './projections';
+import { CLUB_CORRELATION as SHARED_CLUB_CORRELATION, candidatesFor, strategySpace } from './space';
 import type { Envelope, Reply, Request } from './protocol';
 
 let pool: PlannerPlayer[] = [];
@@ -114,6 +110,7 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
       // Both modes hold a player in the opening fifteen; the difference is
       // whether the plan may later sell him.
       keep: request.locks.map((lock) => lock.code),
+      ban: request.bans.map((ban) => ban.code),
       seed: request.seed,
       freeTransfers: request.freeTransfers,
     });
@@ -130,6 +127,7 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
         ? {}
         : { maxTransfersPerWeek: request.maxTransfersPerWeek }),
       locked: request.locks.filter((lock) => lock.mode === 'always').map((lock) => lock.code),
+      banned: request.bans.filter((ban) => ban.mode === 'always').map((ban) => ban.code),
     });
 
     const spreads = solved.weeks.map(
@@ -189,6 +187,22 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
           sharpe: tangency?.sharpe ?? null,
         },
       },
+    };
+  }
+
+  if (request.kind === 'space') {
+    return {
+      ok: true,
+      space: strategySpace(pool, {
+        budget: request.budget,
+        horizon: request.horizon,
+        keep: request.keep,
+        ban: request.ban,
+        chips: request.chips,
+        seed: request.seed,
+        ...(request.limit === undefined ? {} : { limit: request.limit }),
+        ...(request.maxPerClub === undefined ? {} : { maxPerClub: request.maxPerClub }),
+      }),
     };
   }
 
@@ -268,7 +282,7 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
 }
 
 /** Two players at one club share a clean sheet, so they are not independent. */
-const CLUB_CORRELATION = 0.35;
+const CLUB_CORRELATION = SHARED_CLUB_CORRELATION;
 
 /**
  * The risk appetite that maximises return per unit of risk.
@@ -320,32 +334,6 @@ function tangencyRisk(
  * frontier is solved by `@fpl/quant`, which knows nothing about football and is
  * the same code the Lab's portfolio panel runs on, so the two cannot disagree.
  */
-/** The pool as portfolio candidates, summed over the horizon. */
-function candidatesFor(players: readonly PlannerPlayer[], weeks: number): Candidate[] {
-  const sumOver = (values: readonly number[] | undefined): number => {
-    let total = 0;
-    for (let index = 0; index < weeks; index += 1) total += values?.[index] ?? 0;
-    return total;
-  };
-
-  return players.map((player) => ({
-    id: player.code,
-    name: player.name,
-    group: player.position,
-    club: String(player.teamCode),
-    cost: player.price,
-    expected: sumOver(player.projections),
-    // Independent weeks add in quadrature, which is the same assumption the
-    // band on the total is drawn with, stated in both places.
-    risk: Math.sqrt(
-      Array.from({ length: weeks }, (_, index) => (player.spreads?.[index] ?? 0) ** 2).reduce(
-        (total, value) => total + value,
-        0,
-      ),
-    ),
-  }));
-}
-
 function frontierFor(
   players: readonly PlannerPlayer[],
   picks: readonly number[],

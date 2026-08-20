@@ -1,4 +1,4 @@
-import type { Chip, Lock, Plan } from '@fpl/planner';
+import type { Ban, Chip, Lock, Plan } from '@fpl/planner';
 import type { WirePlayer } from './projections';
 
 /**
@@ -82,6 +82,8 @@ export interface StrategyRequest extends PoolEnvelope {
    * the opening fifteen; `always` also stops the plan ever selling him.
    */
   locks: Lock[];
+  /** Players the search may not pick: the mirror of a lock. */
+  bans: Ban[];
   seed: number;
 }
 
@@ -124,8 +126,57 @@ export interface ComparedLineup {
   fingerprint: string;
 }
 
+/**
+ * The space of strategies, not the curve through the best of them.
+ *
+ * Nine risk appetites produce nine dots and a line that looks like a law. What
+ * a reader needs is the cloud: how thin the frontier actually is, how many
+ * squads sit within a point of it, and where their own lands among them. So the
+ * anchors are perturbed one swap at a time, the dominated are dropped, and what
+ * survives is drawn.
+ */
+export interface SpaceRequest extends PoolEnvelope {
+  kind: 'space';
+  budget: number;
+  horizon: number;
+  maxPerClub?: number;
+  /** Codes every strategy must hold, which is what a lock means here. */
+  keep: number[];
+  /** Codes no strategy may hold. */
+  ban: number[];
+  /** Chips whose effect is priced into each dot. */
+  chips: Chip[];
+  limit?: number;
+  seed: number;
+}
+
+export interface StrategyDot {
+  id: number;
+  picks: number[];
+  /** Sum of the fifteen's projections over the horizon, plus any chip gain. */
+  expected: number;
+  /** Portfolio standard deviation, including the club correlation term. */
+  risk: number;
+  cost: number;
+  /** Return per unit of risk, measured from the steadiest legal fifteen. */
+  sharpe: number;
+  chipGain: number;
+  chipWeeks: { chip: Chip; gameweek: number; gain: number }[];
+}
+
+export interface StrategySpace {
+  dots: StrategyDot[];
+  /** The steadiest legal fifteen: this page's stand-in for a riskless asset. */
+  riskFree: { expected: number; risk: number };
+  /** Best return per unit of risk, where the capital market line touches. */
+  tangency: { expected: number; risk: number; sharpe: number; picks: number[] } | null;
+  /** Squads generated before the dominated ones were dropped. */
+  generated: number;
+  clubCorrelation: number;
+}
+
 export type Request =
-  PlanRequest | AutoRequest | OptimiseRequest | StrategyRequest | CompareRequest;
+  PlanRequest | AutoRequest | OptimiseRequest | StrategyRequest | CompareRequest | SpaceRequest;
 
 export interface Reply {
   id: number;
@@ -137,6 +188,7 @@ export interface Reply {
   optimisation?: OptimisedSquad;
   strategy?: SolvedStrategy;
   compared?: ComparedLineup;
+  space?: StrategySpace;
 }
 
 /** What the optimiser reports back, flattened for the structured clone. */

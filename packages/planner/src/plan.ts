@@ -204,6 +204,7 @@ function movesFor(
   > & { wildcardDepth: number; horizon: number },
   chipsAvailable: readonly Chip[],
   locked: ReadonlySet<number>,
+  banned: ReadonlySet<number>,
 ): Move[] {
   const moves: Move[] = [{ out: [], in: [], chip: null }];
 
@@ -227,6 +228,7 @@ function movesFor(
     );
 
     const candidates = (byPosition.get(outPlayer.position) ?? [])
+      .filter((candidate) => !banned.has(candidate.code))
       .filter((candidate) => candidate.available !== false && !squad.picks.includes(candidate.code))
       .filter((candidate) => candidate.price <= squad.bank + receipts)
       .slice(0, options.candidatesPerWeek);
@@ -267,7 +269,15 @@ function movesFor(
   // That is a heuristic and it is named as one on the page.
   for (const chip of chipsAvailable) {
     if (chip !== 'wildcard' && chip !== 'free_hit') continue;
-    const bundle = rebuild(squad, week, index, byPosition, rules, { ...options, locked }, chip);
+    const bundle = rebuild(
+      squad,
+      week,
+      index,
+      byPosition,
+      rules,
+      { ...options, locked, banned },
+      chip,
+    );
     if (bundle.out.length > 0) moves.push({ ...bundle, chip });
   }
 
@@ -294,7 +304,12 @@ function rebuild(
       PlanOptions,
       'maxTransfersPerWeek' | 'candidatesPerWeek' | 'riskAversion' | 'minTransferGain'
     >
-  > & { wildcardDepth: number; locked: ReadonlySet<number>; horizon: number },
+  > & {
+    wildcardDepth: number;
+    locked: ReadonlySet<number>;
+    banned: ReadonlySet<number>;
+    horizon: number;
+  },
   chip: 'wildcard' | 'free_hit',
 ): { out: number[]; in: number[] } {
   const out: number[] = [];
@@ -335,6 +350,7 @@ function rebuild(
         options.candidatesPerWeek,
       )) {
         if (candidate.available === false) continue;
+        if (options.banned.has(candidate.code)) continue;
         if (working.picks.includes(candidate.code)) continue;
         if (candidate.price > working.bank + receipts) continue;
         const gain = worth(candidate) - outValue;
@@ -448,6 +464,7 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
   const candidatesPerWeek = options.candidatesPerWeek ?? 12;
   const minTransferGain = options.minTransferGain ?? DEFAULT_MIN_TRANSFER_GAIN;
   const locked = new Set(options.locked ?? []);
+  const banned = new Set(options.banned ?? []);
   const wildcardDepth = options.wildcardDepth ?? DEFAULT_WILDCARD_DEPTH;
 
   const index = new Map(players.map((player) => [player.code, { ...player }]));
@@ -528,6 +545,7 @@ export function plan(players: readonly PlannerPlayer[], start: Squad, options: P
         },
         chipsAvailable,
         locked,
+        banned,
       );
 
       for (const move of moves) {

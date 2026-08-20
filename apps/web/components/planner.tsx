@@ -18,6 +18,7 @@ import {
 import { classes } from '@/lib/classes';
 import { CompareLineups, codeForCandidate, type Candidate } from './compare-lineups';
 import { Frontier, RiskShare } from './frontier';
+import { StrategyScatter } from './strategy-scatter';
 import {
   Captaincy,
   CumulativeSeries,
@@ -31,6 +32,7 @@ import {
 import { MiniPitch, type MiniPlayer } from './mini-pitch';
 import { send, usePlannerRun } from '@/lib/planner/client';
 import type { PlannerPool } from '@/lib/planner/projections';
+import type { StrategyDot, StrategySpace } from '@/lib/planner/protocol';
 import styles from './planner.module.css';
 
 /**
@@ -163,6 +165,7 @@ export function Planner({
             maxTransfersPerWeek: strategy.maxTransfersPerWeek,
             chips: strategy.chips,
             locks: strategy.locks,
+            bans: strategy.bans,
             objective: strategy.objective,
             seed: strategy.seed,
           },
@@ -171,6 +174,84 @@ export function Planner({
   );
 
   const planned = { running: solved.running, error: solved.error, data: solved.data?.plan ?? null };
+
+  /**
+   * The space of strategies around this one.
+   *
+   * Solved once per configuration rather than per render: it is a second of
+   * work in the worker, and the cloud only changes when the question does.
+   *
+   * The cloud is deliberately unconstrained by the reader's own locks and
+   * bans. Those express a view about which squad *they* will hold, and a view
+   * is not a law of the space: barring a player should move their dot, not
+   * delete the strategies that hold him. Keeping the space whole is what makes
+   * the cost of a constraint visible, since the dots above and to the left of
+   * their own are exactly the squads their view rules out.
+   */
+  const [space, setSpace] = useState<StrategySpace | null>(null);
+  const [spaceChips, setSpaceChips] = useState<Chip[]>([]);
+  const [spaceRunning, setSpaceRunning] = useState(false);
+  const [chosen, setChosen] = useState<StrategyDot | null>(null);
+
+  const spaceKey =
+    strategy === null
+      ? null
+      : [strategy.budget, Math.min(weeks, horizon), spaceChips.join('.')].join('|');
+
+  useEffect(() => {
+    if (strategy === null || spaceKey === null) return;
+    let cancelled = false;
+    setSpaceRunning(true);
+    send({
+      kind: 'space',
+      poolGeneration: POOL_GENERATION,
+      players: pool.players,
+      matches: pool.matches,
+      gameweeks: pool.gameweeks,
+      budget: strategy.budget,
+      horizon: Math.min(weeks, horizon),
+      // Empty on purpose: see the note above. The reader's constraints move
+      // their own dot, not the space it sits in.
+      keep: [],
+      ban: [],
+      chips: spaceChips,
+      seed: strategy.seed,
+    })
+      .then((reply) => {
+        if (!cancelled) setSpace(reply.space ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setSpace(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSpaceRunning(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // The key is the whole question the space answers; anything else that
+    // changes here would be re-solving the same cloud.
+  }, [spaceKey]);
+
+  /** Explaining a dot is explaining its fifteen, so it becomes the strategy. */
+  const chooseDot = useCallback(
+    (dot: StrategyDot | null) => {
+      setChosen(dot);
+      setSelected(null);
+      if (dot === null || strategy === null) return;
+      setRunning(
+        encodeStrategy({
+          ...strategy,
+          squad: dot.picks,
+          // Held at the start rather than throughout: the reader asked to see
+          // this fifteen, not to forbid the plan from improving it.
+          locks: dot.picks.map((code) => ({ code, mode: 'start' as const })),
+          fingerprint: '',
+        }),
+      );
+    },
+    [strategy],
+  );
 
   /**
    * Line-ups a reader put beside the plan's own.
@@ -255,6 +336,7 @@ export function Planner({
         chips: [],
         squad: [],
         locks: [],
+        bans: [],
         objective: 'mean',
         seed: 7,
         fingerprint: '',
@@ -528,13 +610,39 @@ export function Planner({
               </>
             )}
 
+            {space !== null && (
+              <Panel
+                title="The strategy space"
+                span={7}
+                note={`${String(space.dots.length)} legal fifteens`}
+              >
+                <StrategyScatter
+                  space={space}
+                  pinned={
+                    portfolio === null
+                      ? null
+                      : {
+                          label: 'The builder\u2019s strategy',
+                          expected: portfolio.held.expected,
+                          risk: portfolio.held.risk,
+                        }
+                  }
+                  selected={chosen}
+                  chips={spaceChips}
+                  running={spaceRunning}
+                  onChip={(chip, on) => {
+                    setSpaceChips((current) =>
+                      on ? [...current, chip] : current.filter((entry) => entry !== chip),
+                    );
+                  }}
+                  onSelect={chooseDot}
+                />
+              </Panel>
+            )}
+
             {portfolio !== null && (
               <>
-                <Panel
-                  title="Risk and return"
-                  span={7}
-                  note="the best fifteen at nine risk appetites"
-                >
+                <Panel title="Risk and return" span={5} note="the frontier this squad sits on">
                   <Frontier
                     portfolio={portfolio}
                     added={candidates.map((candidate) => ({
@@ -545,7 +653,7 @@ export function Planner({
                     }))}
                   />
                 </Panel>
-                <Panel title="Where the risk sits" span={5}>
+                <Panel title="Where the risk sits" span={4}>
                   <RiskShare portfolio={portfolio} />
                 </Panel>
                 <Panel title="Compare line-ups" span={12} note="each one carries its own code">

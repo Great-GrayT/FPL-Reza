@@ -52,6 +52,8 @@ export interface OptimiseOptions {
    * modes diverge in `plan`, where an `always` lock is also unsellable.
    */
   keep?: readonly number[];
+  /** Codes the search may not pick. The mirror of `keep`. */
+  ban?: readonly number[];
   /**
    * Kick and re-climb rounds after the first climb. Forty is where the answer
    * stopped moving on the real pool: a hundred and fifty rounds over one and a
@@ -170,7 +172,13 @@ export function optimiseSquad(
 
   // A player nobody can pick is not a candidate, but one the reader has already
   // picked stays whatever his news says: it is their squad, not the model's.
-  const pool = players.filter((player) => player.available !== false || keep.has(player.code));
+  // A banned player is not a candidate at all, whatever his numbers say: the
+  // reader has already made that judgement and the search's job is to find the
+  // best squad that respects it, not to argue.
+  const banned = new Set(options.ban ?? []);
+  const pool = players
+    .filter((player) => !banned.has(player.code))
+    .filter((player) => player.available !== false || keep.has(player.code));
   if (pool.length < rules.squadSize) return null;
 
   const indexOfCode = new Map(pool.map((player, index) => [player.code, index]));

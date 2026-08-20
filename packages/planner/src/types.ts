@@ -101,6 +101,20 @@ export interface Lock {
   mode: LockMode;
 }
 
+/**
+ * A player the search may not buy.
+ *
+ * The mirror of a lock, and needed for the same reason: a manager's view is
+ * not only "keep him", it is also "not him". Two modes again, because the two
+ * questions differ: `start` keeps him out of the opening fifteen and lets the
+ * plan buy him later if the case becomes overwhelming, `always` keeps him out
+ * for the whole horizon.
+ */
+export interface Ban {
+  code: number;
+  mode: LockMode;
+}
+
 export interface PlanOptions {
   /** Gameweeks to plan, from the first in the projections. */
   horizon: number;
@@ -146,6 +160,11 @@ export interface PlanOptions {
    * hidden inside a rearranged squad.
    */
   locked?: readonly number[];
+  /**
+   * Players the plan may never buy. A ban is a constraint like a lock, so its
+   * cost shows up as a smaller excess over holding rather than hidden.
+   */
+  banned?: readonly number[];
 }
 
 export interface WeekPlan {

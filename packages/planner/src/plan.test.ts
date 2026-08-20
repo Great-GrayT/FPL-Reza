@@ -465,3 +465,55 @@ describe('chips as decisions the search makes', () => {
     assert.deepEqual(result.chipsPlayed, []);
   });
 });
+
+describe('a banned player', () => {
+  const players = pool();
+  const squad = startingSquad(players);
+
+  /** A pool where one player outside the squad is plainly the best buy. */
+  function withATemptingBuy(): { players: PlannerPlayer[]; tempting: number } {
+    const free = pool().filter(
+      (player) => player.position === 'DEF' && !squad.picks.includes(player.code),
+    );
+    const tempting = free[0]?.code ?? 0;
+    return {
+      players: pool().map((player) =>
+        player.code === tempting
+          ? { ...player, price: 40, projections: player.projections.map(() => 25) }
+          : player,
+      ),
+      tempting,
+    };
+  }
+
+  it('is bought when nothing bans him', () => {
+    const { players: pooled, tempting } = withATemptingBuy();
+    const result = plan(pooled, squad, { horizon: 4, startGameweek: 1 });
+    assert.ok(
+      result.weeks.some((week) => week.transfersIn.includes(tempting)),
+      'the search should take a buy this good',
+    );
+  });
+
+  it('is never bought when he is banned', () => {
+    const { players: pooled, tempting } = withATemptingBuy();
+    const result = plan(pooled, squad, { horizon: 4, startGameweek: 1, banned: [tempting] });
+    for (const week of result.weeks) {
+      assert.ok(!week.transfersIn.includes(tempting), `bought ${String(tempting)}, who was banned`);
+      assert.ok(!week.picks.includes(tempting), 'a banned player appeared in the squad');
+    }
+  });
+
+  it('is not bought under a wildcard either', () => {
+    const { players: pooled, tempting } = withATemptingBuy();
+    const result = plan(pooled, squad, {
+      horizon: 4,
+      startGameweek: 1,
+      chips: ['wildcard'],
+      banned: [tempting],
+    });
+    for (const week of result.weeks) {
+      assert.ok(!week.picks.includes(tempting), 'a wildcard bought a banned player');
+    }
+  });
+});

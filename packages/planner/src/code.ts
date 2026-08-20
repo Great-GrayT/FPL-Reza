@@ -1,4 +1,4 @@
-import type { Chip, Lock, LockMode, Objective } from './types.js';
+import type { Ban, Chip, Lock, LockMode, Objective } from './types.js';
 
 /**
  * A strategy as a code.
@@ -57,6 +57,8 @@ export interface Strategy {
   squad: number[];
   /** Players fixed in the squad, and for how long. */
   locks: Lock[];
+  /** Players the search may not pick, and for how long. */
+  bans: Ban[];
   /**
    * What the search is maximising.
    *
@@ -149,6 +151,14 @@ export function encodeStrategy(strategy: Strategy): string {
   // Only the non-default travels: an absent O reads as the mean objective, so
   // every code minted before the tangency search existed still decodes.
   if (strategy.objective === 'sharpe') parts.push('OS');
+  if (strategy.bans.length > 0) {
+    parts.push(
+      `N${[...strategy.bans]
+        .sort((a, b) => a.code - b.code)
+        .map((ban) => `${LOCK_LETTERS[ban.mode]}${base36(ban.code)}`)
+        .join('.')}`,
+    );
+  }
   if (strategy.locks.length > 0) {
     parts.push(
       `K${[...strategy.locks]
@@ -214,6 +224,7 @@ export function decodeStrategy(code: string): Strategy {
   const chips = found.get('C') ?? '';
   const squad = found.get('Q') ?? '';
   const locks = found.get('K') ?? '';
+  const bans = found.get('N') ?? '';
 
   const startGameweek = parseBase36(required('G', 'first gameweek'), 'first gameweek');
   const endGameweek =
@@ -258,6 +269,18 @@ export function decodeStrategy(code: string): Strategy {
               );
             }
             return { code: parseBase36(entry.slice(1), 'a locked player'), mode };
+          }),
+    bans:
+      bans === ''
+        ? []
+        : bans.split('.').map((entry) => {
+            const mode = LOCK_BY_LETTER.get(entry.slice(0, 1));
+            if (mode === undefined) {
+              throw new StrategyCodeError(
+                `this code names a ban nothing here recognises: "${entry}"`,
+              );
+            }
+            return { code: parseBase36(entry.slice(1), 'a banned player'), mode };
           }),
     // Absent means the mean objective, which is what version 2 codes minted
     // before the tangency search existed were all solved with.

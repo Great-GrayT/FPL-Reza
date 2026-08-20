@@ -227,6 +227,16 @@ export function SquadBuilder({
   const [locks, setLocks] = useState<Record<number, LockMode>>({});
 
   /**
+   * Players the search may not pick.
+   *
+   * The mirror of a lock, and needed for the same reason: a manager's view is
+   * not only "keep him", it is also "not him, whatever the numbers say". The
+   * same two modes, because the same two questions apply: out of the opening
+   * fifteen, or out for the whole horizon.
+   */
+  const [bans, setBans] = useState<Record<number, LockMode>>({});
+
+  /**
    * The whole question the search is asked, in one place.
    *
    * This page decides; the plan page explains. Every setting therefore lives
@@ -465,6 +475,7 @@ export function SquadBuilder({
         maxTransfersPerWeek: strategy.maxTransfersPerWeek,
         chips: strategy.chips,
         locks: strategy.locks,
+        bans: strategy.bans,
         seed: strategy.seed,
       })
         .then((reply) => {
@@ -515,6 +526,27 @@ export function SquadBuilder({
     [picks, locks, codeById],
   );
 
+  const banList = useMemo(
+    () =>
+      Object.entries(bans).flatMap(([id, mode]) => {
+        const code = codeById.get(Number(id) as PlayerId);
+        return code === undefined ? [] : [{ code, mode }];
+      }),
+    [bans, codeById],
+  );
+
+  const cycleBan = useCallback((id: PlayerId) => {
+    setBans((current) => {
+      const mode = current[Number(id)];
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([key]) => key !== String(id)),
+      ) as Record<number, LockMode>;
+      if (mode === undefined) next[Number(id)] = 'start';
+      else if (mode === 'start') next[Number(id)] = 'always';
+      return next;
+    });
+  }, []);
+
   const lockCounts = useMemo(
     () => ({
       start: lockList.filter((lock) => lock.mode === 'start').length,
@@ -562,6 +594,7 @@ export function SquadBuilder({
       chips,
       squad: [],
       locks: lockList,
+      bans: banList,
       seed: 7,
       fingerprint: '',
     });
@@ -1556,6 +1589,41 @@ export function SquadBuilder({
                             />
                           ))}
                         </span>
+                      </span>
+                    </button>
+                    {/* "Not him" is a judgement made while reading the list, so
+                        the control belongs on the row rather than in a settings
+                        panel three sections away. Same three states as the pin
+                        on a shirt, and the same two questions. */}
+                    <button
+                      type="button"
+                      className={styles.ban}
+                      data-ban={bans[Number(player.id)] ?? 'none'}
+                      title={
+                        bans[Number(player.id)] === undefined
+                          ? 'The search may pick him. Press to keep him out of the opening squad.'
+                          : bans[Number(player.id)] === 'start'
+                            ? 'Kept out of the opening squad. Press to keep him out all period.'
+                            : 'Kept out all period. Press to allow him again.'
+                      }
+                      onClick={() => {
+                        cycleBan(player.id);
+                        if (picks.includes(player.id)) remove(player.id);
+                      }}
+                    >
+                      <span aria-hidden="true">
+                        {bans[Number(player.id)] === 'always'
+                          ? 'A'
+                          : bans[Number(player.id)] === 'start'
+                            ? 'S'
+                            : '⊘'}
+                      </span>
+                      <span className="visually-hidden">
+                        {bans[Number(player.id)] === undefined
+                          ? `Bar ${player.webName} from the opening squad`
+                          : bans[Number(player.id)] === 'start'
+                            ? `${player.webName} is barred from the opening squad`
+                            : `${player.webName} is barred for the whole period`}
                       </span>
                     </button>
                     <p id={`why-${String(player.id)}`} className={styles.why}>

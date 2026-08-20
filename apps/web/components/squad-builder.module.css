@@ -931,7 +931,9 @@
   padding: 0;
 }
 
+/* Positioned, because the bar control sits in its corner. */
 .row {
+  position: relative;
   border-bottom: 1px solid var(--rule);
   border-left: 3px solid transparent;
 }
@@ -1288,4 +1290,52 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--s2) var(--s3);
+}
+
+/* "Not him", on the row where that judgement is made. The same three states as
+   the pin on a shirt, drawn as a bar rather than a pin: one keeps a player in,
+   the other keeps him out, and they should not look alike. */
+.ban {
+  position: absolute;
+  inset-block-start: var(--s2);
+  inset-inline-end: var(--s2);
+  inline-size: 1.3rem;
+  block-size: 1.3rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.row:hover .ban,
+.ban:focus-visible,
+.ban[data-ban='start'],
+.ban[data-ban='always'] {
+  opacity: 1;
+}
+
+.ban[data-ban='start'] {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.ban[data-ban='always'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* A barred player stays in the list, greyed, because seeing who you have ruled
+   out is the point: a filter would hide the decision. */
+.row:has(.ban[data-ban='always']) .rowName,
+.row:has(.ban[data-ban='always']) .rowStats {
+  opacity: 0.45;
+  text-decoration: line-through;
 }
