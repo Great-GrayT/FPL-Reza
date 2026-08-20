@@ -20,6 +20,56 @@
       "bytes": 4959156,
       "format": "jsonl",
       "file": "2026-27/match-details/2024-25/2026-08-18T20-22-44-126Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2025-26",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 4876611,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2025-26/2026-08-20T00-39-53-503Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2024-25",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 379,
+      "bytes": 4945226,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2024-25/2026-08-20T00-39-53-503Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2023-24",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 4920606,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2023-24/2026-08-20T00-39-53-503Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2022-23",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 4831165,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2022-23/2026-08-20T00-39-53-503Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2021-22",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 4440420,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2021-22/2026-08-20T00-39-53-503Z.jsonl"
     }
   ]
 }

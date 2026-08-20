@@ -350,6 +350,66 @@
       "bytes": 11499,
       "format": "parquet",
       "file": "2026-27/matches/1992-93/2026-08-18T20-22-44-126Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "matches",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 7573,
+      "format": "parquet",
+      "file": "2026-27/matches/2026-27/2026-08-20T00-39-53-503Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "matches",
+      "partition": "2025-26",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 11754,
+      "format": "parquet",
+      "file": "2026-27/matches/2025-26/2026-08-20T00-39-53-503Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "matches",
+      "partition": "2024-25",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 11686,
+      "format": "parquet",
+      "file": "2026-27/matches/2024-25/2026-08-20T00-39-53-503Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "matches",
+      "partition": "2023-24",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 11856,
+      "format": "parquet",
+      "file": "2026-27/matches/2023-24/2026-08-20T00-39-53-503Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "matches",
+      "partition": "2022-23",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 11811,
+      "format": "parquet",
+      "file": "2026-27/matches/2022-23/2026-08-20T00-39-53-503Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "matches",
+      "partition": "2021-22",
+      "capturedAt": "2026-08-20T00:39:53.503Z",
+      "rows": 380,
+      "bytes": 11722,
+      "format": "parquet",
+      "file": "2026-27/matches/2021-22/2026-08-20T00-39-53-503Z.parquet"
     }
   ]
 }

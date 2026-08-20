@@ -118,6 +118,38 @@ export const historicPlayerGameweekSchema = z.object({
 export type HistoricPlayerGameweek = z.infer<typeof historicPlayerGameweekSchema>;
 
 /**
+ * One club, in one season, as FPL numbered it that year.
+ *
+ * This row exists to make the archive joinable. A stored gameweek names the
+ * opponent by that season's FPL team id, and FPL renumbers those every summer,
+ * so without this the opponent in a 2018/19 row cannot be tied to the club that
+ * played, nor to its strength, its manager, or its shape. The permanent code is
+ * what carries across, and this is the only table that holds both.
+ *
+ * It also carries FPL's own strength ratings, which are a published opinion
+ * about a club at the start of a season rather than a measurement, and are
+ * useful precisely because they are available before a ball is kicked.
+ */
+export const teamSeasonSchema = z.object({
+  season: seasonSchema,
+  /** FPL's id for the club that season, which is what a gameweek row cites. */
+  teamId: z.number().int().positive(),
+  /** The permanent club code, which is what everything else joins on. */
+  teamCode: z.number().int().positive(),
+  name: z.string().min(1),
+  shortName: z.string().min(1),
+  strength: z.number().int().nullable(),
+  strengthOverallHome: z.number().int().nullable(),
+  strengthOverallAway: z.number().int().nullable(),
+  strengthAttackHome: z.number().int().nullable(),
+  strengthAttackAway: z.number().int().nullable(),
+  strengthDefenceHome: z.number().int().nullable(),
+  strengthDefenceAway: z.number().int().nullable(),
+});
+
+export type TeamSeason = z.infer<typeof teamSeasonSchema>;
+
+/**
  * A career, reduced to what a page needs without reading a season of gameweek
  * rows: one entry per season plus the totals across all of them. Computed at
  * ingest time rather than at build time, because 10 seasons of gameweek rows

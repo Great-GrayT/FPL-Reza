@@ -8,6 +8,7 @@
     { "path": "packages/ingest" },
     { "path": "packages/analytics" },
     { "path": "packages/quant" },
+    { "path": "packages/model" },
     { "path": "apps/cli" },
     { "path": "apps/api" }
   ]

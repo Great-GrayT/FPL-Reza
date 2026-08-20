@@ -193,6 +193,24 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
+  packages/model:
+    dependencies:
+      '@fpl/analytics':
+        specifier: workspace:*
+        version: link:../analytics
+      '@fpl/core':
+        specifier: workspace:*
+        version: link:../core
+      '@fpl/quant':
+        specifier: workspace:*
+        version: link:../quant
+      '@fpl/store':
+        specifier: workspace:*
+        version: link:../store
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+
   packages/quant: {}
 
   packages/store:

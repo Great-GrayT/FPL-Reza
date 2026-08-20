@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "team-seasons",
+      "partition": null,
+      "capturedAt": "2026-08-20T00:46:04.567Z",
+      "rows": 140,
+      "bytes": 35768,
+      "format": "jsonl",
+      "file": "2026-27/team-seasons/_all/2026-08-20T00-46-04-567Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "team-seasons",
+      "partition": null,
+      "capturedAt": "2026-08-20T00:47:19.082Z",
+      "rows": 60,
+      "bytes": 15357,
+      "format": "jsonl",
+      "file": "2026-27/team-seasons/_all/2026-08-20T00-47-19-082Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "team-seasons",
+      "partition": null,
+      "capturedAt": "2026-08-20T00:47:56.942Z",
+      "rows": 200,
+      "bytes": 51125,
+      "format": "jsonl",
+      "file": "2026-27/team-seasons/_all/2026-08-20T00-47-56-942Z.jsonl"
+    }
+  ]
+}

@@ -1,8 +1,10 @@
 import {
   asSeason,
   historicPlayerGameweekSchema,
+  teamSeasonSchema,
   type HistoricPlayerGameweek,
   type Position,
+  type TeamSeason,
 } from '@fpl/core';
 import { parseCsvObjects } from '../csv.js';
 import type { HttpClient } from '../http.js';
@@ -35,6 +37,9 @@ export const archiveGameweeksUrl = (season: string, base = ARCHIVE_BASE_URL): st
 
 export const archivePlayersUrl = (season: string, base = ARCHIVE_BASE_URL): string =>
   `${base}/${archiveSeasonPath(season)}/players_raw.csv`;
+
+export const archiveTeamsUrl = (season: string, base = ARCHIVE_BASE_URL): string =>
+  `${base}/${archiveSeasonPath(season)}/teams.csv`;
 
 const int = (value: string | undefined): number | null => {
   if (value === undefined || value.trim() === '') return null;
@@ -76,6 +81,73 @@ const toPosition = (value: string | undefined): Position | null => {
  * must not become a zero.
  */
 const XG_FROM_SEASON = 2022;
+
+/**
+ * The season's clubs, with both numbers: the id a gameweek row cites and the
+ * permanent code everything else joins on. Without this the opponent named in a
+ * 2018/19 row cannot be tied to the club that played it, because FPL renumbers
+ * its team ids every summer.
+ */
+export function parseArchiveTeams(season: string, teamsCsv: string): TeamSeason[] {
+  const rows: TeamSeason[] = [];
+  for (const row of parseCsvObjects(teamsCsv)) {
+    const teamId = int(row['id']);
+    const teamCode = int(row['code']);
+    const name = text(row['name']);
+    if (teamId === null || teamCode === null || name === null) continue;
+    rows.push(
+      teamSeasonSchema.parse({
+        season: asSeason(season),
+        teamId,
+        teamCode,
+        name,
+        shortName: text(row['short_name']) ?? name.slice(0, 3).toUpperCase(),
+        strength: int(row['strength']),
+        strengthOverallHome: int(row['strength_overall_home']),
+        strengthOverallAway: int(row['strength_overall_away']),
+        strengthAttackHome: int(row['strength_attack_home']),
+        strengthAttackAway: int(row['strength_attack_away']),
+        strengthDefenceHome: int(row['strength_defence_home']),
+        strengthDefenceAway: int(row['strength_defence_away']),
+      }),
+    );
+  }
+  return rows;
+}
+
+/**
+ * The season's clubs, derived from the player list, for the seasons before the
+ * archive published a club table. Every player row carries the season's team id
+ * and the permanent team code, so the pairing is there to be read; what is not
+ * there is the club's name or FPL's strength ratings, which stay null.
+ */
+export function teamsFromPlayers(season: string, playersCsv: string): TeamSeason[] {
+  const byId = new Map<number, number>();
+  for (const row of parseCsvObjects(playersCsv)) {
+    const teamId = int(row['team']);
+    const teamCode = int(row['team_code']);
+    if (teamId === null || teamCode === null) continue;
+    byId.set(teamId, teamCode);
+  }
+  return [...byId.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([teamId, teamCode]) =>
+      teamSeasonSchema.parse({
+        season: asSeason(season),
+        teamId,
+        teamCode,
+        name: `club ${String(teamCode)}`,
+        shortName: String(teamCode),
+        strength: null,
+        strengthOverallHome: null,
+        strengthOverallAway: null,
+        strengthAttackHome: null,
+        strengthAttackAway: null,
+        strengthDefenceHome: null,
+        strengthDefenceAway: null,
+      }),
+    );
+}
 
 /** code by that season's element id, read from the season's players_raw.csv. */
 export function buildCodeIndex(playersCsv: string): Map<number, number> {
@@ -158,6 +230,18 @@ export function parseArchiveSeason(
   return { rows, unresolved };
 }
 
+/** What the lake already holds, so a partial run adds rather than replaces. */
+async function readStoredTeamSeasons(context: SourceContext): Promise<TeamSeason[]> {
+  try {
+    return await context.store.read<TeamSeason>(
+      { season: context.season, dataset: DATASETS.teamSeasons },
+      teamSeasonSchema,
+    );
+  } catch {
+    return [];
+  }
+}
+
 export interface ArchiveSourceOptions {
   /** Seasons to pull, newest or oldest first does not matter. */
   seasons: readonly string[];
@@ -175,12 +259,36 @@ export function archiveHistorySource(http: HttpClient, options: ArchiveSourceOpt
 
   return {
     name: 'history-archive',
-    datasets: [DATASETS.playerGameweeksHistory],
+    datasets: [DATASETS.playerGameweeksHistory, DATASETS.teamSeasons],
 
     async *run(context: SourceContext): AsyncIterable<SourceBatch> {
+      const teamSeasons: TeamSeason[] = [];
+
       for (const season of options.seasons) {
         const playersCsv = await http.getText(archivePlayersUrl(season, base));
         const codeByElement = buildCodeIndex(playersCsv);
+
+        // The club table is two hundred rows across ten seasons, so it is
+        // gathered across the run and written once rather than partitioned.
+        // The archive only published teams.csv from 2019/20, so the seasons
+        // before it fall back to the player list, which carries both the id and
+        // the code on every row and therefore answers the same question without
+        // the strength ratings.
+        let teamsForSeason: TeamSeason[] = [];
+        try {
+          teamsForSeason = parseArchiveTeams(
+            season,
+            await http.getText(archiveTeamsUrl(season, base)),
+          );
+        } catch {
+          teamsForSeason = teamsFromPlayers(season, playersCsv);
+          context.logger.info('teams read from the player list', {
+            source: 'history-archive',
+            season,
+            teams: teamsForSeason.length,
+          });
+        }
+        teamSeasons.push(...teamsForSeason);
 
         const gameweeksCsv = await http.getText(archiveGameweeksUrl(season, base));
         const { rows, unresolved } = parseArchiveSeason(season, gameweeksCsv, codeByElement);
@@ -197,6 +305,27 @@ export function archiveHistorySource(http: HttpClient, options: ArchiveSourceOpt
           dataset: DATASETS.playerGameweeksHistory,
           partition: archiveSeasonPath(season),
           rows,
+        };
+      }
+
+      if (teamSeasons.length > 0) {
+        // The club table is one dataset rather than one partition per season,
+        // and a read takes the newest snapshot whole, so a run covering three
+        // seasons must not erase the other seven. Stored rows are carried
+        // through and the run's own rows win where both describe a season.
+        const merged = new Map<string, TeamSeason>();
+        for (const row of await readStoredTeamSeasons(context)) {
+          merged.set(`${row.season}:${String(row.teamId)}`, row);
+        }
+        for (const row of teamSeasons) {
+          merged.set(`${row.season}:${String(row.teamId)}`, row);
+        }
+        yield {
+          dataset: DATASETS.teamSeasons,
+          rows: [...merged.values()].sort((a, b) =>
+            a.season === b.season ? a.teamId - b.teamId : a.season.localeCompare(b.season),
+          ),
+          format: 'jsonl',
         };
       }
     },
