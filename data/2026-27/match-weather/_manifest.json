@@ -350,6 +350,96 @@
       "bytes": 3825,
       "format": "jsonl",
       "file": "2026-27/match-weather/2026-27/2026-08-20T09-53-02-922Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T10:50:59.056Z",
+      "rows": 16,
+      "bytes": 3820,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T10-50-59-056Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T11:46:45.589Z",
+      "rows": 16,
+      "bytes": 3820,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T11-46-45-589Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T13:14:48.688Z",
+      "rows": 16,
+      "bytes": 3817,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T13-14-48-688Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T14:04:05.144Z",
+      "rows": 16,
+      "bytes": 3821,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T14-04-05-144Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T14:58:29.450Z",
+      "rows": 16,
+      "bytes": 3821,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T14-58-29-450Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T15:51:42.795Z",
+      "rows": 16,
+      "bytes": 3821,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T15-51-42-795Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T16:54:35.992Z",
+      "rows": 16,
+      "bytes": 3825,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T16-54-35-992Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T17:48:53.971Z",
+      "rows": 16,
+      "bytes": 3825,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T17-48-53-971Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-20T19:04:07.608Z",
+      "rows": 16,
+      "bytes": 3826,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-08-20T19-04-07-608Z.jsonl"
     }
   ]
 }
