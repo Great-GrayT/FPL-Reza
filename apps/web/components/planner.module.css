@@ -873,3 +873,24 @@
 .grid .pitch {
   max-inline-size: 22rem;
 }
+
+/* The week panel: pitch beside its reading, rather than a tall drawing with a
+   full width ledger under it and half the panel empty. */
+.weekBody {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+}
+
+.weekSide {
+  display: grid;
+  gap: var(--s2);
+  min-inline-size: 0;
+}
+
+@media (width < 48rem) {
+  .weekBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

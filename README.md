@@ -53,7 +53,7 @@ Runs TypeScript project references in build mode across every package. Use `pnpm
 pnpm test
 ```
 
-Runs the Node built in test runner (`node:test`) over every `*.test.ts` file under `packages/*/src` and `apps/*/src`, loaded through `tsx`. There is no vitest and no Vite in this repo by design. Use `pnpm test:watch` to rerun on change, or `pnpm test:coverage` for coverage via `node:test`'s experimental coverage support.
+Runs the Node built in test runner (`node:test`) over every `*.test.ts` file under `packages/*/src` and `apps/*/src`, loaded through `tsx`, and then `pnpm test:ui`, which renders the web app's client only panels to static markup. Those panels are solved in a Web Worker after hydration, so nothing on the server draws them and a page fetch cannot show them; rendering them in the test runner is what catches an undefined read or a divide by zero in one. It needs a loader hook that stubs CSS module imports and a test only tsconfig that switches JSX to the automatic runtime, both in `scripts/`. There is no vitest and no Vite in this repo by design. Use `pnpm test:watch` to rerun on change, or `pnpm test:coverage` for coverage via `node:test`'s experimental coverage support.
 
 ## Lint and format
 

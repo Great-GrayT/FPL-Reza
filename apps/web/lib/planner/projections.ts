@@ -129,6 +129,21 @@ export interface WirePlayer {
   /** Probability the price rises, which the projection treats as flat over the horizon. */
   rise: number;
   available: boolean;
+  /**
+   * The rates the projection is built from, per ninety minutes, over the same
+   * form window. They travel so the plan page can show what a squad is made of
+   * rather than only what it is worth: a projection a reader cannot take apart
+   * is a projection they can only trust or ignore.
+   */
+  xg90: number;
+  xa90: number;
+  /** CBIT for a defender, CBIRT for everyone else. Null before the rule existed. */
+  cbi90: number;
+  bps90: number;
+  /** Minutes he is expected to play in a match he is available for. */
+  minutes: number;
+  /** Owned by, as a percentage: the differential axis. */
+  ownership: number;
 }
 
 export interface PlannerPool {
@@ -205,6 +220,17 @@ export function buildPool(
     const spread = measuredSpread(history);
     const rise = riseProbability(player, base);
 
+    // The rates behind the projection, over the same window it uses. Summed
+    // over minutes rather than over matches, because a substitute's half hour
+    // is half an hour of chances and not half a match of them.
+    const window = history.slice(-FORM_WINDOW);
+    const played = window.reduce((total, row) => total + row.minutes, 0);
+    const rate = (read: (row: PlayerGameweek) => number): number =>
+      played <= 0
+        ? 0
+        : Math.round(((window.reduce((total, row) => total + read(row), 0) * 90) / played) * 100) /
+          100;
+
     const projections: number[] = [];
     for (const week of weeks) {
       const matches = (byWeek.get(week) ?? []).filter(
@@ -227,6 +253,12 @@ export function buildPool(
       spread: Math.round((spread ?? base * SPREAD_FALLBACK_RATIO) * 100) / 100,
       rise: Math.round(rise * 100) / 100,
       available: AVAILABILITY_WEIGHT[player.availability] > 0,
+      xg90: rate((row) => row.expectedGoals),
+      xa90: rate((row) => row.expectedAssists),
+      cbi90: rate((row) => row.defensiveContribution ?? 0),
+      bps90: rate((row) => row.bps),
+      minutes: Math.round(form.minutesPerGame),
+      ownership: player.selectedByPercent,
     } satisfies WirePlayer;
   });
 

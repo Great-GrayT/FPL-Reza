@@ -19,6 +19,7 @@ import { classes } from '@/lib/classes';
 import { CompareLineups, codeForCandidate, type Candidate } from './compare-lineups';
 import { Frontier, RiskShare } from './frontier';
 import { StrategyScatter } from './strategy-scatter';
+import { CashFlow, Output, Relation } from './planner-metrics';
 import {
   Captaincy,
   CumulativeSeries,
@@ -98,6 +99,12 @@ export function Planner({
     () => new Map(pool.players.map((player) => [player.code, player])),
     [pool.players],
   );
+  /** The wire rows, which carry the rates the projection was built from. */
+  const wireByCode = useMemo(
+    () => new Map(pool.players.map((player) => [player.code, player])),
+    [pool.players],
+  );
+
   const clubByCode = useMemo(() => new Map(clubs.map((club) => [club.code, club])), [clubs]);
   const deadlineOf = useMemo(
     () => new Map(deadlines.map((entry) => [entry.gameweek, entry.deadline])),
@@ -578,7 +585,7 @@ export function Planner({
             )}
 
             {week !== null && (
-              <Panel title={`Gameweek ${String(week.gameweek)}`} span={7}>
+              <Panel title={`Gameweek ${String(week.gameweek)}`} span={5}>
                 <WeekView
                   week={week}
                   index={week.gameweek - fromGameweek}
@@ -594,6 +601,12 @@ export function Planner({
             )}
 
             {weekRows.length > 0 && (
+              <Panel title="Money" span={7} note="what the plan spends and banks">
+                <CashFlow weeks={weekRows} byCode={wireByCode} />
+              </Panel>
+            )}
+
+            {weekRows.length > 0 && (
               <>
                 <Panel title="Captaincy" span={5}>
                   <Captaincy weeks={weekRows} byCode={byCode} fromGameweek={fromGameweek} />
@@ -601,11 +614,23 @@ export function Planner({
                 <Panel title="Exposure" span={6}>
                   <Exposure weeks={weekRows} byCode={byCode} calendar={pool.calendar} />
                 </Panel>
-                <Panel title="Where the money is" span={6}>
+                <Panel title="Where the money is" span={3}>
                   <Spend picks={week?.picks ?? []} byCode={byCode} bank={week?.bank ?? 0} />
                 </Panel>
-                <Panel title="Team value" span={6}>
+                <Panel title="Team value" span={4}>
                   <ValueSeries weeks={weekRows} />
+                </Panel>
+                <Panel
+                  title="What the eleven is made of"
+                  span={5}
+                  note="per ninety, over the form window"
+                >
+                  <Output
+                    weeks={weekRows}
+                    byCode={wireByCode}
+                    matches={pool.matches}
+                    fromGameweek={fromGameweek}
+                  />
                 </Panel>
               </>
             )}
@@ -665,6 +690,46 @@ export function Planner({
                     onRemove={removeCandidate}
                     running={comparing}
                     error={compareError}
+                  />
+                </Panel>
+              </>
+            )}
+
+            {week !== null && (
+              <>
+                <Panel title="Price against projection" span={4} note="the pool, and the fifteen">
+                  <Relation
+                    players={pool.players}
+                    held={week.picks}
+                    x={(player) => player.price / 10}
+                    y={(player) => player.projections.reduce((total, value) => total + value, 0)}
+                    xLabel="Price"
+                    yLabel="Projected"
+                    note="A mark below the cloud at its price is a player being carried; one above it is what the search was buying."
+                  />
+                </Panel>
+
+                <Panel title="Ownership against projection" span={4} note="the differential map">
+                  <Relation
+                    players={pool.players}
+                    held={week.picks}
+                    x={(player) => player.ownership}
+                    y={(player) => player.projections.reduce((total, value) => total + value, 0)}
+                    xLabel="Owned %"
+                    yLabel="Projected"
+                    note="Marks to the left are differentials: the same projection at a fraction of the ownership, which is where a rank is won and lost."
+                  />
+                </Panel>
+
+                <Panel title="Output against price" span={4} note="expected goal involvement">
+                  <Relation
+                    players={pool.players}
+                    held={week.picks}
+                    x={(player) => player.price / 10}
+                    y={(player) => player.xg90 + player.xa90}
+                    xLabel="Price"
+                    yLabel="xGI/90"
+                    note="Measured rates rather than the projection, so a squad that looks strong on form and thin on output shows it here."
                   />
                 </Panel>
               </>
@@ -872,138 +937,146 @@ function WeekView({
         </span>
       </h2>
 
-      <div className={styles.pitch} ref={pitchRef}>
-        <PitchLines />
-        {POSITIONS.map((position) => {
-          const line = starters.filter((player) => player.position === position);
-          if (line.length === 0) return null;
-          return (
-            <ul key={position} className={styles.line} aria-label={POSITION_LABEL[position]}>
-              {line.map((player) => (
+      {/* Two columns: the pitch is a tall narrow drawing, and stacking a full
+          width ledger under it left half the panel empty at every width above a
+          phone. The pitch takes the column it needs and the reading sits beside
+          it. */}
+      <div className={styles.weekBody}>
+        <div className={styles.pitch} ref={pitchRef}>
+          <PitchLines />
+          {POSITIONS.map((position) => {
+            const line = starters.filter((player) => player.position === position);
+            if (line.length === 0) return null;
+            return (
+              <ul key={position} className={styles.line} aria-label={POSITION_LABEL[position]}>
+                {line.map((player) => (
+                  <Token
+                    key={player.code}
+                    player={player}
+                    club={clubByCode.get(player.teamCode)}
+                    week={index}
+                    captain={player.code === week.captain}
+                    vice={player.code === week.viceCaptain}
+                    incoming={week.transfersIn.includes(player.code)}
+                  />
+                ))}
+              </ul>
+            );
+          })}
+        </div>
+
+        <div className={styles.weekSide}>
+          <ul className={styles.tokenKey}>
+            <li>
+              Each tag reads <b>price</b>, then the <b>projection</b> for this gameweek, then its
+              <b> spread</b>.
+            </li>
+          </ul>
+
+          <div className={styles.benchRail}>
+            <h3 className={styles.benchHead}>Bench</h3>
+            <ul className={styles.benchList}>
+              {bench.map((player) => (
                 <Token
                   key={player.code}
                   player={player}
                   club={clubByCode.get(player.teamCode)}
                   week={index}
-                  captain={player.code === week.captain}
-                  vice={player.code === week.viceCaptain}
+                  captain={false}
+                  vice={false}
                   incoming={week.transfersIn.includes(player.code)}
+                  muted
                 />
               ))}
             </ul>
-          );
-        })}
-      </div>
+          </div>
 
-      <ul className={styles.tokenKey}>
-        <li>
-          Each tag reads <b>price</b>, then the <b>projection</b> for this gameweek, then its
-          <b> spread</b>.
-        </li>
-      </ul>
-
-      <div className={styles.benchRail}>
-        <h3 className={styles.benchHead}>Bench</h3>
-        <ul className={styles.benchList}>
-          {bench.map((player) => (
-            <Token
-              key={player.code}
-              player={player}
-              club={clubByCode.get(player.teamCode)}
-              week={index}
-              captain={false}
-              vice={false}
-              incoming={week.transfersIn.includes(player.code)}
-              muted
-            />
-          ))}
-        </ul>
-      </div>
-
-      <div className={styles.ledger}>
-        <h3 className={styles.ledgerHead}>What changes this week</h3>
-        {week.transfers === 0 ? (
-          <p className={styles.ledgerNone}>
-            No transfer. Nothing available gains more than it would cost.
-          </p>
-        ) : (
-          <ul className={styles.ledgerList}>
-            {week.transfersOut.map((code, position) => {
-              const out = byCode.get(code);
-              const inCode = week.transfersIn[position];
-              const incoming = inCode === undefined ? undefined : byCode.get(inCode);
-              return (
-                <li key={code} className={styles.ledgerRow}>
-                  <span className={styles.ledgerOut}>{out?.name ?? code}</span>
-                  <span className={styles.ledgerArrow} aria-hidden="true">
-                    &rarr;
-                  </span>
-                  <span className={styles.ledgerIn}>{incoming?.name ?? inCode}</span>
-                  <span className={classes(styles.ledgerDelta, 'num')}>
-                    {incoming !== undefined && out !== undefined
-                      ? `${formatPrice(incoming.price)} for ${formatPrice(out.price)}`
-                      : ''}
-                  </span>
-                </li>
-              );
-            })}
-            {week.hit > 0 && (
-              <li className={styles.ledgerHit}>
-                Costs {week.hit} points, and the plan still takes it.
-              </li>
+          <div className={styles.ledger}>
+            <h3 className={styles.ledgerHead}>What changes this week</h3>
+            {week.transfers === 0 ? (
+              <p className={styles.ledgerNone}>
+                No transfer. Nothing available gains more than it would cost.
+              </p>
+            ) : (
+              <ul className={styles.ledgerList}>
+                {week.transfersOut.map((code, position) => {
+                  const out = byCode.get(code);
+                  const inCode = week.transfersIn[position];
+                  const incoming = inCode === undefined ? undefined : byCode.get(inCode);
+                  return (
+                    <li key={code} className={styles.ledgerRow}>
+                      <span className={styles.ledgerOut}>{out?.name ?? code}</span>
+                      <span className={styles.ledgerArrow} aria-hidden="true">
+                        &rarr;
+                      </span>
+                      <span className={styles.ledgerIn}>{incoming?.name ?? inCode}</span>
+                      <span className={classes(styles.ledgerDelta, 'num')}>
+                        {incoming !== undefined && out !== undefined
+                          ? `${formatPrice(incoming.price)} for ${formatPrice(out.price)}`
+                          : ''}
+                      </span>
+                    </li>
+                  );
+                })}
+                {week.hit > 0 && (
+                  <li className={styles.ledgerHit}>
+                    Costs {week.hit} points, and the plan still takes it.
+                  </li>
+                )}
+              </ul>
             )}
-          </ul>
-        )}
-      </div>
+          </div>
 
-      {/* Two answers to two different questions, printed side by side. What the
+          {/* Two answers to two different questions, printed side by side. What the
           plan does is constrained by the squad it arrived with, the transfers it
           banked, and what a hit costs. What was available is none of those: it
           is the best legal move from this squad in this gameweek, which is what
           a reader who disagrees with the plan actually wants to see. */}
-      <div className={styles.ledger}>
-        <h3 className={styles.ledgerHead}>What was available, with a free hand</h3>
-        {freeHand.length === 0 ? (
-          <p className={styles.ledgerNone}>
-            Nothing in the pool improves this squad over the rest of the horizon, so holding is not
-            the plan being cautious: it is the whole market having nothing to offer.
-          </p>
-        ) : (
-          <>
-            <ul className={styles.ledgerList}>
-              {freeHand.map((swap) => {
-                const out = byCode.get(swap.out);
-                const incoming = byCode.get(swap.in);
-                const taken =
-                  week.transfersIn.includes(swap.in) && week.transfersOut.includes(swap.out);
-                return (
-                  <li
-                    key={`${String(swap.out)}-${String(swap.in)}`}
-                    className={styles.ledgerRow}
-                    data-taken={taken ? 'true' : undefined}
-                  >
-                    <span className={styles.ledgerOut}>{out?.name ?? swap.out}</span>
-                    <span className={styles.ledgerArrow} aria-hidden="true">
-                      &rarr;
-                    </span>
-                    <span className={styles.ledgerIn}>{incoming?.name ?? swap.in}</span>
-                    <span className={classes(styles.ledgerDelta, 'num')}>
-                      {swap.gain > 0 ? '+' : ''}
-                      {swap.gain.toFixed(1)} pts
-                      {taken ? ' · taken' : ''}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className={styles.ledgerNote}>
-              Measured over the rest of the horizon rather than this gameweek, since a player bought
-              now is still owned in five weeks. Legal and affordable from this squad, but ignoring
-              the free transfer and the four point hit: that is the gap between what is possible and
-              what is worth doing.
-            </p>
-          </>
-        )}
+          <div className={styles.ledger}>
+            <h3 className={styles.ledgerHead}>What was available, with a free hand</h3>
+            {freeHand.length === 0 ? (
+              <p className={styles.ledgerNone}>
+                Nothing in the pool improves this squad over the rest of the horizon, so holding is
+                not the plan being cautious: it is the whole market having nothing to offer.
+              </p>
+            ) : (
+              <>
+                <ul className={styles.ledgerList}>
+                  {freeHand.map((swap) => {
+                    const out = byCode.get(swap.out);
+                    const incoming = byCode.get(swap.in);
+                    const taken =
+                      week.transfersIn.includes(swap.in) && week.transfersOut.includes(swap.out);
+                    return (
+                      <li
+                        key={`${String(swap.out)}-${String(swap.in)}`}
+                        className={styles.ledgerRow}
+                        data-taken={taken ? 'true' : undefined}
+                      >
+                        <span className={styles.ledgerOut}>{out?.name ?? swap.out}</span>
+                        <span className={styles.ledgerArrow} aria-hidden="true">
+                          &rarr;
+                        </span>
+                        <span className={styles.ledgerIn}>{incoming?.name ?? swap.in}</span>
+                        <span className={classes(styles.ledgerDelta, 'num')}>
+                          {swap.gain > 0 ? '+' : ''}
+                          {swap.gain.toFixed(1)} pts
+                          {taken ? ' · taken' : ''}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className={styles.ledgerNote}>
+                  Measured over the rest of the horizon rather than this gameweek, since a player
+                  bought now is still owned in five weeks. Legal and affordable from this squad, but
+                  ignoring the free transfer and the four point hit: that is the gap between what is
+                  possible and what is worth doing.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );

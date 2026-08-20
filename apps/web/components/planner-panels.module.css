@@ -203,3 +203,43 @@
   line-height: 1.25;
   white-space: normal;
 }
+
+/* ------------------------------------------------------------- relations
+
+   Levels say what a squad is worth; relations say whether it is well built.
+   The cloud is the pool, the filled marks are the fifteen. */
+
+.relation {
+  margin: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.relation svg {
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.relationAxes line {
+  stroke: var(--rule-strong);
+  stroke-width: 0.6;
+}
+
+.relationDot {
+  fill: var(--ink-soft);
+  opacity: 0.28;
+}
+
+.relationHeld {
+  fill: var(--bonus);
+  stroke: var(--ink);
+  stroke-width: 0.8;
+}
+
+.relationLabel {
+  font-family: var(--font-mono), monospace;
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: var(--ink-soft);
+}
