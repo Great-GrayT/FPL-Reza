@@ -7,7 +7,8 @@ import { Crest } from '@/components/crest';
 import { PersonPhoto } from '@/components/person-photo';
 import { buildNamedShapes, estimatePrior } from '@/lib/estimated-heatmap';
 import { PlayerSeason, type GameweekRow } from '@/components/player-season';
-import type { HeatmapMatch } from '@/components/player-heatmap';
+import { PlayerHeatmap, type HeatmapMatch } from '@/components/player-heatmap';
+import { PlayerFocusProvider } from '@/components/player-focus';
 import { PlayerCareer } from '@/components/player-career';
 import { PlayerInternationals } from '@/components/player-internationals';
 import type { RibbonCell } from '@/components/gameweek-ribbon';
@@ -151,7 +152,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
    * figure can follow the gameweek ribbon like the rest of the page.
    */
   const shape = team === undefined ? null : shapes.forPlayer(player.code, team.code);
-  const prior = estimatePrior({ position: player.position, playerCode: player.code, shape });
+  const prior = estimatePrior({ position: player.position, shape });
   const form = await getRecentForm(player.code, player.id);
 
   const heatmapMatches: HeatmapMatch[] = spatial
@@ -237,42 +238,49 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         </p>
       )}
 
-      <div className={styles.body}>
-        <aside className={styles.aside}>
-          <PersonPhoto kind="player" code={player.code} name={playerFullName(player)} size="xl" />
-          <dl className={styles.totals}>
-            <Total label="Minutes" value={String(player.minutes)} />
-            <Total label="Goals" value={String(player.goals)} />
-            <Total label="Assists" value={String(player.assists)} />
-            <Total label="Clean sheets" value={String(player.cleanSheets)} />
-            <Total label="Bonus" value={String(player.bonus)} />
-            <Total label="BPS" value={String(player.bps)} />
-            <Total label="xG" value={player.expectedGoals.toFixed(2)} />
-            <Total label="xA" value={player.expectedAssists.toFixed(2)} />
-            <Total label="Points per game" value={player.pointsPerGame.toFixed(1)} />
-            {team !== undefined && (
-              <Link className={styles.club} href={`/teams/${String(team.code)}`}>
-                <Crest code={team.code} name={team.name} size={20} />
-                <span>{team.name}</span>
-              </Link>
-            )}
-          </dl>
-        </aside>
+      {/* One reader, one gameweek: the ribbon in the main column and the
+          movement figure in the sidebar both answer to the same selection. */}
+      <PlayerFocusProvider>
+        <div className={styles.body}>
+          <aside className={styles.aside}>
+            <PersonPhoto kind="player" code={player.code} name={playerFullName(player)} size="xl" />
+            <dl className={styles.totals}>
+              <Total label="Minutes" value={String(player.minutes)} />
+              <Total label="Goals" value={String(player.goals)} />
+              <Total label="Assists" value={String(player.assists)} />
+              <Total label="Clean sheets" value={String(player.cleanSheets)} />
+              <Total label="Bonus" value={String(player.bonus)} />
+              <Total label="BPS" value={String(player.bps)} />
+              <Total label="xG" value={player.expectedGoals.toFixed(2)} />
+              <Total label="xA" value={player.expectedAssists.toFixed(2)} />
+              <Total label="Points per game" value={player.pointsPerGame.toFixed(1)} />
+              {team !== undefined && (
+                <Link className={styles.club} href={`/teams/${String(team.code)}`}>
+                  <Crest code={team.code} name={team.name} size={20} />
+                  <span>{team.name}</span>
+                </Link>
+              )}
+            </dl>
 
-        <div className={styles.main}>
-          <PlayerSeason
-            cells={cells}
-            series={series}
-            rows={rows}
-            heatmap={heatmapMatches}
-            heatmapPrior={prior}
-            heatmapForm={form}
-            liveSeason={liveSeason}
-          />
-          <PlayerCareer seasons={career.seasons} totals={career.totals} />
-          <PlayerInternationals seasons={international.seasons} totals={international.totals} />
+            {/* Where he plays sits with what he did, rather than three sections
+              down: a role reads as another fact about the player, and drawn up
+              the column it fits the sidebar's width without shrinking a pitch
+              into a strip. */}
+            <PlayerHeatmap
+              matches={heatmapMatches}
+              prior={prior}
+              form={form}
+              liveSeason={liveSeason}
+            />
+          </aside>
+
+          <div className={styles.main}>
+            <PlayerSeason cells={cells} series={series} rows={rows} />
+            <PlayerCareer seasons={career.seasons} totals={career.totals} />
+            <PlayerInternationals seasons={international.seasons} totals={international.totals} />
+          </div>
         </div>
-      </div>
+      </PlayerFocusProvider>
     </div>
   );
 }

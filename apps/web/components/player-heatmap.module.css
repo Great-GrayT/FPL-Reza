@@ -1,5 +1,11 @@
+/* The panel sits in the sidebar beside the season totals, in a column about
+   fifteen rems wide, so everything here is sized for that column rather than
+   for a page width: one measure, no three column rows, and a pitch drawn up
+   the page instead of across it. */
 .section {
-  margin-top: var(--s7);
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--rule);
 }
 
 .head {
@@ -11,7 +17,11 @@
 }
 
 .heading {
-  font-size: var(--step-2);
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
 }
 
 .seasonPicker select {
@@ -26,9 +36,9 @@
 }
 
 .caption {
-  margin: var(--s2) 0 var(--s4);
+  margin: var(--s2) 0 var(--s3);
   color: var(--ink-soft);
-  font-size: var(--step--1);
+  font-size: var(--step--2);
   max-width: var(--measure);
 }
 
@@ -152,15 +162,45 @@
 
 .estimateNote {
   margin: 0 0 var(--s3);
-  padding: var(--s3);
+  padding: var(--s2) var(--s3);
   border-inline-start: 2px solid var(--bonus);
   background: var(--paper-2);
-  font-size: var(--step--1);
+  font-size: var(--step--2);
+  line-height: 1.45;
   max-inline-size: var(--measure);
 }
 
 .pitchWrap {
   position: relative;
+}
+
+/* Drawn up the column: at the real 105 by 68 ratio a vertical pitch is half as
+   wide again as it is tall, so it is the width that is capped and the height
+   follows. Centred, because a narrow figure pinned left reads as a mistake. */
+.pitchWrap[data-orientation='vertical'] {
+  max-inline-size: 12rem;
+  margin-inline: auto;
+}
+
+/* The role the figure was drawn from, printed as a label and its value: the
+   claim the whole picture rests on, in the provider's own words. */
+.role {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0 0 var(--s3);
+  font-size: var(--step--2);
+}
+
+.roleLabel {
+  font-family: var(--font-display), sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.roleValue {
+  font-family: var(--font-mono), monospace;
+  color: var(--ink);
 }
 
 /* A broken outline, which is how a printed page marks a draft. It is the third
@@ -185,14 +225,12 @@
 }
 
 /* The reasons read as notes pencilled in the margin of a draft, which is the
-   same device the stamp and the broken outline use. Label, note, and a rule as
-   long as the claim is strong. */
+   same device the stamp and the broken outline use. In a sidebar there is no
+   room for a label column, so the head sits above its own list. */
 
 .reasons {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--s2) var(--s3);
-  align-items: baseline;
+  gap: var(--s2);
   margin: var(--s3) 0 0;
   padding-block-start: var(--s3);
   border-top: 1px solid var(--rule);
@@ -221,10 +259,9 @@
 
 .reason {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 4rem;
-  align-items: center;
-  gap: var(--s2);
-  font-size: var(--step--1);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.15rem;
+  font-size: var(--step--2);
 }
 
 .reasonKind {
@@ -238,16 +275,24 @@
   color: var(--ink-soft);
 }
 
-/* Length is the weight, capped at the same 1.2 the model caps a lobe at, so two
-   players' rules are comparable rather than each scaled to its own maximum. */
+/* Length is the weight as a share of this player's strongest, so the full bar
+   is his own leading measure and the shortest bar is still readable. The scale
+   is printed underneath, because normalising per player is what a reader would
+   otherwise have to assume. */
 .reasonWeight {
   height: 0.35rem;
   border: 1px solid var(--rule-strong);
   background: linear-gradient(
     to right,
-    var(--bonus) 0 calc(clamp(0, var(--weight) / 1.2, 1) * 100%),
+    var(--bonus) 0 calc(clamp(0, var(--weight), 1) * 100%),
     transparent 0
   );
+}
+
+.reasonScale {
+  margin: var(--s2) 0 0;
+  color: var(--ink-soft);
+  font-size: var(--step--2);
 }
 
 .window {
@@ -257,19 +302,10 @@
   max-inline-size: var(--measure);
 }
 
-@media (width < 32rem) {
-  /* Three columns of an already small line is four characters each on a phone;
-     stacked, the note keeps its own line and the rule sits under it. */
-  .reasons {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--s2);
-  }
-
-  .reason {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .reasonWeight {
-    grid-column: 1 / -1;
+@media (width < 60rem) {
+  /* Above the sidebar collapse the panel shares a row with the photograph and
+     the totals, so the pitch may take the width it wants. */
+  .pitchWrap[data-orientation='vertical'] {
+    max-inline-size: 16rem;
   }
 }

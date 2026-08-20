@@ -3,11 +3,13 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
   composeHeatmap,
+  type EstimatedHeatmap,
   type EvidenceRow,
   type HeatmapPrior,
   type HeatmapWindow,
   type LobeKind,
 } from '@/lib/heatmap-lobes';
+import { usePlayerFocus } from './player-focus';
 import { HeatGrid, PitchMarkings, PitchMarker } from './pitch';
 import styles from './player-heatmap.module.css';
 
@@ -49,6 +51,38 @@ const REASON_LABEL: Record<LobeKind, string> = {
   defend: 'Defending',
 };
 
+/**
+ * What the figure was drawn as, in the words it was drawn from.
+ *
+ * Three bases, three different claims, and they are worth different amounts:
+ * the provider's own role label is the strongest, the slot he filled in a
+ * named shape is next, and his position alone is an admission that nothing
+ * placed him. Printing which one applies is what lets a reader argue with the
+ * label rather than with the picture.
+ */
+function roleSentence(estimate: EstimatedHeatmap): string {
+  const from =
+    estimate.from === null
+      ? ''
+      : `, last named ${estimate.from.season}${
+          estimate.from.gameweek === null ? '' : ` gameweek ${String(estimate.from.gameweek)}`
+        }`;
+
+  if (estimate.basis === 'role' && estimate.role !== null) {
+    const starts =
+      estimate.roleOf === 0
+        ? ''
+        : ` in ${String(estimate.roleStarts)} of his last ${String(estimate.roleOf)} starts`;
+    return `${estimate.role}${starts}${from}`;
+  }
+
+  if (estimate.basis === 'slot') {
+    return `his slot in the ${estimate.formation ?? 'last named'} shape${from}`;
+  }
+
+  return 'his position alone, since no teamsheet names him in a shape';
+}
+
 /** The matches the figure read, which is the date on a modelled picture. */
 function windowSentence(window: HeatmapWindow): string {
   const span =
@@ -70,8 +104,6 @@ export function PlayerHeatmap({
   prior,
   form,
   liveSeason,
-  selectedGameweek,
-  onSelectGameweek,
 }: {
   matches: readonly HeatmapMatch[];
   /**
@@ -83,10 +115,10 @@ export function PlayerHeatmap({
   form?: readonly EvidenceRow[] | undefined;
   /** The season the ribbon's gameweek numbers belong to. */
   liveSeason?: string | undefined;
-  /** Driven from the gameweek ribbon, so one click narrows the whole page. */
-  selectedGameweek?: number | null;
-  onSelectGameweek?: (gameweek: number | null) => void;
 }) {
+  // The ribbon lives in the other column, so the week comes from the page
+  // rather than from a prop threaded through the season component.
+  const { gameweek: selectedGameweek, select: onSelectGameweek } = usePlayerFocus();
   const seasons = useMemo(
     () => [...new Set(matches.map((match) => match.season))].sort((a, b) => b.localeCompare(a)),
     [matches],
@@ -103,7 +135,7 @@ export function PlayerHeatmap({
   // picking gameweek 34 and then an older season shows that season whole
   // rather than an empty pitch.
   const narrowed = useMemo(() => {
-    if (selectedGameweek === null || selectedGameweek === undefined) return inSeason;
+    if (selectedGameweek === null) return inSeason;
     const matching = inSeason.filter((match) => match.gameweek === selectedGameweek);
     return matching.length === 0 ? inSeason : matching;
   }, [inSeason, selectedGameweek]);
@@ -118,11 +150,17 @@ export function PlayerHeatmap({
   const estimate = useMemo(() => {
     if (prior === undefined) return null;
     const until =
-      selectedGameweek === null || selectedGameweek === undefined || liveSeason === undefined
+      selectedGameweek === null || liveSeason === undefined
         ? null
         : { season: liveSeason, gameweek: selectedGameweek };
     return composeHeatmap(prior, form ?? [], until);
   }, [prior, form, liveSeason, selectedGameweek]);
+
+  /** The largest uplift any measure claimed, which is what the bars scale to. */
+  const strongest = useMemo(
+    () => (estimate === null ? 0 : Math.max(0, ...estimate.lobes.map((lobe) => lobe.weight))),
+    [estimate],
+  );
 
   const aggregate = useMemo(() => {
     const first = narrowed[0];
@@ -186,27 +224,24 @@ export function PlayerHeatmap({
                 around the pitch, which is the same device a draft is printed
                 with. Nothing about it should read as a measurement. */}
             <p className={styles.estimateNote}>
-              <strong>Estimated, not measured.</strong> No tracking data is stored for this player,
-              so this is where his role puts him,{' '}
-              {estimate.basis === 'slot'
-                ? `the slot he filled in his club's ${estimate.formation ?? 'last named'} shape`
-                : 'his position alone, since no teamsheet names him in a shape'}
-              {/* The date belongs to the shape, so it is printed only where the
-                  shape placed him. A position alone was not read from a match. */}
-              {estimate.basis === 'slot' && estimate.from !== null
-                ? `, read from ${estimate.from.season}${
-                    estimate.from.gameweek === null
-                      ? ''
-                      : ` gameweek ${String(estimate.from.gameweek)}`
-                  }${estimate.from.opponent === null ? '' : ` against ${estimate.from.opponent}`}`
-                : ''}
-              , narrowed by what he actually did. It says nothing about whether he drifts, tucks in,
-              or spent March somewhere else.
+              <strong>Estimated, not measured.</strong> No tracking data is stored for him, so this
+              is where his role puts him, narrowed by what he actually did. It says nothing about
+              whether he drifts, tucks in, or spent March somewhere else.
+            </p>
+
+            {/* The role is the claim the whole figure rests on, so it is
+                printed rather than implied: the provider's own words, how many
+                of his recent starts carried them, and the match the shape was
+                read from. A reader who disagrees with the label can see that
+                it is the label they disagree with, not the arithmetic. */}
+            <p className={styles.role}>
+              <span className={styles.roleLabel}>Drawn as</span>
+              <span className={styles.roleValue}>{roleSentence(estimate)}</span>
             </p>
 
             <figure className={styles.figure} data-estimated="true">
-              <div className={styles.pitchWrap}>
-                <PitchMarkings>
+              <div className={styles.pitchWrap} data-orientation="vertical">
+                <PitchMarkings orientation="vertical">
                   <HeatGrid
                     cols={estimate.cols}
                     rows={estimate.rows}
@@ -218,8 +253,7 @@ export function PlayerHeatmap({
                 <span className={styles.stamp}>Estimated</span>
               </div>
               <figcaption className={styles.caption}>
-                Attacking towards the right. The mark is the middle of it, the shading is how far it
-                reaches.
+                Attacking upward. The mark is the middle of it, the shading is how far it reaches.
               </figcaption>
             </figure>
 
@@ -227,7 +261,7 @@ export function PlayerHeatmap({
                 a measure that moved the shading, and the rule beside it is how
                 hard. Marked up as a description list, so a screen reader gets
                 the same pairing the eye does. */}
-            {estimate.lobes.length > 0 && (
+            {estimate.lobes.length > 0 && strongest > 0 && (
               <dl className={styles.reasons}>
                 <dt className={styles.reasonsHead}>What moved it</dt>
                 <dd className={styles.reasonsBody}>
@@ -238,12 +272,19 @@ export function PlayerHeatmap({
                         <span className={styles.reasonNote}>{lobe.note}</span>
                         <span
                           className={styles.reasonWeight}
-                          style={{ '--weight': lobe.weight } as CSSProperties}
+                          style={{ '--weight': lobe.weight / strongest } as CSSProperties}
                           aria-hidden
                         />
                       </li>
                     ))}
                   </ul>
+                  {/* Normalised to this player's strongest measure, so the bars
+                      rank what moved his own figure. That costs comparison
+                      between two players, so the scale is printed rather than
+                      left to be assumed. */}
+                  <p className={styles.reasonScale}>
+                    Full bar is his strongest, {strongest.toFixed(2)} times the role alone.
+                  </p>
                 </dd>
               </dl>
             )}
@@ -278,7 +319,7 @@ export function PlayerHeatmap({
               value={activeSeason ?? ''}
               onChange={(event) => {
                 setSeason(event.target.value);
-                onSelectGameweek?.(null);
+                onSelectGameweek(null);
               }}
             >
               {seasons.map((entry) => (
@@ -293,10 +334,10 @@ export function PlayerHeatmap({
 
       <p className={styles.caption}>
         {activeSeason === null ? '' : seasonLabel(activeSeason)}
-        {narrowedToOne && selectedGameweek !== null && selectedGameweek !== undefined
+        {narrowedToOne && selectedGameweek !== null
           ? `, gameweek ${String(selectedGameweek)}`
           : `, ${String(aggregate?.matches ?? 0)} tracked ${aggregate?.matches === 1 ? 'match' : 'matches'}`}
-        . Every touch, added cell by cell. The player attacks towards the right.
+        . Every touch, added cell by cell. The player attacks upward.
       </p>
 
       {gameweeks.length > 0 && (
@@ -305,7 +346,7 @@ export function PlayerHeatmap({
             type="button"
             className={narrowedToOne ? styles.week : styles.weekOn}
             onClick={() => {
-              onSelectGameweek?.(null);
+              onSelectGameweek(null);
             }}
           >
             All
@@ -317,7 +358,7 @@ export function PlayerHeatmap({
               className={selectedGameweek === week ? styles.weekOn : styles.week}
               aria-pressed={selectedGameweek === week}
               onClick={() => {
-                onSelectGameweek?.(selectedGameweek === week ? null : week);
+                onSelectGameweek(selectedGameweek === week ? null : week);
               }}
             >
               {week}
@@ -331,7 +372,7 @@ export function PlayerHeatmap({
       ) : (
         <>
           <figure className={styles.figure}>
-            <PitchMarkings>
+            <PitchMarkings orientation="vertical">
               <HeatGrid cols={aggregate.cols} rows={aggregate.rows} counts={aggregate.counts} />
               {aggregate.averageX !== null && aggregate.averageY !== null && (
                 <PitchMarker

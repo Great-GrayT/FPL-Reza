@@ -16,36 +16,58 @@ export const PITCH_WIDTH = 68;
 const toX = (x: number): number => (x / 100) * PITCH_LENGTH;
 const toY = (y: number): number => (y / 100) * PITCH_WIDTH;
 
-export function PitchMarkings({ children }: { children?: React.ReactNode }) {
+export type PitchOrientation = 'horizontal' | 'vertical';
+
+/**
+ * The pitch, drawn along the direction of play or up it.
+ *
+ * Vertical is a rotation of the same drawing rather than a second one: every
+ * child is authored in the domain's own coordinates and the whole group turns
+ * once, so a heat cell, a marker, and the six yard box cannot disagree about
+ * which way the player is attacking. Attacking is upward when it is turned,
+ * which is the orientation a narrow column and a phone both want.
+ */
+export function PitchMarkings({
+  children,
+  orientation = 'horizontal',
+}: {
+  children?: React.ReactNode;
+  orientation?: PitchOrientation;
+}) {
+  const vertical = orientation === 'vertical';
+  const viewBox = vertical
+    ? `-2 -2 ${String(PITCH_WIDTH + 4)} ${String(PITCH_LENGTH + 4)}`
+    : `-2 -2 ${String(PITCH_LENGTH + 4)} ${String(PITCH_WIDTH + 4)}`;
+
   return (
-    <svg
-      className={styles.pitch}
-      viewBox={`-2 -2 ${String(PITCH_LENGTH + 4)} ${String(PITCH_WIDTH + 4)}`}
-      role="presentation"
-    >
-      <rect
-        x={0}
-        y={0}
-        width={PITCH_LENGTH}
-        height={PITCH_WIDTH}
-        className={styles.turf}
-        rx={0.5}
-      />
-      {children}
-      <g className={styles.lines}>
-        <rect x={0} y={0} width={PITCH_LENGTH} height={PITCH_WIDTH} />
-        <line x1={PITCH_LENGTH / 2} y1={0} x2={PITCH_LENGTH / 2} y2={PITCH_WIDTH} />
-        <circle cx={PITCH_LENGTH / 2} cy={PITCH_WIDTH / 2} r={9.15} />
-        <circle cx={PITCH_LENGTH / 2} cy={PITCH_WIDTH / 2} r={0.6} className={styles.spot} />
+    <svg className={styles.pitch} viewBox={viewBox} role="presentation">
+      {/* (x, y) in pitch coordinates becomes (y, length - x) on screen, so the
+          goal being attacked is at the top and the left touchline stays left. */}
+      <g transform={vertical ? `translate(0 ${String(PITCH_LENGTH)}) rotate(-90)` : undefined}>
+        <rect
+          x={0}
+          y={0}
+          width={PITCH_LENGTH}
+          height={PITCH_WIDTH}
+          className={styles.turf}
+          rx={0.5}
+        />
+        {children}
+        <g className={styles.lines}>
+          <rect x={0} y={0} width={PITCH_LENGTH} height={PITCH_WIDTH} />
+          <line x1={PITCH_LENGTH / 2} y1={0} x2={PITCH_LENGTH / 2} y2={PITCH_WIDTH} />
+          <circle cx={PITCH_LENGTH / 2} cy={PITCH_WIDTH / 2} r={9.15} />
+          <circle cx={PITCH_LENGTH / 2} cy={PITCH_WIDTH / 2} r={0.6} className={styles.spot} />
 
-        {/* Penalty and six yard areas, both ends. */}
-        <rect x={0} y={(PITCH_WIDTH - 40.3) / 2} width={16.5} height={40.3} />
-        <rect x={0} y={(PITCH_WIDTH - 18.3) / 2} width={5.5} height={18.3} />
-        <circle cx={11} cy={PITCH_WIDTH / 2} r={0.6} className={styles.spot} />
+          {/* Penalty and six yard areas, both ends. */}
+          <rect x={0} y={(PITCH_WIDTH - 40.3) / 2} width={16.5} height={40.3} />
+          <rect x={0} y={(PITCH_WIDTH - 18.3) / 2} width={5.5} height={18.3} />
+          <circle cx={11} cy={PITCH_WIDTH / 2} r={0.6} className={styles.spot} />
 
-        <rect x={PITCH_LENGTH - 16.5} y={(PITCH_WIDTH - 40.3) / 2} width={16.5} height={40.3} />
-        <rect x={PITCH_LENGTH - 5.5} y={(PITCH_WIDTH - 18.3) / 2} width={5.5} height={18.3} />
-        <circle cx={PITCH_LENGTH - 11} cy={PITCH_WIDTH / 2} r={0.6} className={styles.spot} />
+          <rect x={PITCH_LENGTH - 16.5} y={(PITCH_WIDTH - 40.3) / 2} width={16.5} height={40.3} />
+          <rect x={PITCH_LENGTH - 5.5} y={(PITCH_WIDTH - 18.3) / 2} width={5.5} height={18.3} />
+          <circle cx={PITCH_LENGTH - 11} cy={PITCH_WIDTH / 2} r={0.6} className={styles.spot} />
+        </g>
       </g>
     </svg>
   );

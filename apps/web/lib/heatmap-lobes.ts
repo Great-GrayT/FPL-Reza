@@ -35,7 +35,31 @@ import type { Position } from '@fpl/core';
  * behind it.
  */
 
-export type HeatmapBasis = 'slot' | 'position';
+export type HeatmapBasis = 'role' | 'slot' | 'position';
+
+/** The lines the provider names, back to front. */
+export type RoleLine =
+  | 'Goalkeeper'
+  | 'Central Defender'
+  | 'Defender'
+  | 'Full Back'
+  | 'Wing Back'
+  | 'Defensive Midfielder'
+  | 'Central Midfielder'
+  | 'Midfielder'
+  | 'Attacking Midfielder'
+  | 'Winger'
+  | 'Second Striker'
+  | 'Striker'
+  | 'Forward';
+
+export type RoleSide = 'Left' | 'Centre' | 'Right';
+
+export interface ParsedRole {
+  /** Empty where the provider named a line without a side. */
+  sides: RoleSide[];
+  line: RoleLine;
+}
 
 /** The match a shape was read from, which is what dates the estimate. */
 export interface ShapeSource {
@@ -51,6 +75,11 @@ export interface ShapeSource {
  */
 export interface HeatmapPrior {
   position: Position;
+  /** The provider's own words for the role, where one placed him. */
+  role: string | null;
+  /** How many of the starts read carried that role, and how many were read. */
+  roleStarts: number;
+  roleOf: number;
   /** Across the pitch, 0 at the left touchline and 1 at the right. */
   lateral: number;
   centreX: number;
@@ -114,6 +143,10 @@ export interface EstimatedHeatmap {
   centreX: number;
   centreY: number;
   basis: HeatmapBasis;
+  /** The words the figure was drawn from, where a role drew it. */
+  role: string | null;
+  roleStarts: number;
+  roleOf: number;
   formation: string | null;
   from: ShapeSource | null;
   lobes: Lobe[];
@@ -221,18 +254,102 @@ export function shotDistanceMetres(quality: number): number {
   return Math.min(35, Math.max(4, -Math.log(quality) / 0.136));
 }
 
-/** The role prior, from a slot where a teamsheet named one and a position otherwise. */
+/**
+ * Where each line the provider names stands, and how far it ranges.
+ *
+ * Advancement is on the same 0 to 1 scale the duel geometry uses, 0 at a
+ * club's defensive line and 1 at its furthest forward row, so a line here and
+ * a slot read off a formation land in the same frame. The numbers are stated
+ * claims about roles, not fits: a full back is deeper than a wing back and
+ * both are wider than a centre back, a winger plays higher than an attacking
+ * midfielder and narrower across the pitch because a touchline bounds him.
+ *
+ * The three unsided lines (Defender, Midfielder, Forward) are the provider's
+ * own vagueness, kept rather than sharpened: they are given their position's
+ * default width, so a player it will not place is not placed precisely.
+ */
+const BY_LINE: Record<RoleLine, { advancement: number; spreadX: number; spreadY: number }> = {
+  Goalkeeper: { advancement: 0, spreadX: 0.05, spreadY: 0.05 },
+  'Central Defender': { advancement: 0.02, spreadX: 0.15, spreadY: 0.14 },
+  Defender: { advancement: 0.06, spreadX: 0.18, spreadY: 0.16 },
+  'Full Back': { advancement: 0.16, spreadX: 0.22, spreadY: 0.12 },
+  'Wing Back': { advancement: 0.34, spreadX: 0.24, spreadY: 0.12 },
+  'Defensive Midfielder': { advancement: 0.36, spreadX: 0.18, spreadY: 0.18 },
+  'Central Midfielder': { advancement: 0.52, spreadX: 0.2, spreadY: 0.2 },
+  Midfielder: { advancement: 0.5, spreadX: 0.22, spreadY: 0.22 },
+  'Attacking Midfielder': { advancement: 0.68, spreadX: 0.2, spreadY: 0.19 },
+  Winger: { advancement: 0.76, spreadX: 0.2, spreadY: 0.14 },
+  'Second Striker': { advancement: 0.82, spreadX: 0.18, spreadY: 0.18 },
+  Striker: { advancement: 0.9, spreadX: 0.18, spreadY: 0.16 },
+  Forward: { advancement: 0.86, spreadX: 0.2, spreadY: 0.2 },
+};
+
+/** Where a named side puts a player across the pitch. */
+const BY_SIDE: Record<RoleSide, number> = { Left: 0.16, Centre: 0.5, Right: 0.84 };
+
+const LINES = Object.keys(BY_LINE) as RoleLine[];
+const SIDES: RoleSide[] = ['Left', 'Centre', 'Right'];
+
+const isSide = (token: string): token is RoleSide => (SIDES as string[]).includes(token);
+
+/**
+ * The provider's role label, split into the side or sides it names and the
+ * line it puts him on.
+ *
+ * "Centre Central Defender" is a side and a line; "Central Defender" is a line
+ * alone, and reading its first word as a side would move every unsided centre
+ * back to the middle of a pitch he is already in the middle of. So a leading
+ * token counts as a side only when every part of it is Left, Centre, or Right,
+ * which is exactly how the provider composes them ("Left/Centre/Right Winger").
+ *
+ * A label whose line is not one of the thirteen returns null rather than a
+ * guess, because the alternative is placing a player on a line nobody named.
+ */
+export function parseRole(label: string | null | undefined): ParsedRole | null {
+  if (label === null || label === undefined) return null;
+  const words = label.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return null;
+
+  const sides: RoleSide[] = [];
+  let index = 0;
+  while (index < words.length) {
+    const parts = (words[index] ?? '').split('/');
+    if (parts.length === 0 || !parts.every(isSide)) break;
+    for (const part of parts) if (isSide(part) && !sides.includes(part)) sides.push(part);
+    index += 1;
+  }
+
+  const line = words.slice(index).join(' ');
+  const known = LINES.find((entry) => entry === line);
+  return known === undefined ? null : { sides, line: known };
+}
+
+/** The role prior, from a named role, else a slot, else a position alone. */
 export function priorFor(input: {
   position: Position;
+  /** The provider's label, which places a player far better than his position. */
+  role?: string | null | undefined;
+  roleStarts?: number | undefined;
+  roleOf?: number | undefined;
   lateral?: number | undefined;
   advancement?: number | undefined;
   basis?: HeatmapBasis | undefined;
   formation?: string | null | undefined;
   from?: ShapeSource | null | undefined;
 }): HeatmapPrior {
+  const parsed = parseRole(input.role);
   const defaults = BY_POSITION[input.position];
-  const lateral = input.lateral ?? 0.5;
-  const advancement = input.advancement ?? defaults.advancement;
+  const line = parsed === null ? null : BY_LINE[parsed.line];
+
+  // A side the provider names beats a slot read off a formation, and both beat
+  // the position, which is four buckets for six hundred players and is what
+  // drew a right back in the middle of a back four and a winger in midfield.
+  const named =
+    parsed === null || parsed.sides.length === 0
+      ? null
+      : parsed.sides.reduce((total, entry) => total + BY_SIDE[entry], 0) / parsed.sides.length;
+  const lateral = named ?? input.lateral ?? 0.5;
+  const advancement = line?.advancement ?? input.advancement ?? defaults.advancement;
 
   // A keeper is off the outfield scale, so his position wins whatever a
   // teamsheet says: the first row of a formation is the back line, not him.
@@ -243,14 +360,24 @@ export function priorFor(input: {
   // A wide player's cloud leans inward, because a touchline is a wall.
   const centreY = input.position === 'GKP' ? 0.5 : lateral + (0.5 - lateral) * 0.22 * offCentre;
 
+  // Two flanks named is a wider claim than one, and it averages to the middle,
+  // where the lean above would otherwise leave it looking like a central role.
+  const sideSpread = parsed === null ? 1 : 1 + Math.max(0, parsed.sides.length - 1) * 0.4;
+
+  const basis: HeatmapBasis =
+    input.basis ?? (parsed !== null ? 'role' : input.lateral === undefined ? 'position' : 'slot');
+
   return {
     position: input.position,
+    role: parsed === null ? null : (input.role ?? null),
+    roleStarts: parsed === null ? 0 : (input.roleStarts ?? 0),
+    roleOf: parsed === null ? 0 : (input.roleOf ?? 0),
     lateral: input.position === 'GKP' ? 0.5 : lateral,
     centreX,
     centreY,
-    spreadX: defaults.spreadX,
-    spreadY: defaults.spreadY * (1 + offCentre * 0.35),
-    basis: input.basis ?? (input.lateral === undefined ? 'position' : 'slot'),
+    spreadX: line?.spreadX ?? defaults.spreadX,
+    spreadY: (line?.spreadY ?? defaults.spreadY) * (1 + offCentre * 0.35) * sideSpread,
+    basis: parsed !== null && input.position === 'GKP' ? 'role' : basis,
     formation: input.formation ?? null,
     from: input.from ?? null,
   };
@@ -463,6 +590,9 @@ export function composeHeatmap(
     centreX: mass > 0 ? centreX / mass : prior.centreX,
     centreY: mass > 0 ? centreY / mass : prior.centreY,
     basis: prior.basis,
+    role: prior.role,
+    roleStarts: prior.roleStarts,
+    roleOf: prior.roleOf,
     formation: prior.formation,
     from: prior.from,
     lobes: blooms.map((bloom) => bloom.lobe),

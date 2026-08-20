@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { impliedShotDistance, impliedShotQuality } from '@fpl/model';
 import {
   composeHeatmap,
+  parseRole,
   priorFor,
   selectWindow,
   shotDistanceMetres,
@@ -190,5 +191,75 @@ describe('the posterior', () => {
     assert.ok(Math.max(...posterior.counts) > 0);
     assert.ok(posterior.centreX > 0 && posterior.centreX < 1);
     assert.ok(posterior.centreY > 0 && posterior.centreY < 1);
+  });
+});
+
+describe('the provider role', () => {
+  it('reads a side and a line out of every shape the provider prints', () => {
+    assert.deepEqual(parseRole('Left Winger'), { sides: ['Left'], line: 'Winger' });
+    assert.deepEqual(parseRole('Centre/Right Full Back'), {
+      sides: ['Centre', 'Right'],
+      line: 'Full Back',
+    });
+    assert.deepEqual(parseRole('Left/Centre/Right Attacking Midfielder'), {
+      sides: ['Left', 'Centre', 'Right'],
+      line: 'Attacking Midfielder',
+    });
+  });
+
+  it('keeps "Central" as part of the line, never as a side', () => {
+    assert.deepEqual(parseRole('Central Defender'), { sides: [], line: 'Central Defender' });
+    assert.deepEqual(parseRole('Centre Central Defender'), {
+      sides: ['Centre'],
+      line: 'Central Defender',
+    });
+  });
+
+  it('refuses a label it does not know rather than guessing a line', () => {
+    assert.equal(parseRole('Sweeper Keeper'), null);
+    assert.equal(parseRole(null), null);
+    assert.equal(parseRole(''), null);
+  });
+
+  it('puts a right back on the right, deeper than a right winger', () => {
+    const back = priorFor({ position: 'DEF', role: 'Right Full Back' });
+    const wing = priorFor({ position: 'MID', role: 'Right Winger' });
+
+    assert.ok(back.lateral > 0.6, `a right back should be right of centre, got ${back.lateral}`);
+    assert.ok(wing.lateral > 0.6, `a right winger should be right of centre, got ${wing.lateral}`);
+    assert.ok(
+      back.centreX < wing.centreX,
+      `a full back should sit deeper than a winger, got ${back.centreX} against ${wing.centreX}`,
+    );
+    assert.equal(back.basis, 'role');
+  });
+
+  it('separates the two players the position fallback drew identically', () => {
+    const winger = priorFor({ position: 'MID', role: 'Left Winger' });
+    const midfielder = priorFor({ position: 'MID', role: 'Centre Central Midfielder' });
+
+    assert.ok(
+      winger.centreY < midfielder.centreY - 0.15,
+      'a winger and a central midfielder must not share a cloud',
+    );
+    assert.ok(winger.centreX > midfielder.centreX, 'a winger plays further forward');
+  });
+
+  it('widens a player the provider names on more than one flank', () => {
+    const one = priorFor({ position: 'MID', role: 'Left Winger' });
+    const both = priorFor({ position: 'MID', role: 'Left/Right Winger' });
+
+    assert.ok(both.spreadY > one.spreadY, 'either flank is a wider claim than one flank');
+    assert.ok(Math.abs(both.lateral - 0.5) < 0.01, 'either flank averages to the middle');
+  });
+
+  it('keeps a keeper on his line whatever the label says', () => {
+    const keeper = priorFor({ position: 'GKP', role: 'Goalkeeper' });
+    assert.ok(keeper.centreX < 0.2);
+    assert.equal(keeper.lateral, 0.5);
+  });
+
+  it('falls back to the position when no role is given', () => {
+    assert.equal(priorFor({ position: 'MID' }).basis, 'position');
   });
 });

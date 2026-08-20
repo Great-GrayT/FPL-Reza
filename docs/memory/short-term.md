@@ -8,7 +8,7 @@ status: active
 
 ## Status
 
-Green as of 2026-08-20: `pnpm build`, 687 tests, lint, and format all pass. Everything below is committed on `main` **except** the estimated heatmap (four files under `apps/web/lib`, the player page, the heatmap component, `lake.ts`) and the two fixes recorded under "Fixed on 2026-08-20", which are verified and sitting uncommitted in the working tree after VS Code was killed at 100% CPU mid verify. `apps/web` is not in the root `tsconfig` references, so its only typecheck is `next build` over 1,109 pages: that is what pinned the CPU. `npx tsc --noEmit -p apps/web/tsconfig.json` is the cheap equivalent and is what was run instead.
+Green as of 2026-08-20: `pnpm build`, 700 tests, lint, and format all pass. Everything below is committed on `main` **except** the estimated heatmap (four files under `apps/web/lib`, the player page, the heatmap component, `lake.ts`) and the two fixes recorded under "Fixed on 2026-08-20", which are verified and sitting uncommitted in the working tree after VS Code was killed at 100% CPU mid verify. `apps/web` is not in the root `tsconfig` references, so its only typecheck is `next build` over 1,109 pages: that is what pinned the CPU. `npx tsc --noEmit -p apps/web/tsconfig.json` is the cheap equivalent and is what was run instead.
 
 Complete and shipped:
 
@@ -25,6 +25,16 @@ Complete and shipped:
 
 - **The head coach was read from the wrong feed.** The Premier League staff endpoint carries no start date and leaves a departed manager listed, so five clubs of twenty held two rows reading "Manager" and the site printed the first: Chelsea showed Calum McFarlane, a caretaker whose spell closed on 1 June, instead of Xabi Alonso. Palace, Forest, Leeds, and Wolves were wrong the same way. `currentManager` in `packages/core/src/spells.ts` had answered this since it was written and the web never called it. `getCurrentManager` in `apps/web/lib/lake.ts` now takes the open spell and matches it to the staff row on a decomposed, alphanumeric only name (which is what joins Jakirovic to Jakirović), falling back to feed order where no spell covers the club. `/teams` had its own copy of the broken pick and now calls the same resolver; `/teams/[code]` drops a "Manager" row that is not the current one and leads with the head coach. All 20 clubs resolve by spell.
 - **Three routes printed edge to edge.** `/glossary`, `/scout`, and `/builder` each had a local `.page` setting `padding-block` alone with no `.shell` wrapper, so content ran from the leftmost to the rightmost pixel at every width. All three now wrap in `shell` the way `/how-it-works` does. `/planner` sets its own 78rem measure deliberately and was left alone.
+
+## The heatmap was drawing every player the same way
+
+Found on 2026-08-20 from two user reports ("Saka looks like a midfielder", "Timber shows as a centre back"), and it was not a tuning problem:
+
+- **The slot lookup never once fired.** `formationRows` holds person ids; the code looked players up by player code. Measured over 2025/26: 0 of 8,360 lineup entries matched by code, 8,360 of 8,360 by person id. So `basis` was always `position`, which is four buckets: every midfielder was drawn in the centre circle and every defender on the centre of the back line.
+- **The rows run right to left.** Measured over every stored sheet: the 5,031 players the provider labels "Left something" sit at mean slot lateral 0.736, the 4,223 labelled "Right something" at 0.240. The slot is now flipped to agree with the label.
+- **The provider publishes a real role vocabulary**, 54 labels over 13 lines and 3 sides, sitting unused in `lineup[].positionInfo`. The prior is now the modal label over a player's last twelve starts, and the page prints it with its count.
+- **`packages/model` is unaffected.** Its duel geometry only mirrors relatively (an attacker's lateral against `1 - lateral` in the opponent's rows), so absolute handedness cancels. The teamsheet drawing is side on, where which touchline is at the top is a convention rather than a claim, so it was left alone.
+- Measured after: Saka reads Left Winger 12 of 12 (the provider's claim, not a correction of it), Timber sits right sided at defensive depth, Calafiori left back, Saliba centre back, Rice central midfield, Raya on his line.
 
 ## In flight
 
