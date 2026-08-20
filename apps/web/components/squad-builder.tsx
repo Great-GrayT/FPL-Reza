@@ -24,6 +24,9 @@ import {
 } from '@fpl/analytics';
 import { shirtUrl } from '@fpl/assets/urls';
 import { classes } from '@/lib/classes';
+import { send } from '@/lib/planner/client';
+import type { OptimisedSquad } from '@/lib/planner/protocol';
+import type { PlannerPool } from '@/lib/planner/projections';
 import { MetricTip } from './metric-tip';
 import { PersonPhoto } from './person-photo';
 import styles from './squad-builder.module.css';
@@ -109,18 +112,47 @@ const sortValue = (row: BuilderPlayer, key: SortKey): number => {
   }
 };
 
+/**
+ * The horizons a manager actually plans over. A squad that is best for one
+ * gameweek is rarely the squad that is best for ten, because a run of easy
+ * fixtures and a blank gameweek only exist over a horizon.
+ */
+const GOALS = [
+  { key: 'week', label: 'This week', weeks: 1, note: 'One gameweek. Form and the fixture decide.' },
+  {
+    key: 'month',
+    label: 'A month',
+    weeks: 4,
+    note: 'Four gameweeks. A fixture run starts to tell.',
+  },
+  { key: 'two', label: 'Two months', weeks: 8, note: 'Eight gameweeks. Blanks and doubles land.' },
+  { key: 'half', label: 'Half a season', weeks: 19, note: 'Nineteen. The whole first half.' },
+  { key: 'season', label: 'The season', weeks: 38, note: 'Everything left to play.' },
+];
+
+/** The pool is posted once per tab and kept in the worker under this. */
+const POOL_GENERATION = 2;
+
 export function SquadBuilder({
   players,
   teams,
   gameweek,
   deadline,
   horizon,
+  pool,
 }: {
   players: readonly BuilderPlayer[];
   teams: readonly BuilderTeam[];
   gameweek: number;
+  /**
+   * Already formatted, on the server. Formatting an instant here instead would
+   * hydrate differently from the HTML it replaces: Node and the browser ship
+   * different ICU builds and print "Fri, 21 Aug" against "Fri 21 Aug", which
+   * fails hydration and makes React rebuild the whole page.
+   */
   deadline: string | null;
   horizon: number;
+  pool: PlannerPool;
 }) {
   const [picks, setPicks] = useState<PlayerId[]>([]);
   const [query, setQuery] = useState('');
@@ -132,6 +164,13 @@ export function SquadBuilder({
   const [holding, setHolding] = useState<PlayerId | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [goalKey, setGoalKey] = useState('two');
+  const [keepPicks, setKeepPicks] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [found, setFound] = useState<(OptimisedSquad & { seconds: number; weeks: number }) | null>(
+    null,
+  );
+  const [searchError, setSearchError] = useState<string | null>(null);
   const liveRegion = useRef<HTMLParagraphElement>(null);
 
   const byId = useMemo(() => new Map(players.map((player) => [player.id, player])), [players]);
@@ -250,8 +289,72 @@ export function SquadBuilder({
 
   const clear = useCallback(() => {
     setPicks([]);
+    setFound(null);
     say('Squad cleared.');
   }, [say]);
+
+  const goal = GOALS.find((entry) => entry.key === goalKey) ?? GOALS[2];
+  const weeks = Math.min(goal?.weeks ?? 8, pool.gameweeks.length);
+  const idByCode = useMemo(
+    () => new Map(players.map((player) => [player.code, player.id])),
+    [players],
+  );
+  const codeById = useMemo(
+    () => new Map(players.map((player) => [player.id, player.code])),
+    [players],
+  );
+
+  /**
+   * Hand the squad to the search.
+   *
+   * The reader's own picks are kept only when they ask, because the whole point
+   * of the search is that the best fifteen is rarely the one a ranking would
+   * have assembled, and locking a slot is a claim they should make deliberately.
+   */
+  const optimise = useCallback(() => {
+    setSearching(true);
+    setSearchError(null);
+    say('Searching for the best squad.');
+    const keep = keepPicks
+      ? picks.flatMap((id) => {
+          const code = codeById.get(id);
+          return code === undefined ? [] : [code];
+        })
+      : [];
+
+    send({
+      kind: 'optimise',
+      poolGeneration: POOL_GENERATION,
+      players: pool.players,
+      budget: INITIAL_BUDGET,
+      horizon: weeks,
+      riskAversion: 0,
+      keep,
+    })
+      .then((reply) => {
+        const result = reply.optimisation;
+        if (result === undefined) throw new Error('the search returned nothing');
+        // The horizon travels with the answer rather than being read off the
+        // control, so changing the goal after a search cannot relabel a result
+        // as covering a period it never searched.
+        setFound({ ...result, seconds: reply.elapsed / 1000, weeks });
+        setPicks(
+          result.picks.flatMap((code) => {
+            const id = idByCode.get(code);
+            return id === undefined ? [] : [id];
+          }),
+        );
+        say(
+          `Search finished. ${result.points.toFixed(1)} points over ${String(weeks)} gameweeks, ${(result.points - result.baseline).toFixed(1)} more than the ranking.`,
+        );
+      })
+      .catch((error: unknown) => {
+        setSearchError(error instanceof Error ? error.message : 'the search failed');
+      })
+      .finally(() => {
+        setSearching(false);
+      });
+  }, [keepPicks, picks, codeById, idByCode, pool.players, weeks, say]);
 
   const spentShare = Math.min(100, (cost.spent / cost.budget) * 100);
   const starters = new Set(eleven.starters);
@@ -261,19 +364,7 @@ export function SquadBuilder({
       <header className={styles.masthead}>
         <p className={styles.eyebrow}>
           Gameweek {gameweek}
-          {deadline !== null && (
-            <>
-              {' '}
-              · deadline{' '}
-              {new Date(deadline).toLocaleString('en-GB', {
-                weekday: 'short',
-                day: 'numeric',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </>
-          )}
+          {deadline !== null && <> · deadline {deadline}</>}
         </p>
         <h1 className={styles.title}>Team sheet</h1>
         <p className={styles.standfirst}>
@@ -462,13 +553,114 @@ export function SquadBuilder({
             )}
 
             <div className={styles.actions}>
-              <button type="button" className={styles.primary} onClick={autoFill}>
-                Complete the squad
+              <button type="button" className={styles.secondary} onClick={autoFill}>
+                Complete by ranking
               </button>
               <button type="button" className={styles.secondary} onClick={clear}>
                 Clear
               </button>
             </div>
+          </section>
+
+          <section className={styles.solver} aria-labelledby="solver">
+            <h3 id="solver" className={styles.readoutHead}>
+              Search for the best squad
+            </h3>
+            <p className={styles.solverIntro}>
+              Fifteen players out of {players.length} is a number of squads with thirty digits in
+              it, so this does not try them all. It starts from the ranking, takes the best transfer
+              it can find, then the best pair once no single transfer helps, and repeats until
+              nothing improves. Then it disturbs the squad and climbs again, forty times over. Every
+              squad it scores is legal, and it is scored by solving its own best eleven in every
+              gameweek of the period.
+            </p>
+
+            <fieldset className={styles.solverField}>
+              <legend className={styles.solverLegend}>Best over</legend>
+              {/* Buttons rather than radios, so aria-pressed is what carries the
+                  selection to a screen reader. */}
+              <div className={styles.solverChoices}>
+                {GOALS.map((entry) => (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    className={styles.solverChoice}
+                    aria-pressed={entry.key === goalKey}
+                    data-on={entry.key === goalKey ? 'true' : undefined}
+                    onClick={() => {
+                      setGoalKey(entry.key);
+                    }}
+                  >
+                    {entry.label}
+                  </button>
+                ))}
+              </div>
+              <p className={styles.solverNote}>
+                {goal?.note}{' '}
+                {weeks < (goal?.weeks ?? 0) && `Only ${String(weeks)} gameweeks are left.`}
+              </p>
+            </fieldset>
+
+            <label className={styles.keep}>
+              <input
+                type="checkbox"
+                checked={keepPicks}
+                disabled={picks.length === 0}
+                onChange={(event) => {
+                  setKeepPicks(event.target.checked);
+                }}
+              />
+              <span>
+                Keep the {picks.length} {picks.length === 1 ? 'player' : 'players'} I have picked
+              </span>
+            </label>
+
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.primary}
+                onClick={optimise}
+                disabled={searching}
+                aria-busy={searching}
+              >
+                {searching ? 'Searching' : found === null ? 'Find the best squad' : 'Search again'}
+              </button>
+            </div>
+
+            {searchError !== null && (
+              <p className={styles.searchError} role="alert">
+                {searchError}
+              </p>
+            )}
+
+            {found !== null && (
+              <div className={styles.verdict}>
+                <p className={styles.ledger}>
+                  <span className={styles.was}>
+                    <span className={styles.wasLabel}>By ranking</span>
+                    <span className="num">{found.baseline.toFixed(1)}</span>
+                  </span>
+                  <span aria-hidden="true" className={styles.arrow}>
+                    →
+                  </span>
+                  <span className={styles.now}>
+                    <span className={styles.wasLabel}>By search</span>
+                    <span className="num">{found.points.toFixed(1)}</span>
+                  </span>
+                  <span className={styles.gain}>
+                    <span className="num">+{(found.points - found.baseline).toFixed(1)}</span> pts
+                    over {found.weeks} {found.weeks === 1 ? 'gameweek' : 'gameweeks'}
+                  </span>
+                </p>
+                <p className={styles.provenance}>
+                  {found.evaluated.toLocaleString('en-GB')} squads scored in{' '}
+                  {found.seconds.toFixed(1)}s, {found.improvements} of them better than the last.{' '}
+                  {found.converged
+                    ? 'It settled: no transfer and no pair of transfers improves this squad.'
+                    : 'It stopped at the search limit rather than settling, so a better squad may exist.'}
+                </p>
+              </div>
+            )}
           </section>
         </section>
 

@@ -12,6 +12,7 @@ import {
 } from '@fpl/core';
 import {
   autoPick,
+  bestElevenValue,
   bestStartingEleven,
   canAdd,
   countByPosition,
@@ -355,5 +356,53 @@ describe('countByPosition', () => {
 
     assert.equal(counts.MID, 1);
     assert.equal(counts.DEF, 0);
+  });
+});
+
+describe('bestElevenValue', () => {
+  it('agrees with bestStartingEleven on random squads', () => {
+    // The optimiser scores squads through this rather than through the shape
+    // that names who plays, so the two disagreeing would mean the builder and
+    // the planner disagreeing about what a squad is worth.
+    let seed = 20260820;
+    const random = (): number => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+
+    for (let trial = 0; trial < 200; trial += 1) {
+      const squad: Player[] = [
+        ...Array.from({ length: 2 }, () => player('GKP', 40, 1)),
+        ...Array.from({ length: 5 }, () => player('DEF', 40, 2)),
+        ...Array.from({ length: 5 }, () => player('MID', 40, 3)),
+        ...Array.from({ length: 3 }, () => player('FWD', 40, 4)),
+      ];
+      const values = squad.map(() => Math.round(random() * 200) / 10);
+      const byId = new Map(squad.map((entry, index) => [entry.id, values[index] ?? 0]));
+
+      const eleven = bestStartingEleven(
+        squad.map((entry) => entry.id),
+        squad,
+        (entry) => byId.get(entry.id) ?? 0,
+      );
+      const fast = bestElevenValue(
+        squad.map((entry) => entry.position),
+        values,
+      );
+
+      assert.ok(Math.abs(fast.points - eleven.projectedPoints) < 1e-9);
+      assert.ok(
+        Math.abs(fast.captain - (byId.get(eleven.captain ?? asPlayerId(1)) ?? 0)) < 1e-9,
+        'captain value matches the highest projected starter',
+      );
+      const total = values.reduce((sum, value) => sum + value, 0);
+      assert.ok(Math.abs(fast.bench - (total - eleven.projectedPoints)) < 1e-9);
+    }
+  });
+
+  it('is zero for a squad with no legal formation', () => {
+    const value = bestElevenValue(['GKP', 'GKP'], [5, 4]);
+    assert.equal(value.points, 0);
+    assert.equal(value.captain, 0);
   });
 });

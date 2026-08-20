@@ -37,7 +37,19 @@ export interface AutoRequest {
   horizon: number;
 }
 
-export type Request = PlanRequest | AutoRequest;
+export interface OptimiseRequest {
+  kind: 'optimise';
+  poolGeneration: number;
+  players?: PlannerPlayer[];
+  budget: number;
+  /** Gameweeks the squad is chosen to be best over. */
+  horizon: number;
+  riskAversion: number;
+  /** Codes the search must keep, which is how a reader's own picks survive it. */
+  keep: number[];
+}
+
+export type Request = PlanRequest | AutoRequest | OptimiseRequest;
 
 export interface Reply {
   id: number;
@@ -46,6 +58,21 @@ export interface Reply {
   elapsed: number;
   plan?: Plan;
   squad?: { picks: number[]; bank: number };
+  optimisation?: OptimisedSquad;
+}
+
+/** What the optimiser reports back, flattened for the structured clone. */
+export interface OptimisedSquad {
+  picks: number[];
+  bank: number;
+  points: number;
+  baseline: number;
+  perGameweek: number[];
+  evaluated: number;
+  improvements: number;
+  rounds: number;
+  converged: boolean;
+  candidates: Record<string, number>;
 }
 
 export interface Envelope {

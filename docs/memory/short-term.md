@@ -8,7 +8,7 @@ status: active
 
 ## Status
 
-Everything below is committed on `main` and green: `pnpm build`, 611 tests, lint, and format all pass as of 2026-08-20. Nothing is pushed to the remote yet, so the last two commits are local only.
+Everything below is committed on `main` and green: `pnpm build`, 635 tests, lint, and format all pass as of 2026-08-20.
 
 Complete and shipped:
 
@@ -18,6 +18,7 @@ Complete and shipped:
 - `packages/planner`: the plan as a beam search over transfer states, legal by construction, with the opening squad picker. Documented the same way. 15 tests.
 - `/planner`: the goal control, the calendar rail, the pitch per gameweek, and the transfer ledger. The search runs in a Web Worker: eight gameweeks is about 2,500 states in 280 ms, measured on the real lake.
 - Both team building surfaces now put the squad on a printed pitch with club shirts and a paper metric tag; the selection list uses the player photograph instead.
+- `/builder` is an optimiser as well as a builder. `optimiseSquad` in `packages/planner` searches for the best legal fifteen over a chosen horizon and reports what it beat and what it cost. Verified in a real browser at 360 and 1440, light and dark, keyboard only: 42,000 squads in under half a second at eight gameweeks, 440.4 against the ranking's 424.6.
 
 ## In flight
 
@@ -40,10 +41,20 @@ Measured, not assumed, and worth not rediscovering:
 - **Shot origin is not earned.** Ablating the inverted shot location moved the goal rate score by 0.0001. The transform is implemented and tested, and it is deliberately unused; no posterior surface is rendered from it.
 - **Price change scores 0.23 Brier skill**, which is the one result that says price forecasting is worth wiring in properly rather than left as the current ownership and form heuristic.
 
+## What the optimiser measured
+
+Worth not rediscovering, all on the real 592 player pool:
+
+- **Forty rounds is the ceiling.** 150 rounds over 1.57 million squads found nothing better than 40 rounds over 42,000. The answer stops moving at 440.4 (eight gameweek horizon).
+- **The admissible bound is most of the speed.** Skipping a candidate whose ceiling is below the best gain so far cut evaluations from 29,402 to 5,427, answer identical, 3.85s to 0.44s.
+- **The allocation free eleven evaluator is the rest.** Reusing buffers and sorting by insertion in `bestElevenValue` was another 4.6x, and it is pinned against `bestStartingEleven` by a test.
+- **Per gameweek dominance keeps roughly twice the candidates** that mean dominance does and costs nothing now the bound is in place.
+
 ## Blockers and open threads
 
 - The rules page is client rendered and yields nothing. Both write paths refuse the empty document (`isUsableRulesDocument`), so the lake has no rules dataset and the API answers 404 for `/rules`. Fixing it means finding the JSON the page fetches, not loosening the guard.
 - Price rise probabilities on the planner are a stated heuristic over ownership and recent scoring, because FPL publishes net transfers only for the live gameweek and the lake does not store them. Storing that column is what unblocks the fitted price model.
+- `/builder` searches at a risk aversion of zero and its pool therefore ships without spreads, which saves 288 KB. Adding a risk control there means putting the spreads back in `apps/web/app/builder/page.tsx`.
 - Manager coverage was widened to every club in the official record rather than the current twenty, but the coverage figure has not been re measured since that run.
 - `FileStore` assumes a single writer per dataset. Concurrent syncs of the same dataset race the manifest; there is no locking.
 

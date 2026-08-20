@@ -8,7 +8,7 @@
  * megabytes of projections re-posted on every slider drag would cost more than
  * the search does.
  */
-import { openingSquad, plan, type PlannerPlayer, type Squad } from '@fpl/planner';
+import { openingSquad, optimiseSquad, plan, type PlannerPlayer, type Squad } from '@fpl/planner';
 import type { Envelope, Reply, Request } from './protocol';
 
 let pool: PlannerPlayer[] = [];
@@ -43,6 +43,33 @@ function handle(request: Request): Omit<Reply, 'id' | 'elapsed'> {
   if (request.kind === 'auto') {
     const squad = openingSquad(pool, { budget: request.budget, horizon: request.horizon });
     return { ok: true, squad: { picks: squad.picks, bank: squad.bank } };
+  }
+
+  if (request.kind === 'optimise') {
+    const found = optimiseSquad(pool, {
+      budget: request.budget,
+      horizon: request.horizon,
+      riskAversion: request.riskAversion,
+      keep: request.keep,
+    });
+    if (found === null) {
+      return { ok: false, error: 'no legal squad fits that budget with those players kept' };
+    }
+    return {
+      ok: true,
+      optimisation: {
+        picks: found.squad.picks,
+        bank: found.squad.bank,
+        points: found.points,
+        baseline: found.baseline,
+        perGameweek: found.perGameweek,
+        evaluated: found.evaluated,
+        improvements: found.improvements,
+        rounds: found.rounds,
+        converged: found.converged,
+        candidates: found.candidates,
+      },
+    };
   }
 
   const result = plan(pool, squadFrom(request), {

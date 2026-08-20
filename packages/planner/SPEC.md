@@ -8,7 +8,9 @@ status: active
 
 ## Purpose
 
-Turns a pool of players with a projection per gameweek into a plan: the squad, the eleven, the captain, the transfers, what they cost, and the chip where one earns its place, for every gameweek of a horizon. It takes projections rather than computing them, so the search can be tested against numbers written by hand and a reader can substitute their own opinion of a player without touching the optimiser.
+Turns a pool of players with a projection per gameweek into two answers: the best squad to hold over a horizon (`optimise.ts`), and the plan that gets a squad through one (`plan.ts`). Both search rather than rank, both are legal by construction, and both take projections rather than computing them, so the search can be tested against numbers written by hand and a reader can substitute their own opinion of a player without touching the optimiser.
+
+The plan is the fuller of the two: the squad, the eleven, the captain, the transfers, what they cost, and the chip where one earns its place, for every gameweek of a horizon. The optimiser answers the narrower question the builder asks, which fifteen to hold, and answers it over the horizon rather than the week.
 
 ## Methods
 
@@ -40,9 +42,27 @@ In: the pool, the opening squad, and the options (horizon, first gameweek, beam 
 
 In: the pool, a squad, and the same options. Out: what that squad is worth held unchanged across the horizon. Errors: none. Notes: this is the benchmark every plan reports itself against, because a plan that cannot beat doing nothing has found nothing.
 
+### optimiseSquad(players, options): SquadOptimisation | null
+
+In: the pool, and a budget, horizon, risk appetite, codes to keep, and the search's own limits (rounds, evaluations, candidate depth, seed). Out: the squad, what it is worth over the horizon, what the greedy squad scored, the value per gameweek, and what the search cost: squads scored, improving moves taken, rounds run, whether it settled, and how many candidates survived the prune. Null where no legal squad fits the budget with those players kept. Errors: none.
+
+Notes: an iterated local search over the real objective. From a starting squad it takes the best single transfer, then the best pair once no single one improves, and repeats until neither does; that is a local maximum, so it kicks the squad and climbs again, keeping the higher peak. Every state is legal by construction and every squad is scored by solving its own best eleven in every gameweek through `bestElevenValue`. Measured on the current lake at the eight gameweek horizon: 592 players, 42,000 squads scored in 470 ms, converging on 440.4 against the greedy squad's 424.6. Forty rounds is where the answer stopped moving: a hundred and fifty rounds over 1.57 million squads found nothing better.
+
+### prune / ceiling / cheapestLegal (internal to optimiseSquad)
+
+In: the pool, or one candidate swap, or the rules and the budget. Out: the candidates worth considering, or the most a swap could be worth, or a legal fifteen to start from. Errors: none.
+
+Notes: three pieces of arithmetic that make the search affordable and honest.
+
+`prune` keeps a player unless `layers` others of his position are both no dearer and no worse **in every gameweek of the horizon**. Dominance is checked per gameweek rather than on the mean, and that is the whole reason the projections are per gameweek: a player who blanks this week and plays twice the next has a mean any steady player beats, and dropping him on it would discard exactly the squad a horizon exists to find. One layer is the frontier alone, which is too tight to satisfy the three per club limit; five leaves room to route around it.
+
+`ceiling` is an upper bound on what a swap can be worth, and it is a bound rather than an estimate, which is what makes skipping on it safe. Take the new squad's optimal eleven and put the old player back where the new one stood: that is a legal eleven for the old squad worth the new total less the difference between the two players, so the new total cannot exceed the old by more than that difference. The captain can double it and nothing else in the squad moves. Skipping every candidate whose ceiling is below the best gain already found cut evaluations from 29,402 to 5,427 with an identical answer.
+
+`cheapestLegal` is the fallback seed. The greedy picker holds back a share of the budget for the eleven, so on a budget close to what fifteen players cost at all it stops short of fifteen, and the search should not be unable to start over a seed's caution. Only when even the cheapest legal squad overspends is the problem genuinely infeasible.
+
 ### openingSquad(players, options): Squad
 
-In: the pool and a budget, horizon, and rules. Out: a legal fifteen to plan from. Errors: none. Notes: wraps `autoPick`, which reserves the four bench slots at the cheapest legal prices before spending the rest by projected points per million, then spends what that leaves. An unavailable player is excluded rather than penalised, because a squad that opens with an injured name has spent money on nothing.
+In: the pool and a budget, horizon, rules, and codes to keep. Out: a legal fifteen to plan from. Errors: none. Notes: wraps `autoPick`, which reserves the four bench slots at the cheapest legal prices before spending the rest by projected points per million, then spends what that leaves. An unavailable player is excluded rather than penalised, because a squad that opens with an injured name has spent money on nothing, unless the reader asked to keep him, in which case it is their squad and his news is theirs to read.
 
 ### spendUp (internal to openingSquad)
 
@@ -50,6 +70,8 @@ In: the picks `autoPick` produced. Out: the same fifteen with the bank spent. Er
 
 ## Logic
 
+- **Why the squad is a search too, not only the plan.** A squad is not worth the sum of its members: only eleven of the fifteen score, one of them scores twice, and the four who do not are what pay for the ones who do. The worth of adding a player therefore depends on who else is in the squad, which is exactly the condition under which ranking has no claim on the answer. Fifteen from six hundred is a number of squads with thirty digits in it, so it is searched rather than enumerated, and the search reports what it cost.
+- **Why the search reports its baseline and its budget.** A squad presented as optimal is unfalsifiable. What `optimiseSquad` claims is narrower and checkable: it beats the greedy squad by this much, it scored this many squads to find it, and either no transfer and no pair of transfers improves it or it stopped at the limit and says so.
 - **Why a search rather than a formula.** A gameweek is a selection problem and a season is a sequence of them. The best move this week depends on the move it makes possible in three, and a greedy pick can never bank a transfer for a double gameweek because it never looks that far.
 - **Why legality is a constructor and not a filter.** A suggestion that breaks a rule is not a worse plan, it is not a plan: the manager cannot enter it. Checking when a state is built means an illegal squad is never scored, so it can never win.
 - **Why risk is a parameter.** The right squad for a manager chasing a rank is not the right squad for one protecting it. At 0 the objective is the mean; above 0 it subtracts standard deviations, below 0 it adds them.
@@ -59,6 +81,8 @@ In: the picks `autoPick` produced. Out: the same fifteen with the bank spent. Er
 ## Data flow
 
 Stored players, teams, fixtures, and per gameweek history -> `buildPool` in `apps/web/lib/planner/projections.ts` -> one projection, one spread, and one rise probability per player per gameweek -> `openingSquad` -> `plan` inside a Web Worker -> a `WeekPlan` per gameweek -> the calendar and the pitch on `/planner`.
+
+The same pool, without the spreads and rise probabilities that page does not read -> `optimiseSquad` in the same worker -> a legal fifteen, its value per gameweek, and what the search cost -> the squad on the pitch and the verdict beneath it on `/builder`.
 
 ## Dependencies
 

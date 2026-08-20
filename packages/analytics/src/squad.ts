@@ -316,6 +316,118 @@ export function bestStartingEleven<P extends SquadPlayer>(
   );
 }
 
+export interface ElevenValue {
+  /** What the best legal eleven is worth. */
+  points: number;
+  /** The highest value among those eleven, which is what a captain doubles. */
+  captain: number;
+  /** What the four left out are worth, which only a bench boost ever pays. */
+  bench: number;
+}
+
+/**
+ * What the best legal eleven is worth, as numbers alone.
+ *
+ * `bestStartingEleven` answers the same question and returns who plays, which
+ * is what a page needs and what a search cannot afford: an optimiser over squad
+ * states calls this hundreds of thousands of times, and the id lookups, sorts
+ * of player objects, and set allocations that shape carries dominate the run.
+ * This is the same exhaustive formation search over two parallel arrays, so the
+ * formation rules still live in exactly one file, and `squad.test.ts` pins the
+ * two against each other on random squads.
+ */
+/**
+ * Scratch space, reused across calls.
+ *
+ * This runs in the innermost loop of the squad optimiser, tens of thousands of
+ * times per search, and allocating nine small arrays per call was the single
+ * largest cost in it. Nothing here is asynchronous or re-entrant, so one set of
+ * buffers is safe; every one of them is fully rewritten before it is read.
+ */
+const RANKED: Record<Position, Float64Array> = {
+  GKP: new Float64Array(SQUAD_SIZE),
+  DEF: new Float64Array(SQUAD_SIZE),
+  MID: new Float64Array(SQUAD_SIZE),
+  FWD: new Float64Array(SQUAD_SIZE),
+};
+const RUNNING: Record<Position, Float64Array> = {
+  GKP: new Float64Array(SQUAD_SIZE + 1),
+  DEF: new Float64Array(SQUAD_SIZE + 1),
+  MID: new Float64Array(SQUAD_SIZE + 1),
+  FWD: new Float64Array(SQUAD_SIZE + 1),
+};
+
+export function bestElevenValue(
+  positions: readonly Position[],
+  values: ArrayLike<number>,
+): ElevenValue {
+  const held: Record<Position, number> = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+  let total = 0;
+  for (let index = 0; index < positions.length; index += 1) {
+    const position = positions[index];
+    if (position === undefined) continue;
+    const value = values[index] ?? 0;
+    RANKED[position][held[position]] = value;
+    held[position] += 1;
+    total += value;
+  }
+
+  // Within a formation the choice is always the top n of a position, so one
+  // descending sort per position is the whole selection problem, and a running
+  // total then prices every formation without touching a player again.
+  for (const position of POSITIONS) {
+    const bucket = RANKED[position];
+    const count = held[position];
+    // Insertion sort, descending: a bucket is at most five long here, where an
+    // insertion sort is faster than a comparator driven one and allocates
+    // nothing.
+    for (let index = 1; index < count; index += 1) {
+      const value = bucket[index] ?? 0;
+      let slot = index - 1;
+      while (slot >= 0 && (bucket[slot] ?? 0) < value) {
+        bucket[slot + 1] = bucket[slot] ?? 0;
+        slot -= 1;
+      }
+      bucket[slot + 1] = value;
+    }
+    const sums = RUNNING[position];
+    sums[0] = 0;
+    for (let index = 0; index < count; index += 1) {
+      sums[index + 1] = (sums[index] ?? 0) + (bucket[index] ?? 0);
+    }
+  }
+
+  let bestPoints = Number.NEGATIVE_INFINITY;
+  let bestCaptain = 0;
+
+  for (let def = XI_MIN.DEF; def <= XI_MAX.DEF; def += 1) {
+    if (held.DEF < def) continue;
+    for (let mid = XI_MIN.MID; mid <= XI_MAX.MID; mid += 1) {
+      if (held.MID < mid) continue;
+      const fwd = STARTING_XI_SIZE - 1 - def - mid;
+      if (fwd < XI_MIN.FWD || fwd > XI_MAX.FWD) continue;
+      if (held.FWD < fwd || held.GKP < 1) continue;
+
+      const points =
+        (RUNNING.GKP[1] ?? 0) +
+        (RUNNING.DEF[def] ?? 0) +
+        (RUNNING.MID[mid] ?? 0) +
+        (RUNNING.FWD[fwd] ?? 0);
+      if (points <= bestPoints) continue;
+
+      bestPoints = points;
+      let captain = RANKED.GKP[0] ?? 0;
+      if (def > 0 && (RANKED.DEF[0] ?? 0) > captain) captain = RANKED.DEF[0] ?? 0;
+      if (mid > 0 && (RANKED.MID[0] ?? 0) > captain) captain = RANKED.MID[0] ?? 0;
+      if (fwd > 0 && (RANKED.FWD[0] ?? 0) > captain) captain = RANKED.FWD[0] ?? 0;
+      bestCaptain = captain;
+    }
+  }
+
+  if (bestPoints === Number.NEGATIVE_INFINITY) return { points: 0, captain: 0, bench: 0 };
+  return { points: bestPoints, captain: bestCaptain, bench: total - bestPoints };
+}
+
 export const formationLabel = (formation: Record<Position, number>): string =>
   `${String(formation.DEF)}-${String(formation.MID)}-${String(formation.FWD)}`;
 

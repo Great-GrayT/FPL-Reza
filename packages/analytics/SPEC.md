@@ -2,7 +2,7 @@
 title: Analytics spec
 type: spec
 module: packages/analytics
-updated: 2026-08-18
+updated: 2026-08-20
 status: active
 ---
 
@@ -76,6 +76,10 @@ In: the picks and the player list. Out: spent, remaining, and the budget in tent
 ### bestStartingEleven(picks, players, projection): StartingEleven
 
 In: a squad, the player list, and a projection. Out: starters, bench in the order they would come on, the formation, the projected total, and a captain and vice captain. Errors: none. Notes: exhaustive over the legal formations (1 keeper, 3 to 5 defenders, 0 to 5 midfielders, 1 to 3 forwards, summing to 11), because there are only a handful and the exact answer is cheaper than justifying a heuristic. The spare keeper sits at the front of the bench, since only a keeper can replace a keeper. A squad too small to field an eleven yields empty lists rather than throwing.
+
+### bestElevenValue(positions, values): ElevenValue
+
+In: fifteen positions and the value of each, as two parallel arrays. Out: what the best legal eleven is worth, the highest value among those eleven (which is what a captain doubles), and what the four left out are worth. Errors: none; a squad with no legal formation yields zeroes rather than throwing. Notes: the same exhaustive formation search as `bestStartingEleven`, over numbers rather than players, because the squad optimiser scores tens of thousands of squads per search and the id lookups, object sorts, and set allocations that shape carries dominated the run. It reuses scratch buffers and sorts by insertion, since a bucket is at most five long. `squad.test.ts` pins the two against each other on 200 random squads, so the fast path and the one a page renders cannot drift.
 
 ### autoPick(players, projection, options?): PlayerId[]
 

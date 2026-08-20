@@ -21,6 +21,8 @@ export interface OpeningOptions {
   horizon?: number;
   rules?: Partial<PlanRules>;
   freeTransfers?: number;
+  /** Codes that must be in the squad, whatever the ranking says. */
+  keep?: readonly number[];
 }
 
 const toSquadPlayer = (player: PlannerPlayer): SquadPlayer => ({
@@ -47,13 +49,16 @@ export function openingSquad(
   const horizon = options.horizon ?? 6;
 
   // An unavailable player is excluded here rather than penalised, because a
-  // squad that opens with an injured name has spent money on nothing.
-  const pool = players.filter((player) => player.available !== false);
+  // squad that opens with an injured name has spent money on nothing. One the
+  // reader asked to keep stays whatever his news says: it is their squad.
+  const keep = new Set(options.keep ?? []);
+  const pool = players.filter((player) => player.available !== false || keep.has(player.code));
   const byCode = new Map(pool.map((player) => [player.code, player]));
   const value = new Map(pool.map((player) => [player.code, meanOver(player, horizon)]));
 
   const picks = autoPick(pool.map(toSquadPlayer), (player) => value.get(Number(player.id)) ?? 0, {
     budget,
+    keep: (options.keep ?? []).map((code) => asPlayerId(code)),
   });
 
   const codes = spendUp(
@@ -63,6 +68,7 @@ export function openingSquad(
     value,
     budget,
     rules,
+    keep,
   );
   const spent = codes.reduce((total, code) => total + (byCode.get(code)?.price ?? 0), 0);
 
@@ -97,6 +103,7 @@ function spendUp(
   value: Map<number, number>,
   budget: number,
   rules: PlanRules,
+  keep: ReadonlySet<number>,
 ): number[] {
   const squad = [...picks];
   const held = new Set(squad);
@@ -122,6 +129,7 @@ function spendUp(
     const counts = clubCounts();
 
     for (const outCode of squad) {
+      if (keep.has(outCode)) continue;
       const outPlayer = byCode.get(outCode);
       if (outPlayer === undefined) continue;
       const affordable = bank + outPlayer.price;

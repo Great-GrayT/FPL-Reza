@@ -2,7 +2,7 @@
 title: Analytics skill
 type: skill
 module: packages/analytics
-updated: 2026-08-18
+updated: 2026-08-20
 status: active
 ---
 
@@ -44,6 +44,7 @@ domain rows and returning numbers. Nothing touches the filesystem or network.
 
 - `squad.ts` applies the rules in packages/core, it never restates a limit. A UI that reimplements the budget or the club cap will disagree with the engine, so the builder calls this code rather than duplicating it, which is why the functions take a structural `SquadPlayer` and not the full domain row.
 - `bestStartingEleven` searches every legal formation rather than taking the top eleven by projection. The top eleven is frequently illegal (five midfielders and no defenders), and a greedy fix would be an approximation where the exact answer costs nothing.
+- `bestElevenValue` and `bestStartingEleven` answer the same question and must never disagree. The first exists only because the squad optimiser cannot afford the second's allocations, and the equivalence is a test rather than a convention. Changing the formation rules means changing both in the same edit, and the rules themselves stay in packages/core.
 - `projectPoints` has no fitted parameters and returns its own explanation. Every weight is a named constant in that file. Do not replace it with an opaque score: a squad builder whose ranking cannot be argued with is worse than one with no ranking.
 - `strength.ts` is stated, not fitted. Every constant in it is named and justified in place (`HALF_LIFE_SEASONS`, `SHRINKAGE_MATCHES`), and none of them is tuned against an outcome the model is later scored on. Replacing it with a fitted model means also replacing `explainForecast`, because a forecast a reader cannot argue with is worse than no forecast.
 - A club with fewer than `SHRINKAGE_MATCHES` matches is blended towards the division average and marked `shrunk`, and every surface that prints its numbers says so. A promoted club has no Premier League record, and presenting one match as a strength would be the single easiest way for this model to mislead.

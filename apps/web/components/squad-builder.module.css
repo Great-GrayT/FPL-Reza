@@ -658,6 +658,177 @@
   color: var(--flare-ink);
 }
 
+/* ---------------------------------------------------------------- solver */
+
+/* The search sits directly under the squad's own reading, because it answers
+   the question that reading raises: is this the best fifteen the money buys. */
+.solver {
+  margin-top: var(--s4);
+  padding-top: var(--s4);
+  border-top: 2px solid var(--ink);
+}
+
+.solverIntro {
+  margin: 0 0 var(--s3);
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  max-inline-size: 60ch;
+}
+
+.solverField {
+  margin: 0 0 var(--s3);
+  padding: var(--s3);
+  border: 1px solid var(--rule-strong);
+}
+
+.solverLegend {
+  padding: 0 var(--s2);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.solverChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+
+/* 2.75rem is the touch floor. This is the control the page exists for and it is
+   pressed on a phone at a deadline, so it gets it. */
+.solverChoice {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  padding: 0.3rem 0.75rem;
+  background: none;
+  border: 1px solid var(--rule-strong);
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.solverChoice:hover {
+  border-color: var(--ink);
+  background: var(--paper-2);
+}
+
+.solverChoice[data-on='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.solverNote {
+  margin: var(--s2) 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+.keep {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-block-size: 2.75rem;
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+
+.keep input {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  accent-color: var(--pitch);
+}
+
+.keep:has(input:disabled) {
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
+.primary:disabled {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
+  cursor: progress;
+}
+
+.searchError {
+  margin: var(--s3) 0 0;
+  font-size: var(--step--1);
+  color: var(--flare-ink);
+}
+
+/* The verdict is a correction pencilled onto a team sheet: the number the
+   ranking gave, struck, and the number the search found beside it. It is the
+   one loud thing in this block, so everything around it stays quiet. */
+.verdict {
+  margin-top: var(--s4);
+  border-top: 1px solid var(--rule);
+  padding-top: var(--s3);
+}
+
+.ledger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s3);
+  margin: 0;
+}
+
+.was,
+.now {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.wasLabel {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.was span:last-child {
+  font-size: var(--step-1);
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--flare);
+  text-decoration-thickness: 1px;
+}
+
+.now span:last-child {
+  font-size: var(--step-3);
+  line-height: 1;
+  font-weight: 600;
+}
+
+.arrow {
+  padding-bottom: 0.35rem;
+  font-size: var(--step-1);
+  color: var(--ink-soft);
+}
+
+.gain {
+  padding-bottom: 0.35rem;
+  font-size: var(--step--1);
+  color: var(--bonus-ink);
+}
+
+.gain .num {
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+.provenance {
+  margin: var(--s2) 0 0;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  max-inline-size: 60ch;
+}
+
 /* ----------------------------------------------------------------- panel */
 
 .panel {
