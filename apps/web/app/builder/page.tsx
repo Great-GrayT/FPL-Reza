@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { currentGameweek, nextGameweek, type Player } from '@fpl/core';
-import { projectPoints } from '@fpl/analytics';
+import { asGameweekId, currentGameweek, nextGameweek, type Player } from '@fpl/core';
+import { fixtureDifficulty, projectPoints, rollingForm } from '@fpl/analytics';
 import { SquadBuilder, type BuilderPlayer, type BuilderTeam } from '@/components/squad-builder';
 import { getFixtures, getGameweeks, getPlayerHistory, getPlayers, getTeams } from '@/lib/lake';
 
@@ -37,6 +37,12 @@ export default async function BuilderPage() {
         horizon: HORIZON,
       });
 
+      // The next three, as the ticker on each shirt shows them: a plan is made
+      // against the fixtures, so the fixtures belong on the player rather than
+      // one screen away from him.
+      const runway = fixtureDifficulty(fixtures, player.teamId, asGameweekId(fromGameweek), 3);
+      const form = rollingForm(history, 6);
+
       return {
         id: player.id,
         code: player.code,
@@ -52,6 +58,15 @@ export default async function BuilderPage() {
         news: player.news,
         projected: Math.round(projection.points * 10) / 10,
         why: projection.explain,
+        starterReliability: Math.round(form.starterReliability * 100),
+        pointsPer90: Math.round(form.pointsPer90 * 10) / 10,
+        next: runway.entries.slice(0, 3).map((entry) => ({
+          gameweek: Number(entry.gameweek),
+          opponent: Number(entry.opponent),
+          home: entry.isHome,
+          difficulty: entry.difficulty,
+        })),
+        blanks: runway.blankGameweeks.map((week) => Number(week)),
       };
     }),
   );

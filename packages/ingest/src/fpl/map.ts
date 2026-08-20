@@ -137,5 +137,9 @@ export const toPlayerGameweek = (raw: RawHistory): PlayerGameweek =>
     expectedAssists: raw.expected_assists,
     expectedGoalsConceded: raw.expected_goals_conceded,
     defensiveContribution: raw.defensive_contribution ?? null,
+    influence: raw.influence ?? null,
+    creativity: raw.creativity ?? null,
+    threat: raw.threat ?? null,
+    ictIndex: raw.ict_index ?? null,
     price: raw.value,
   });

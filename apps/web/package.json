@@ -17,6 +17,8 @@
     "@fpl/config": "workspace:*",
     "@fpl/core": "workspace:*",
     "@fpl/ingest": "workspace:*",
+    "@fpl/model": "workspace:*",
+    "@fpl/planner": "workspace:*",
     "@fpl/quant": "workspace:*",
     "@fpl/store": "workspace:*",
     "hyparquet": "^1.28.2",

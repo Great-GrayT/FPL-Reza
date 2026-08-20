@@ -124,6 +124,11 @@ export const rawHistorySchema = z.object({
   expected_goals_conceded: numeric,
   /** Added for the defensive contribution rule. Absent in older seasons. */
   defensive_contribution: z.coerce.number().optional(),
+  /** The ICT family, which FPL prints as strings. */
+  influence: numeric.optional(),
+  creativity: numeric.optional(),
+  threat: numeric.optional(),
+  ict_index: numeric.optional(),
   /** Price at the time of the fixture, in tenths. */
   value: z.number().int(),
 });

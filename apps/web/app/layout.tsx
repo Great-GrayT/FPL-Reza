@@ -46,6 +46,7 @@ const PRIMARY = [
   { href: '/teams', label: 'Clubs' },
   { href: '/matches', label: 'Matches' },
   { href: '/builder', label: 'Build' },
+  { href: '/planner', label: 'Plan' },
   { href: '/scout', label: 'Scout' },
 ];
 

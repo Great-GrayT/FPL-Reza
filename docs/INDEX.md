@@ -2,7 +2,7 @@
 title: Docs index
 type: index
 module: root
-updated: 2026-08-19
+updated: 2026-08-20
 status: active
 ---
 
@@ -16,6 +16,8 @@ status: active
 - [Ingest spec](../packages/ingest/SPEC.md): HTTP client with retry and throttling, the FPL bootstrap, fixtures, and player history sources, their raw to domain mapping, and the dependency ordered sync runner.
 
 - [Quant spec](../packages/quant/SPEC.md): the statistics, simulation, and machine learning engine the Lab runs on, in the browser: a columnar frame, an expression language, distributions, regression, hypothesis tests, factor evaluation, seeded simulation, a portfolio optimiser, a backtester, and the ML layer. No dependencies, no I/O.
+- [Model spec](../packages/model/SPEC.md): the fitted expected points layer: the panel it trains on, the features (including the duel geometry that names a player's direct opponents from the formation), the component targets, walk forward training with ablations and a shuffled target null, and the artifacts a page projects from.
+- [Planner spec](../packages/planner/SPEC.md): the plan as a beam search over transfer states, legal by construction, with the opening squad picker and the risk appetite the objective takes.
 - [Analytics spec](../packages/analytics/SPEC.md): derived metrics over the domain types: rolling form, value per million, fixture difficulty over a horizon, defensive contribution, bonus prediction, squad legality and selection, the points projection, and the glossary that defines every metric the site shows.
 - [API spec](../apps/api/SPEC.md): the Fastify HTTP API over the lake, including the assets routes and the fixtures and rules refresh endpoints.
 - [CLI spec](../apps/cli/SPEC.md): the `fpl` command: sync, fixtures refresh, rules refresh and deadlines, assets sync and list, and the read only inspection commands.

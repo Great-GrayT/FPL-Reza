@@ -22,15 +22,22 @@ import {
   validateSquad,
   type SquadPlayer,
 } from '@fpl/analytics';
+import { shirtUrl } from '@fpl/assets/urls';
 import { classes } from '@/lib/classes';
 import { MetricTip } from './metric-tip';
+import { PersonPhoto } from './person-photo';
 import styles from './squad-builder.module.css';
 
 /**
- * The squad as a teamsheet: the ruled lineup card a manager hands over at
- * kickoff, not a photograph of a pitch. Slots read top to bottom in the order a
- * teamsheet prints, the money totals down the right like a printed bill, and the
- * only coloured thing on the page is what is wrong.
+ * The squad on a printed pitch: the tactics plan from a matchday programme,
+ * drawn in ink on flat green at the real 105 by 68 proportion, with each player
+ * a club shirt pinned above a paper name tag. The tag is where the numbers go,
+ * because a figure printed on grass is a figure nobody can read.
+ *
+ * Every tag carries what a choice is actually made on: the price, the projection
+ * the model produced, the two inputs behind it that a manager can argue with
+ * (recent scoring rate and how reliably he starts), his ownership, and the next
+ * three fixtures by difficulty. Nothing on it is decoration.
  *
  * Every rule is enforced by the same engine the server uses (@fpl/analytics), so
  * the builder cannot disagree with the platform about whether a squad is legal.
@@ -48,6 +55,14 @@ export interface BuilderPlayer extends SquadPlayer {
   projected: number;
   /** Why the projection landed where it did, in words. */
   why: string[];
+  /** Share of recent gameweeks the player finished, as a percentage. */
+  starterReliability: number;
+  /** Points per ninety over the form window: the rate behind the projection. */
+  pointsPer90: number;
+  /** The next three fixtures, as the ticker on the tag prints them. */
+  next: { gameweek: number; opponent: number; home: boolean; difficulty: number }[];
+  /** Gameweeks in that runway with no fixture at all. */
+  blanks: number[];
 }
 
 export interface BuilderTeam {
@@ -339,36 +354,50 @@ export function SquadBuilder({
             </p>
           )}
 
-          {POSITIONS.map((slot) => (
-            <section key={slot} className={styles.line} aria-labelledby={`line-${slot}`}>
-              <h3 id={`line-${slot}`} className={styles.lineHead}>
-                <span className={styles.stamp}>{slot}</span>
-                {positionLabel[slot]}
-                <span className={classes(styles.lineCount, 'num')}>
-                  {filled[slot].length}/{SQUAD_QUOTA[slot]}
-                </span>
-              </h3>
+          <div className={styles.pitch}>
+            <PitchLines />
+            {POSITIONS.map((slot) => (
+              <section key={slot} className={styles.line} aria-labelledby={`line-${slot}`}>
+                <h3 id={`line-${slot}`} className={styles.lineHead}>
+                  <span className={styles.stamp}>{slot}</span>
+                  {positionLabel[slot]}
+                  <span className={classes(styles.lineCount, 'num')}>
+                    {filled[slot].length}/{SQUAD_QUOTA[slot]}
+                  </span>
+                </h3>
 
-              <ul className={styles.slots}>
-                {Array.from({ length: SQUAD_QUOTA[slot] }, (_, index) => {
-                  const player = filled[slot][index];
-                  return (
-                    <Slot
-                      key={`${slot}-${String(index)}`}
-                      slot={slot}
-                      player={player}
-                      isStarter={player !== undefined && starters.has(player.id)}
-                      isCaptain={player?.id === eleven.captain}
-                      club={player === undefined ? undefined : teamById.get(player.teamId)}
-                      holding={holding}
-                      onDropPlayer={add}
-                      onRemove={remove}
-                    />
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
+                <ul className={styles.slots}>
+                  {Array.from({ length: SQUAD_QUOTA[slot] }, (_, index) => {
+                    const player = filled[slot][index];
+                    return (
+                      <Slot
+                        key={`${slot}-${String(index)}`}
+                        slot={slot}
+                        player={player}
+                        isStarter={player !== undefined && starters.has(player.id)}
+                        isCaptain={player?.id === eleven.captain}
+                        club={player === undefined ? undefined : teamById.get(player.teamId)}
+                        holding={holding}
+                        onDropPlayer={add}
+                        onRemove={remove}
+                      />
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
+
+          <ul className={styles.tokenKey}>
+            <li>
+              Each tag reads <b>price</b>, the <b>projection</b>, <b>points per ninety</b>, the{' '}
+              <b>share of recent gameweeks finished</b>, and <b>ownership</b>.
+            </li>
+            <li>
+              The three bars are the next three fixtures, coloured by difficulty. Fewer than three
+              means a blank gameweek.
+            </li>
+          </ul>
 
           <section className={styles.readout} aria-labelledby="readout">
             <h3 id="readout" className={styles.readoutHead}>
@@ -567,6 +596,13 @@ export function SquadBuilder({
                       }}
                       aria-describedby={`why-${String(player.id)}`}
                     >
+                      <PersonPhoto
+                        kind="player"
+                        code={player.code}
+                        name={player.webName}
+                        size="sm"
+                        className={styles.rowFace ?? ''}
+                      />
                       <span className={styles.rowName}>
                         <span className={styles.rowClub}>{club?.shortName ?? '???'}</span>
                         {player.webName}
@@ -577,10 +613,30 @@ export function SquadBuilder({
                         )}
                       </span>
                       <span className={classes(styles.rowStats, 'num')}>
-                        <span>{player.position}</span>
-                        <span>{formatPrice(player.price)}</span>
-                        <span>{player.projected.toFixed(1)}</span>
-                        <span className={styles.rowPoints}>{player.totalPoints}</span>
+                        <span title="Position">{player.position}</span>
+                        <span title="Price">{formatPrice(player.price)}</span>
+                        <strong title="Projected points, from the model">
+                          {player.projected.toFixed(1)}
+                        </strong>
+                        <span title="Points per ninety over the form window">
+                          {player.pointsPer90.toFixed(1)}
+                        </span>
+                        <span title="Share of recent gameweeks he finished">
+                          {player.starterReliability}%
+                        </span>
+                        <span title="Owned by">{player.ownership.toFixed(0)}%</span>
+                        <span className={styles.rowPoints} title="Points this season">
+                          {player.totalPoints}
+                        </span>
+                        <span className={styles.rowTicker} aria-hidden="true">
+                          {player.next.map((fixture) => (
+                            <span
+                              key={fixture.gameweek}
+                              className={styles.tick}
+                              data-difficulty={fixture.difficulty}
+                            />
+                          ))}
+                        </span>
                       </span>
                     </button>
                     <p id={`why-${String(player.id)}`} className={styles.why}>
@@ -690,19 +746,78 @@ function Slot({
         </button>
       ) : (
         <div className={styles.card}>
-          <span className={styles.cardClub}>{club?.shortName ?? '???'}</span>
-          <span className={styles.cardName}>
-            {player.webName}
+          <span className={styles.shirt}>
+            {club === undefined ? (
+              <span className={styles.shirtBlank} aria-hidden="true" />
+            ) : (
+              // A plain img: the CDN serves one fixed size, and next/image
+              // would proxy 590 of them for nothing.
+              <img
+                className={styles.shirtImage}
+                src={shirtUrl(club.code, { keeper: slot === 'GKP' })}
+                alt=""
+                width={54}
+                height={68}
+                loading="lazy"
+              />
+            )}
             {isCaptain && (
               <abbr className={styles.captain} title="Captain: the projection's top starter">
                 C
               </abbr>
             )}
+            {!isStarter && <span className={styles.benched}>Bench</span>}
           </span>
-          <span className={classes(styles.cardStats, 'num')}>
-            {formatPrice(player.price)} · {player.projected.toFixed(1)} proj
-            {!isStarter && <span className={styles.benched}> bench</span>}
+
+          <span className={styles.tag}>
+            <span className={styles.cardName}>{player.webName}</span>
+            <span className={styles.cardClub}>
+              {club?.shortName ?? '???'}
+              {player.availability !== 'available' && (
+                <abbr
+                  className={styles.doubt}
+                  title={player.news === '' ? player.availability : player.news}
+                >
+                  !
+                </abbr>
+              )}
+            </span>
+
+            <span className={classes(styles.metrics, 'num')}>
+              <span title="Price">{formatPrice(player.price)}</span>
+              <strong title="Projected points, from the model">
+                {player.projected.toFixed(1)}
+              </strong>
+              <span title="Points per ninety over the form window">
+                {player.pointsPer90.toFixed(1)}
+              </span>
+              <span title="Share of recent gameweeks he finished">
+                {player.starterReliability}%
+              </span>
+              <span title="Owned by">{player.ownership.toFixed(0)}%</span>
+            </span>
+
+            <span className={styles.ticker} aria-hidden="true">
+              {player.next.length === 0 ? (
+                <span className={styles.tickBlank} title="No fixture in the next three">
+                  &ndash;
+                </span>
+              ) : (
+                player.next.map((fixture) => (
+                  <span
+                    key={fixture.gameweek}
+                    className={styles.tick}
+                    data-difficulty={fixture.difficulty}
+                    title={`Gameweek ${String(fixture.gameweek)}, difficulty ${String(fixture.difficulty)}`}
+                  />
+                ))
+              )}
+            </span>
+            <span className="visually-hidden">
+              {`${player.next.length.toString()} of the next three gameweeks have a fixture`}
+            </span>
           </span>
+
           <button
             type="button"
             className={styles.removeButton}
@@ -716,5 +831,39 @@ function Slot({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * The pitch itself: ink line-work on flat green at the real 105 by 68 ratio, the
+ * same proportion `components/pitch.tsx` draws a heatmap on, so a squad and a
+ * heatmap describe the same rectangle. Drawn rather than photographed, because
+ * every other surface on this site is printed and a photograph of grass here
+ * would be the one thing that is not.
+ */
+function PitchLines() {
+  return (
+    <svg
+      className={styles.pitchLines}
+      viewBox="0 0 1050 680"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="3">
+        <rect x="8" y="8" width="1034" height="664" />
+        <line x1="525" y1="8" x2="525" y2="672" />
+        <circle cx="525" cy="340" r="91" />
+        <rect x="8" y="139" width="165" height="402" />
+        <rect x="8" y="248" width="55" height="184" />
+        <rect x="877" y="139" width="165" height="402" />
+        <rect x="987" y="248" width="55" height="184" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="525" cy="340" r="5" />
+        <circle cx="118" cy="340" r="5" />
+        <circle cx="932" cy="340" r="5" />
+      </g>
+    </svg>
   );
 }

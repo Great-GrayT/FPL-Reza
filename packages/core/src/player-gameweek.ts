@@ -34,6 +34,16 @@ export const playerGameweekSchema = z.object({
    * before the defensive contribution rule existed.
    */
   defensiveContribution: z.number().nonnegative().nullable(),
+  /**
+   * The ICT family, as FPL publishes it per gameweek. Null for a row captured
+   * before these were read, which is not the same as a player who did nothing:
+   * threat and creativity are the two measures a projection leans on hardest,
+   * and a zero there would read as "took no shots" rather than "not recorded".
+   */
+  influence: z.number().nonnegative().nullable().default(null),
+  creativity: z.number().nonnegative().nullable().default(null),
+  threat: z.number().nonnegative().nullable().default(null),
+  ictIndex: z.number().nonnegative().nullable().default(null),
   /** Price at the time of this gameweek, in tenths. */
   price: z.number().int().positive(),
 });

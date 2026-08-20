@@ -202,8 +202,7 @@ function per90(total: number, minutes: number): number {
 }
 
 function measureOf(row: HistoricPlayerGameweek, measure: RollingMeasure): number {
-  const value = row[measure];
-  return value === null || value === undefined ? NA : value;
+  return row[measure] ?? NA;
 }
 
 /**
@@ -212,6 +211,11 @@ function measureOf(row: HistoricPlayerGameweek, measure: RollingMeasure): number
  * because a player who was injured for six weeks has no rows for matches his
  * club played, and his club's form is exactly what he is returning into.
  */
+/** Narrows a value the filter above has already proved is present. */
+function nonNull<T>(value: T | null): T {
+  return value as T;
+}
+
 function clubHistory(matches: readonly Match[], teamCode: number): TeamMatch[] {
   return matches
     .filter(
@@ -226,7 +230,7 @@ function clubHistory(matches: readonly Match[], teamCode: number): TeamMatch[] {
       const goalsFor = (home ? match.homeScore : match.awayScore) ?? 0;
       const goalsAgainst = (home ? match.awayScore : match.homeScore) ?? 0;
       return {
-        kickoff: match.kickoff as Date,
+        kickoff: nonNull(match.kickoff),
         goalsFor,
         goalsAgainst,
         points: goalsFor > goalsAgainst ? 3 : goalsFor === goalsAgainst ? 1 : 0,

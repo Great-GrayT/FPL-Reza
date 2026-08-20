@@ -13,6 +13,11 @@
   --ink-soft: #4a5560;
   --pitch: #2e5e3a;
   --pitch-soft: #6f8f77;
+  /* Turf is the printed pitch a squad is laid out on: flatter and darker than
+     --pitch so white line-work and a paper tag both hold against it. The two
+     values are one mow band apart, which is all a press would give you. */
+  --turf: #24512f;
+  --turf-2: #275634;
   --flare: #e8214f;
   /* Darkened so flare can carry text at 4.5:1 against paper. */
   --flare-ink: #b0173e;
@@ -40,6 +45,11 @@
   --s8: 4rem;
   --s9: 6rem;
 
+  /* The caption step, used by roughly forty rules across the site and, until
+     now, never defined: every one of them silently inherited its parent's size.
+     11px is the floor this design holds to, small enough for a stamp and a
+     column label and large enough to stay legible at arm's length. */
+  --step--2: 0.6875rem;
   --step--1: 0.8125rem;
   --step-0: 1rem;
   --step-1: 1.25rem;
@@ -84,6 +94,10 @@
     --ink-soft: #97a3ae;
     --pitch: #7fae8b;
     --pitch-soft: #3d5f47;
+    /* Darker under a dark theme, so the pitch recedes behind the paper tags on
+       it rather than glowing out of a dim page. */
+    --turf: #1b3c24;
+    --turf-2: #1e4128;
     --flare: #ff3a66;
     --flare-ink: #ff6d8c;
     --bonus: #f0b429;

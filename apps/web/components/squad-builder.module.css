@@ -158,6 +158,93 @@
   cursor: pointer;
 }
 
+/* ---------------------------------------------------------------------------
+   The pitch.
+
+   Flat printed green with mow bands two percent apart, ink line-work drawn at
+   the real 105 by 68 ratio, and a halftone screen over the lot so it reads as
+   something run through a press rather than something rendered. Every tag on it
+   sits on paper, because a number printed on grass is a number nobody reads.
+   --------------------------------------------------------------------------- */
+.pitch {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: var(--s5);
+  padding: var(--s4) var(--s3) var(--s3);
+  background-color: var(--turf);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--turf) 0,
+    var(--turf) 6.25%,
+    var(--turf-2) 6.25%,
+    var(--turf-2) 12.5%
+  );
+  border: 1px solid var(--ink);
+  overflow: hidden;
+}
+
+/* The press screen: a fine dot grid, barely there, killed on a coarse screen. */
+.pitch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 50% 50%, rgb(0 0 0 / 22%) 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+.pitchLines {
+  position: absolute;
+  inset: var(--s2);
+  z-index: 0;
+  inline-size: calc(100% - var(--s4));
+  block-size: calc(100% - var(--s4));
+  color: rgb(255 255 255 / 34%);
+}
+
+.pitch .line {
+  position: relative;
+  z-index: 1;
+  margin-bottom: var(--s4);
+}
+
+.pitch .line:last-of-type {
+  margin-bottom: 0;
+}
+
+/* On the pitch the section heads are chalk, not ink. */
+.pitch .lineHead {
+  color: var(--chalk);
+  border-bottom-color: rgb(255 255 255 / 22%);
+}
+
+.pitch .stamp {
+  border-color: rgb(255 255 255 / 55%);
+  color: var(--chalk);
+}
+
+.pitch .lineCount {
+  color: rgb(255 255 255 / 72%);
+}
+
+.pitch .slots {
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--s3) var(--s2);
+}
+
+@media (max-width: 34rem) {
+  .pitch {
+    padding: var(--s3) var(--s2) var(--s2);
+  }
+
+  .pitch .slots {
+    grid-template-columns: repeat(auto-fit, minmax(6.25rem, 1fr));
+  }
+}
+
 .line {
   margin-bottom: var(--s4);
 }
@@ -199,48 +286,40 @@
 .slot {
   position: relative;
   min-block-size: 4.5rem;
-  border: 1px solid var(--rule-strong);
-  background: var(--paper);
 }
 
-.slot[data-over='true'] {
-  border-color: var(--flare);
-  border-style: solid;
-  background: color-mix(in srgb, var(--flare) 8%, var(--paper));
+.slot[data-over='true'] .emptySlot,
+.slot[data-over='true'] .card {
+  outline: 2px solid var(--flare);
+  outline-offset: 2px;
 }
 
-.slot[data-filled='true'] {
-  border-color: var(--ink);
-}
-
-/* A starter is ruled solid, a bench player stays dashed: the sheet says who plays. */
-.slot[data-filled='true']:not([data-starter='true']) {
-  border-style: dashed;
-}
-
+/* An unfilled slot is chalked onto the grass rather than printed on paper: the
+   difference between a place for a player and a player is worth seeing across
+   the whole pitch at a glance. */
 .emptySlot {
   display: flex;
   flex-direction: column;
   gap: var(--s1);
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   inline-size: 100%;
   block-size: 100%;
-  min-block-size: 4.5rem;
+  min-block-size: 6.75rem;
   padding: var(--s2);
-  background: none;
-  border: 0;
-  border-left: 3px solid transparent;
+  background: rgb(255 255 255 / 6%);
+  border: 1px dashed rgb(255 255 255 / 45%);
   font: inherit;
-  text-align: start;
-  color: var(--ink-soft);
+  text-align: center;
+  color: rgb(255 255 255 / 82%);
   cursor: pointer;
 }
 
 .emptySlot:hover,
 .emptySlot:focus-visible {
-  border-left-color: var(--flare);
-  background: var(--paper-2);
+  background: rgb(255 255 255 / 14%);
+  border-color: var(--chalk);
+  color: var(--chalk);
 }
 
 .slotStamp {
@@ -253,54 +332,205 @@
   font-size: var(--step--1);
 }
 
+/* ---------------------------------------------------------------------------
+   The token: a club shirt pinned above a paper name tag.
+
+   The shirt is the club, read at a glance across fifteen slots the way a kit is
+   read across a pitch. The tag is where every figure lives, on paper, ruled,
+   in mono, so the numbers align down a column and stay legible against grass.
+   --------------------------------------------------------------------------- */
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
-  padding: var(--s2);
+  align-items: center;
+  gap: 0;
   block-size: 100%;
+}
+
+.shirt {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  block-size: 3.6rem;
+}
+
+.shirtImage {
+  inline-size: auto;
+  block-size: 3.4rem;
+  filter: drop-shadow(0 2px 0 rgb(0 0 0 / 28%));
+}
+
+.shirtBlank {
+  inline-size: 2.7rem;
+  block-size: 3.4rem;
+  background: rgb(255 255 255 / 30%);
+  border: 1px solid rgb(255 255 255 / 55%);
+}
+
+/* The armband: the one place gold appears, and it means exactly one thing. */
+.captain {
+  position: absolute;
+  inset-block-start: 0.1rem;
+  inset-inline-end: 0.1rem;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  line-height: 1;
+  border: 1px solid var(--ink);
+  background: var(--bonus);
+  color: var(--ink);
+  padding: 0.1rem 0.25rem;
+  text-decoration: none;
+}
+
+.benched {
+  position: absolute;
+  inset-block-end: -0.15rem;
+  inset-inline-start: 0.1rem;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--chalk);
+  padding: 0.05rem 0.2rem;
+}
+
+.tag {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  inline-size: 100%;
+  padding: 0.2rem 0.3rem 0.25rem;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  text-align: center;
+}
+
+.cardName {
+  font-weight: 600;
+  font-size: var(--step--1);
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cardClub {
   font-family: var(--font-mono), monospace;
   font-size: var(--step--2);
   letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--ink-soft);
 }
 
-.cardName {
-  font-weight: 600;
-  line-height: 1.2;
+/* A doubt is the only thing on the tag allowed to be red. */
+.doubt {
+  margin-inline-start: 0.2rem;
+  color: var(--flare-ink);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: help;
 }
 
-.captain {
-  margin-inline-start: 0.35rem;
+/* Five figures on one ruled line: price, the projection, and the three inputs
+   a manager can argue with. Hairlines between them, like a printed table. */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin-block-start: 0.2rem;
+  padding-block-start: 0.2rem;
+  border-block-start: 1px solid var(--rule);
+  font-size: var(--step--2);
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+
+.metrics > * {
+  border-inline-start: 1px solid var(--rule);
+  cursor: help;
+}
+
+.metrics > *:first-child {
+  border-inline-start: 0;
+}
+
+/* The projection is the output, so it is the one figure set in ink. */
+.metrics > strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* The five figures explained once, under the pitch, rather than only in a title
+   attribute that a touch screen never shows. */
+.tokenKey {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  margin: var(--s3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+.tokenKey b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* The runway: three squares, one per fixture, in the same difficulty colours the
+   rest of the site uses. A missing square is a blank gameweek, which is a fact
+   worth seeing rather than an average worth hiding. */
+.ticker {
+  display: flex;
+  gap: 1px;
+  margin-block-start: 0.2rem;
+}
+
+.tick {
+  flex: 1;
+  block-size: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+.tick[data-difficulty='1'] {
+  background: var(--fdr-1);
+}
+
+.tick[data-difficulty='2'] {
+  background: var(--fdr-2);
+}
+
+.tick[data-difficulty='3'] {
+  background: var(--fdr-3);
+}
+
+.tick[data-difficulty='4'] {
+  background: var(--fdr-4);
+}
+
+.tick[data-difficulty='5'] {
+  background: var(--fdr-5);
+}
+
+.tickBlank {
+  flex: 1;
   font-family: var(--font-mono), monospace;
   font-size: var(--step--2);
-  border: 1px solid var(--bonus);
-  background: var(--bonus);
-  color: var(--ink);
-  padding: 0 0.25rem;
-  text-decoration: none;
-}
-
-.cardStats {
-  font-size: var(--step--1);
   color: var(--ink-soft);
 }
 
-.benched {
-  color: var(--ink-soft);
-  font-style: italic;
-}
-
+/* Sits top left, because the armband takes top right and a control that
+   overlaps a status mark gets pressed by accident. */
 .removeButton {
   position: absolute;
   inset-block-start: 0;
-  inset-inline-end: 0;
+  inset-inline-start: 0;
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: flex-start;
   /* 44px is the touch floor; the glyph stays small inside a large target. */
   inline-size: 2.75rem;
   block-size: 2.75rem;
@@ -309,13 +539,14 @@
   border: 0;
   font-size: var(--step-0);
   line-height: 1;
-  color: var(--ink-soft);
+  color: rgb(255 255 255 / 78%);
+  text-shadow: 0 1px 1px rgb(0 0 0 / 45%);
   cursor: pointer;
 }
 
 .removeButton:hover,
 .removeButton:focus-visible {
-  color: var(--flare-ink);
+  color: var(--chalk);
 }
 
 /* --------------------------------------------------------------- readout */
@@ -548,10 +779,12 @@
   opacity: 0.55;
 }
 
+/* A face, a name, then the figures. The photograph is what makes a list of six
+   hundred names scannable: a manager recognises a player before he reads one. */
 .rowMain {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: var(--s3);
   inline-size: 100%;
   padding: var(--s2);
@@ -562,11 +795,16 @@
   cursor: pointer;
 }
 
+.rowFace {
+  flex: none;
+}
+
 .rowName {
   display: flex;
   align-items: baseline;
   gap: var(--s2);
   min-inline-size: 0;
+  margin-inline-end: auto;
 }
 
 .rowClub {
@@ -586,12 +824,54 @@
   padding: 0 0.2rem;
 }
 
+/* The same figures the pitch tag carries, in the same order, so moving a player
+   onto the pitch does not change what you are reading about him. */
 .rowStats {
   display: flex;
+  align-items: center;
   gap: var(--s2);
   font-size: var(--step--1);
   color: var(--ink-soft);
   white-space: nowrap;
+}
+
+.rowStats > * {
+  cursor: help;
+}
+
+.rowStats > strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.rowTicker {
+  display: flex;
+  gap: 1px;
+  inline-size: 2.25rem;
+}
+
+.rowTicker .tick {
+  block-size: 0.65rem;
+}
+
+/* Below the two column layout the figures wrap under the name rather than
+   scrolling sideways, and the least decisive ones step out first. */
+@media (max-width: 44rem) {
+  .rowStats {
+    gap: var(--s1);
+    font-size: var(--step--2);
+  }
+}
+
+@media (max-width: 30rem) {
+  .rowMain {
+    flex-wrap: wrap;
+  }
+
+  .rowStats > *:nth-child(4),
+  .rowStats > *:nth-child(6) {
+    display: none;
+  }
 }
 
 .rowPoints {

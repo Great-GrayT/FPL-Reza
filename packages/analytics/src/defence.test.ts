@@ -37,6 +37,10 @@ function gw({
     expectedGoals: 0,
     expectedAssists: 0,
     expectedGoalsConceded: 0,
+    influence: null,
+    creativity: null,
+    threat: null,
+    ictIndex: null,
     price: 50,
     ...rest,
   };

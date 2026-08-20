@@ -8,7 +8,13 @@ import {
   type ManagerSpell,
   type Match,
   type MatchDetail,
+  playerGameweekSchema,
+  playerSchema,
+  teamSchema,
+  type Player,
+  type PlayerGameweek,
   type Season,
+  type Team,
   type TeamSeason,
 } from '@fpl/core';
 import type { Store } from '@fpl/store';
@@ -28,6 +34,12 @@ export interface PanelSources {
   season: Season;
   /** Archive seasons to load, newest last. */
   seasons: readonly string[];
+  /**
+   * Also load the live season from the FPL datasets, mapped into the archive's
+   * shape. Without it a model fitted on closed seasons has nothing to project
+   * today's squad from: the archive stops where the current season starts.
+   */
+  includeLive?: boolean;
 }
 
 export interface Panel {
@@ -80,6 +92,9 @@ export async function loadPanel(store: Store, sources: PanelSources): Promise<Pa
     );
   }
 
+  const live = sources.includeLive === true ? await loadLiveRows(store, sources.season) : null;
+  if (live !== null) rows.push(...live.rows);
+
   const teamSeasons = await readOrEmpty<TeamSeason>(
     store,
     sources.season,
@@ -88,6 +103,13 @@ export async function loadPanel(store: Store, sources: PanelSources): Promise<Pa
   );
   const codeBySeasonId = new Map<string, number>();
   const codeBySeasonName = new Map<string, number>();
+  if (live !== null) {
+    for (const team of live.teams) {
+      codeBySeasonId.set(`${sources.season}:${String(team.id)}`, team.code);
+      codeBySeasonName.set(`${sources.season}:${normalise(team.name)}`, team.code);
+      codeBySeasonName.set(`${sources.season}:${normalise(team.shortName)}`, team.code);
+    }
+  }
   for (const entry of teamSeasons) {
     codeBySeasonId.set(`${entry.season}:${String(entry.teamId)}`, entry.teamCode);
     codeBySeasonName.set(`${entry.season}:${normalise(entry.name)}`, entry.teamCode);
@@ -105,6 +127,7 @@ export async function loadPanel(store: Store, sources: PanelSources): Promise<Pa
     .partitions({ season: sources.season, dataset: 'matches' })
     .catch(() => [] as string[]);
   const wanted = new Set(sources.seasons.map(toArchiveSeason));
+  if (sources.includeLive === true) wanted.add(toArchiveSeason(sources.season));
   const matches: Match[] = [];
   for (const partition of matchPartitions) {
     if (!wanted.has(partition)) continue;
@@ -143,6 +166,82 @@ export async function loadPanel(store: Store, sources: PanelSources): Promise<Pa
     detailOf: (matchId) => details.get(matchId) ?? null,
     detailSeasons,
   };
+}
+
+/**
+ * The live season in the archive's shape.
+ *
+ * FPL files this season by element id and the archive files a closed one by
+ * permanent player code, so every row is rekeyed through the player list, the
+ * same way the archive backfill does. A player the list does not carry is
+ * dropped rather than matched on name.
+ */
+async function loadLiveRows(
+  store: Store,
+  season: Season,
+): Promise<{ rows: HistoricPlayerGameweek[]; teams: Team[] }> {
+  const players = await readOrEmpty<Player>(store, season, 'players', playerSchema);
+  const teams = await readOrEmpty<Team>(store, season, 'teams', teamSchema);
+  if (players.length === 0) return { rows: [], teams };
+
+  const byId = new Map(players.map((player) => [Number(player.id), player]));
+  const teamName = new Map(teams.map((team) => [Number(team.id), team.name]));
+
+  const partitions = await store
+    .partitions({ season, dataset: 'player-gameweeks' })
+    .catch(() => [] as string[]);
+
+  const rows: HistoricPlayerGameweek[] = [];
+  for (const partition of partitions) {
+    const gameweeks = await readOrEmpty<PlayerGameweek>(
+      store,
+      season,
+      'player-gameweeks',
+      playerGameweekSchema,
+      partition,
+    );
+    for (const row of gameweeks) {
+      const player = byId.get(Number(row.playerId));
+      if (player === undefined) continue;
+      rows.push({
+        playerCode: player.code,
+        season,
+        gameweek: Number(row.gameweek),
+        name: player.webName,
+        position: player.position,
+        team: teamName.get(Number(player.teamId)) ?? null,
+        opponentTeam: Number(row.opponentTeam),
+        wasHome: row.wasHome,
+        kickoff: row.kickoff,
+        minutes: row.minutes,
+        totalPoints: row.totalPoints,
+        goals: row.goals,
+        assists: row.assists,
+        cleanSheets: row.cleanSheet ? 1 : 0,
+        goalsConceded: row.goalsConceded,
+        ownGoals: row.ownGoals,
+        penaltiesSaved: row.penaltiesSaved,
+        penaltiesMissed: row.penaltiesMissed,
+        yellowCards: row.yellowCards,
+        redCards: row.redCards,
+        saves: row.saves,
+        bonus: row.bonus,
+        bps: row.bps,
+        price: row.price,
+        selectedBy: null,
+        expectedGoals: row.expectedGoals,
+        expectedAssists: row.expectedAssists,
+        expectedGoalsConceded: row.expectedGoalsConceded,
+        influence: row.influence,
+        creativity: row.creativity,
+        threat: row.threat,
+        ictIndex: row.ictIndex,
+        expectedPoints: null,
+      } satisfies HistoricPlayerGameweek);
+    }
+  }
+  rows.sort((a, b) => (a.kickoff?.getTime() ?? 0) - (b.kickoff?.getTime() ?? 0));
+  return { rows, teams };
 }
 
 /** Club names arrive spelt several ways, so the key is stripped to letters. */
