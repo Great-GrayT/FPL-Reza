@@ -62,6 +62,16 @@ jobs:
         continue-on-error: true
         run: node apps/cli/dist/bin.js official weather
 
+      # One request. The provider publishes a season file only once that season
+      # is under way and rewrites it after each round, so a closing price for a
+      # match played this weekend appears here rather than anywhere else. Until
+      # the file exists this is a 300 and yields nothing, which is why it can
+      # sit on an hourly schedule from the start of the season.
+      - name: Refresh bookmaker prices
+        id: odds
+        continue-on-error: true
+        run: node apps/cli/dist/bin.js odds
+
       - name: Commit any new snapshots
         if: always()
         run: |

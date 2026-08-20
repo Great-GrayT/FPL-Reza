@@ -23,6 +23,8 @@ const quote = (
   fixtureId: null,
   homeTeam: null,
   awayTeam: null,
+  homeName: null,
+  awayName: null,
   kickoff: null,
   market,
   selection,

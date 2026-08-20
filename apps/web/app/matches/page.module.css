@@ -184,6 +184,110 @@
   letter-spacing: 0;
 }
 
+/*
+ * Everything under the two clubs, in one block with one rhythm.
+ *
+ * A card that says only who is playing is a card a reader has to open to learn
+ * anything, and a fixture list is read to decide which one to open. So the
+ * probabilities, the goals expected, the run each club is on, and the record
+ * between them all sit here. Each line is a different kind of claim, and they
+ * are ordered by how much they are worth: what is likely, then what the market
+ * paid for it, then the measures behind both, then the record, then the room.
+ */
+.detail {
+  padding: 0 var(--s4) var(--s3);
+  display: grid;
+  gap: var(--s1);
+}
+
+.detail .odds {
+  padding: 0;
+}
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  margin: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  color: var(--ink);
+}
+
+.figures > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+}
+
+.figureLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  opacity: 0.8;
+}
+
+.context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+/* Five results as five marks, home run on the left and away on the right, so
+   the shape of a run reads before any of its letters do. */
+.formRun {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.formRun i {
+  inline-size: 1rem;
+  block-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-style: normal;
+  font-size: 0.625rem;
+  color: var(--paper);
+  background: var(--ink-soft);
+}
+
+.formRun i[data-result='W'] {
+  background: var(--pitch);
+}
+
+.formRun i[data-result='D'] {
+  background: var(--ink-soft);
+}
+
+.formRun i[data-result='L'] {
+  background: var(--flare-ink);
+}
+
+.record {
+  letter-spacing: 0.06em;
+}
+
+/* The away run sits at the right edge, mirroring the two clubs above it, so a
+   reader can tell whose form is whose without reading a label. */
+.context .formRun:last-child {
+  margin-inline-start: auto;
+}
+
+.venue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  margin: 0;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
 .empty {
   color: var(--ink-soft);
   max-width: var(--measure);

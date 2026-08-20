@@ -15,6 +15,8 @@ import { estimateStrength, explainForecast, forecastMatch, projectPoints } from 
 import { Crest } from '@/components/crest';
 import { PersonChip } from '@/components/person-photo';
 import { ForecastBar, Likelihood } from '@/components/forecast-bar';
+import { MarketOdds } from '@/components/market-odds';
+import { marketFor } from '@/lib/market';
 import { TeamSheetList, TeamSheetPitch } from '@/components/team-sheet';
 import { GroundPhoto } from '@/components/ground-photo';
 import { MetricTip } from '@/components/metric-tip';
@@ -26,6 +28,7 @@ import {
   getGameweeks,
   getGroundsById,
   getGroundImages,
+  getOdds,
   getOfficialByFixture,
   getPlayers,
   getPlayersByCode,
@@ -87,11 +90,12 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const official = officialByFixture.get(fixtureId) ?? null;
   const week = gameweeks.find((entry) => (entry.id as number) === fixture.gameweek);
 
-  const [grounds, groundImages, weatherByMatch, allDetails] = await Promise.all([
+  const [grounds, groundImages, weatherByMatch, allDetails, odds] = await Promise.all([
     getGroundsById(),
     getGroundImages(),
     getWeatherByMatch(),
     getAllMatchDetailsById(),
+    getOdds(),
   ]);
 
   const detail = official === null ? undefined : (allDetails.get(official.matchId) ?? undefined);
@@ -103,6 +107,15 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const model = estimateStrength(allMatches);
   const forecast = forecastMatch(model, home.code, away.code);
   const explanation = explainForecast(model, forecast);
+
+  // The market, where a price for this match was stored. Matched on the two
+  // club names and the day rather than an id, because a club since relegated
+  // has no FPL id on either side of the join.
+  const market = marketFor(odds, {
+    homeTeamName: home.name,
+    awayTeamName: away.name,
+    kickoff: fixture.kickoff,
+  });
 
   const record = headToHead(allMatches, home.code, away.code);
   const lastMeetings = record.matches.slice(0, 6);
@@ -261,8 +274,12 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           What is likely
         </h2>
         <p className={styles.lede}>
-          One model, stated in full below. It is not a bookmaker&apos;s price and it does not know
-          about an injury, a suspension, or a manager resting a squad for a European tie.
+          Where these numbers come from: a Poisson model fitted to nothing, stated in full below. It
+          reads every completed match on record, gives each club an attack and a defence as a ratio
+          to the division average, and turns the pair into two goal expectations and a scoreline
+          grid. No parameter in it is tuned against an outcome it is later scored on. It is not a
+          bookmaker&apos;s price, and it does not know about an injury, a suspension, or a manager
+          resting a squad for a European tie.
         </p>
 
         <ForecastBar
@@ -327,6 +344,32 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           </ul>
         </details>
       </section>
+
+      {market === null ? (
+        <section className={styles.block} aria-labelledby="market-none">
+          <h2 id="market-none" className={styles.h2}>
+            What the market thought
+          </h2>
+          <p className={styles.lede}>
+            No bookmaker price is stored for this match. Closing odds come from football-data.co.uk,
+            which publishes a season file only once that season is under way, and the backfill
+            covers 2023/24 onward. Until a price exists, the model above is the only probability on
+            this page.
+          </p>
+        </section>
+      ) : (
+        <MarketOdds
+          market={market}
+          homeLabel={home.shortName}
+          awayLabel={away.shortName}
+          model={{
+            home: forecast.homeWin,
+            draw: forecast.draw,
+            away: forecast.awayWin,
+            over: forecast.overTwoPointFive,
+          }}
+        />
+      )}
 
       <section className={styles.block} aria-labelledby="lineups">
         <h2 id="lineups" className={styles.h2}>

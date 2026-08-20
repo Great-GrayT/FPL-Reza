@@ -106,7 +106,7 @@ describe('footballDataOddsSource', () => {
 
     assert.equal(batches.length, 1);
     assert.equal(batches[0]?.dataset, DATASETS.odds);
-    assert.equal(batches[0]?.partition, 'football-data');
+    assert.equal(batches[0]?.partition, 'football-data-2026-27');
     // One bookmaker, three selections in the match odds market.
     assert.equal(batches[0]?.rows.length, 3);
   });

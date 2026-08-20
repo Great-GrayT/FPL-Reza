@@ -1,0 +1,144 @@
+.market {
+  padding-block: var(--s5);
+  border-block-end: 1px solid var(--rule-strong);
+}
+
+.head {
+  font-size: var(--step-2);
+  margin: 0 0 var(--s2);
+}
+
+.lede {
+  margin: 0 0 var(--s4);
+  max-inline-size: var(--measure);
+  color: var(--ink-soft);
+  font-size: var(--step--1);
+}
+
+.gaps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0;
+  margin: var(--s4) 0 0;
+  border: 1px solid var(--rule);
+}
+
+.gaps > div {
+  padding: var(--s3);
+  border-inline-start: 1px solid var(--rule);
+}
+
+.gaps > div:first-child {
+  border-inline-start: 0;
+}
+
+.gaps dt {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.gaps dd {
+  margin: var(--s1) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.value {
+  font-size: var(--step-2);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.against {
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+}
+
+/* The gap between the market and the model is the point of this block, so it
+   is the one figure that gets ink when it is worth looking at. */
+.delta[data-wide='true'] {
+  color: var(--flare-ink);
+  font-weight: 600;
+}
+
+.verdict {
+  margin: var(--s3) 0 0;
+  padding: var(--s3);
+  border-inline-start: 2px solid var(--flare);
+  background: var(--paper-2);
+  font-size: var(--step--1);
+  max-inline-size: var(--measure);
+}
+
+.books {
+  margin-block-start: var(--s4);
+}
+
+.books summary {
+  min-block-size: 2.75rem;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.books summary:hover {
+  color: var(--ink);
+}
+
+.scroll {
+  overflow-x: auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+}
+
+.table th,
+.table td {
+  padding: var(--s2) var(--s3);
+  border-block-end: 1px solid var(--rule);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table th[scope='row'],
+.table thead th:first-child {
+  text-align: left;
+}
+
+.table thead th {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Where a number came from, printed with it. The same rule the ground
+   photographs follow: a figure whose source is not beside it is a figure
+   nobody can check. */
+.source {
+  margin: var(--s4) 0 0;
+  font-size: var(--step--2);
+  color: var(--ink-soft);
+  max-inline-size: var(--measure);
+}
+
+.source code {
+  font-family: var(--font-mono), monospace;
+  background: var(--paper-2);
+  padding: 0.05em 0.3em;
+}

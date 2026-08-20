@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "odds",
+      "partition": "football-data-2025-26",
+      "capturedAt": "2026-08-20T13:52:02.580Z",
+      "rows": 7470,
+      "bytes": 2173873,
+      "format": "jsonl",
+      "file": "2026-27/odds/football-data-2025-26/2026-08-20T13-52-02-580Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "odds",
+      "partition": "football-data-2024-25",
+      "capturedAt": "2026-08-20T13:52:02.580Z",
+      "rows": 8424,
+      "bytes": 2460923,
+      "format": "jsonl",
+      "file": "2026-27/odds/football-data-2024-25/2026-08-20T13-52-02-580Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "odds",
+      "partition": "football-data-2023-24",
+      "capturedAt": "2026-08-20T13:52:02.580Z",
+      "rows": 10848,
+      "bytes": 3166940,
+      "format": "jsonl",
+      "file": "2026-27/odds/football-data-2023-24/2026-08-20T13-52-02-580Z.jsonl"
+    }
+  ]
+}

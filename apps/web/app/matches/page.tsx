@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GAMEWEEKS_PER_SEASON } from '@fpl/core';
+import { headToHead, recentForm } from '@fpl/core';
 import { estimateStrength, forecastMatch } from '@fpl/analytics';
 import { Crest } from '@/components/crest';
 import {
@@ -8,9 +9,11 @@ import {
   getFixtures,
   getGameweeks,
   getGroundsById,
+  getOdds,
   getOfficialByFixture,
   getTeamsById,
 } from '@/lib/lake';
+import { marketFor } from '@/lib/market';
 import { kickoff, matchDay } from '@/lib/display';
 import styles from './page.module.css';
 
@@ -34,6 +37,8 @@ export default async function MatchesPage({
       getOfficialByFixture(),
       getGroundsById(),
     ]);
+
+  const odds = await getOdds();
 
   // One model for the whole page rather than one per fixture: estimating a
   // division's strengths eighteen times over would produce the same numbers
@@ -116,6 +121,20 @@ export default async function MatchesPage({
                   home === undefined || away === undefined
                     ? null
                     : forecastMatch(model, home.code, away.code);
+                const market =
+                  home === undefined || away === undefined
+                    ? null
+                    : marketFor(odds, {
+                        homeTeamName: home.name,
+                        awayTeamName: away.name,
+                        kickoff: match.kickoff,
+                      });
+                const homeForm = home === undefined ? [] : recentForm(allMatches, home.code, 5);
+                const awayForm = away === undefined ? [] : recentForm(allMatches, away.code, 5);
+                const record =
+                  home === undefined || away === undefined
+                    ? null
+                    : headToHead(allMatches, home.code, away.code);
 
                 return (
                   <li key={match.id} className={styles.match}>
@@ -157,18 +176,109 @@ export default async function MatchesPage({
                       </div>
                     </Link>
 
-                    {forecast !== null && !played && (
-                      <p className={styles.odds} aria-hidden>
-                        <span className="num">{(forecast.homeWin * 100).toFixed(0)}%</span>
-                        <span className={styles.oddsDim}>draw</span>
-                        <span className="num">{(forecast.draw * 100).toFixed(0)}%</span>
-                        <span className={styles.oddsDim}>away</span>
-                        <span className="num">{(forecast.awayWin * 100).toFixed(0)}%</span>
-                        {ground !== undefined && (
-                          <span className={styles.oddsGround}>{ground.name}</span>
+                    <div className={styles.detail}>
+                      {forecast !== null && !played && (
+                        <p className={styles.odds}>
+                          <span className={styles.oddsDim}>Model</span>
+                          <span className="num">{(forecast.homeWin * 100).toFixed(0)}%</span>
+                          <span className={styles.oddsDim}>drw</span>
+                          <span className="num">{(forecast.draw * 100).toFixed(0)}%</span>
+                          <span className={styles.oddsDim}>awy</span>
+                          <span className="num">{(forecast.awayWin * 100).toFixed(0)}%</span>
+                        </p>
+                      )}
+
+                      {market?.consensus != null && (
+                        <p className={styles.odds}>
+                          <span className={styles.oddsDim}>Market</span>
+                          <span className="num">{(market.consensus.home * 100).toFixed(0)}%</span>
+                          <span className={styles.oddsDim}>drw</span>
+                          <span className="num">{(market.consensus.draw * 100).toFixed(0)}%</span>
+                          <span className={styles.oddsDim}>awy</span>
+                          <span className="num">{(market.consensus.away * 100).toFixed(0)}%</span>
+                          <span className={styles.oddsDim}>
+                            {market.count} {market.count === 1 ? 'book' : 'books'}
+                          </span>
+                        </p>
+                      )}
+
+                      {forecast !== null && !played && (
+                        <p className={styles.figures}>
+                          <span>
+                            <span className={styles.figureLabel}>Goals</span>
+                            <span className="num">
+                              {forecast.homeExpectedGoals.toFixed(1)}&ndash;
+                              {forecast.awayExpectedGoals.toFixed(1)}
+                            </span>
+                          </span>
+                          <span>
+                            <span className={styles.figureLabel}>Over 2.5</span>
+                            <span className="num">
+                              {(forecast.overTwoPointFive * 100).toFixed(0)}%
+                            </span>
+                          </span>
+                          <span>
+                            <span className={styles.figureLabel}>Both score</span>
+                            <span className="num">{(forecast.bothToScore * 100).toFixed(0)}%</span>
+                          </span>
+                          <span>
+                            <span className={styles.figureLabel}>
+                              {home?.shortName ?? 'Home'} CS
+                            </span>
+                            <span className="num">
+                              {(forecast.homeCleanSheet * 100).toFixed(0)}%
+                            </span>
+                          </span>
+                          <span>
+                            <span className={styles.figureLabel}>
+                              {away?.shortName ?? 'Away'} CS
+                            </span>
+                            <span className="num">
+                              {(forecast.awayCleanSheet * 100).toFixed(0)}%
+                            </span>
+                          </span>
+                        </p>
+                      )}
+
+                      <p className={styles.context}>
+                        {homeForm.length > 0 && (
+                          <span className={styles.formRun}>
+                            {homeForm.map((result, index) => (
+                              <i key={index} data-result={result}>
+                                {result}
+                              </i>
+                            ))}
+                          </span>
+                        )}
+                        {record !== null && record.played > 0 && (
+                          <span className={styles.record}>
+                            {record.homeWins}&ndash;{record.draws}&ndash;{record.awayWins} in{' '}
+                            {record.played}
+                          </span>
+                        )}
+                        {awayForm.length > 0 && (
+                          <span className={styles.formRun}>
+                            {awayForm.map((result, index) => (
+                              <i key={index} data-result={result}>
+                                {result}
+                              </i>
+                            ))}
+                          </span>
                         )}
                       </p>
-                    )}
+
+                      <p className={styles.venue}>
+                        {ground !== undefined && <span>{ground.name}</span>}
+                        {official?.refereeName != null && (
+                          <span>Referee {official.refereeName}</span>
+                        )}
+                        {played && official?.attendance != null && (
+                          <span className="num">
+                            {official.attendance.toLocaleString('en-GB')} in
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </li>
                 );
               })}

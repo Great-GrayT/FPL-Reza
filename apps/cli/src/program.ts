@@ -526,6 +526,13 @@ function registerHistory(program: Command, deps: CliDeps, streams: Streams, now:
     });
 }
 
+interface OddsBackfillOptionsRaw {
+  season?: string;
+  seasons?: string;
+  division?: string;
+  json?: boolean;
+}
+
 interface OfficialOptionsRaw {
   season?: string;
   seasons?: number;
@@ -662,6 +669,44 @@ not written, because they did not beat a shuffled target: ${report.refused.join(
         `
 ${String(report.written.length)} artifacts written in ${String(Math.round(report.elapsedMs / 1000))}s`,
       );
+    });
+
+  program
+    .command('odds')
+    .description('Closing bookmaker prices from football-data.co.uk, one partition per season')
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option(
+      '--seasons <labels>',
+      'comma separated seasons to pull, e.g. 2025/26,2024/25. Defaults to the filed season',
+    )
+    .option('--division <code>', 'provider competition code, E0 is the Premier League')
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: OddsBackfillOptionsRaw) => {
+      const season = resolveSeason(options.season, deps.config);
+      const seasons =
+        options.seasons === undefined
+          ? undefined
+          : options.seasons
+              .split(',')
+              .map((entry) => entry.trim())
+              .filter((entry) => entry !== '')
+              .map((entry) => asSeason(entry));
+
+      const report = await runSync(
+        [
+          footballDataOddsSource(deps.http, {
+            ...(seasons === undefined ? {} : { seasons }),
+            ...(options.division === undefined ? {} : { division: options.division }),
+          }),
+        ],
+        { season, store: deps.store, logger: deps.logger, capturedAt: new Date() },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
     });
 
   const official = program

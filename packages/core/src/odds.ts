@@ -28,6 +28,20 @@ export const oddsQuoteSchema = z.object({
   fixtureId: fixtureIdSchema.nullable(),
   homeTeam: teamIdSchema.nullable(),
   awayTeam: teamIdSchema.nullable(),
+  /**
+   * The provider's own spelling of the two clubs, kept whether or not the ids
+   * resolved.
+   *
+   * An FPL team id exists only for a club in the current league, so a price on
+   * a match played by a side since relegated has no id to carry and used to
+   * become an orphan row: 15 percent of one season's quotes, 25 percent of an
+   * older one. The name is what a past match can still be joined on, and
+   * keeping the provider's own is the same discipline the player identity
+   * mapping follows, which stores the evidence a join was made on rather than
+   * only the result.
+   */
+  homeName: z.string().nullable().default(null),
+  awayName: z.string().nullable().default(null),
   kickoff: z.coerce.date().nullable(),
   market: marketSchema,
   /** "home", "draw", "away", "over", "under", "yes", "no", or a player name. */

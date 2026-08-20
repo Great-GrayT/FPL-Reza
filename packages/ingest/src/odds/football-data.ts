@@ -57,6 +57,8 @@ export function parseFootballDataCsv(text: string, options: FootballDataOptions 
       fixtureId: null,
       homeTeam: resolve(homeName) ?? null,
       awayTeam: resolve(awayName) ?? null,
+      homeName,
+      awayName,
       kickoff,
       // The file is published after the match, so the row's own date is the
       // best capture time available.

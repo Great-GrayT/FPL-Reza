@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { cache } from 'react';
 import {
+  oddsQuoteSchema,
+  type OddsQuote,
   NotFoundError,
   asSeason,
   fixtureSchema,
@@ -172,6 +174,23 @@ export const getAllPlayerGameweeks = cache(async (): Promise<PlayerGameweek[]> =
   const perPartition = await Promise.all(
     partitions.map((partition) =>
       readOrEmpty<PlayerGameweek>(DATASETS.playerGameweeks, playerGameweekSchema, partition),
+    ),
+  );
+  return perPartition.flat();
+});
+
+/**
+ * Every stored bookmaker quote, across every season backfilled.
+ *
+ * Optional, like the history readers: a clone that has never run the odds
+ * backfill still builds, and every match page simply says the market is not
+ * stored rather than failing to render.
+ */
+export const getOdds = cache(async (): Promise<OddsQuote[]> => {
+  const partitions = await store.partitions({ season, dataset: DATASETS.odds });
+  const perPartition = await Promise.all(
+    partitions.map((partition) =>
+      readOrEmpty<OddsQuote>(DATASETS.odds, oddsQuoteSchema, partition),
     ),
   );
   return perPartition.flat();
