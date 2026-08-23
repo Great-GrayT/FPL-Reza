@@ -1239,7 +1239,7 @@
 .pin[data-lock='always'] {
   border-color: var(--bonus-ink);
   background: var(--bonus);
-  color: #14181c;
+  color: var(--on-bonus);
 }
 
 /* The second rank of filters, folded away until wanted: eight controls open by
@@ -1338,4 +1338,27 @@
 .row:has(.ban[data-ban='always']) .rowStats {
   opacity: 0.45;
   text-decoration: line-through;
+}
+
+/* Both of these are 18 to 21 pixels, which a mouse hits and a thumb does not.
+   On a coarse pointer they grow to the 44 pixel floor the rest of the site
+   keeps: the shirt is small, so the control grows outside it rather than
+   pushing the tag around. */
+@media (pointer: coarse) {
+  .pin,
+  .ban {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+  }
+
+  .pin {
+    inset-block-start: -0.6rem;
+    inset-inline-start: -0.6rem;
+  }
+
+  .ban {
+    inset-block-start: 0;
+    inset-inline-end: 0;
+  }
 }

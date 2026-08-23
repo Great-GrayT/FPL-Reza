@@ -8,7 +8,7 @@ status: active
 
 ## Status
 
-Green as of 2026-08-20: `pnpm build`, 717 tests, lint, and format all pass. Everything below is committed on `main` **except** the estimated heatmap (four files under `apps/web/lib`, the player page, the heatmap component, `lake.ts`) and the two fixes recorded under "Fixed on 2026-08-20", which are verified and sitting uncommitted in the working tree after VS Code was killed at 100% CPU mid verify. `apps/web` is not in the root `tsconfig` references, so its only typecheck is `next build` over 1,109 pages: that is what pinned the CPU. `npx tsc --noEmit -p apps/web/tsconfig.json` is the cheap equivalent and is what was run instead.
+Green as of 2026-08-20: `pnpm build`, 764 tests plus 6 render tests, lint, and format all pass. Everything below is committed on `main` **except** the estimated heatmap (four files under `apps/web/lib`, the player page, the heatmap component, `lake.ts`) and the two fixes recorded under "Fixed on 2026-08-20", which are verified and sitting uncommitted in the working tree after VS Code was killed at 100% CPU mid verify. `apps/web` is not in the root `tsconfig` references, so its only typecheck is `next build` over 1,109 pages: that is what pinned the CPU. `npx tsc --noEmit -p apps/web/tsconfig.json` is the cheap equivalent and is what was run instead.
 
 Complete and shipped:
 
@@ -50,6 +50,22 @@ Now: **the builder decides, the plan page explains.** One search, on the builder
 - **`components/mini-pitch.tsx`** keeps the eleven in the corner on any page with a pitch once the real one scrolls off.
 
 Design written up in `docs/superpowers/specs/2026-08-20-builder-and-plan-design.md`.
+
+## The predicted eleven, rebuilt on a record
+
+Done 2026-08-23. The old one was "the last eleven each club named", which is wrong for a reason anyone who watches football knows: the last eleven is frequently a cup side, so one rotated Tuesday had the site predicting that team for a month.
+
+`apps/web/lib/selection.ts` is now the model, pure and tested: over a club's recent matches **in the competition being predicted**, how often each player started, weighted at a three match half life, in the shape the club names most often. Measured on the real lake, the record eleven differs from the last eleven for two of three clubs tested, and stability separates them: Liverpool 0.80, Chelsea 0.67, Arsenal 0.55. The page prints that, so it tells a reader to trust one eleven and to treat the last three names of another as open.
+
+A `/code-review high` pass over the diff found eleven issues and every one was real. The five that mattered:
+
+- **Bands are not FPL positions.** Filling a 3-4-2-1 by matching each band to a position drew a defender at centre forward, in the third most common shape in the record. `quotaFor` maps a label to buckets (3-4-2-1 is DEF 3, MID 6, FWD 1) and the bands take their share.
+- **The quota must not pick the eleven.** My first fix enforced the label's counts, which drops wingers, because FPL calls a winger a midfielder and a 4-3-3 front three is usually one forward and two midfielders. The record picks; the label only fills what the record cannot.
+- **Replacements were paired by array index**, so an injured keeper and an injured striker were reported crossed over. Paired by position now, and an absence with no like for like replacement is printed as "he is out" rather than silently dropped.
+- **Stability from one match was reported as 0**, which printed "this club rotates heavily" from no evidence. It is null below two matches, and the copy has its own sentence for that.
+- **No time bound**: a promoted club's "last six league matches" could be two seasons old. Bounded to 400 days and to before the fixture's own kickoff, since predicting a fixture from matches played after it is not a prediction.
+
+Also fixed from the design audit: the cloud on the plan page was 200+ tab stops (now one listbox with arrow keys), the pin and bar controls were 18 to 21 pixels on a touch screen (44 on a coarse pointer), and a magic `#14181c` became `--on-bonus`. Contrast measured: every dense pair passes AA, four pass AAA.
 
 ## In flight
 

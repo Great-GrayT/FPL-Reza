@@ -221,7 +221,7 @@ export function Captaincy({
     const next = scored[1];
     return {
       gameweek: week.gameweek,
-      name: week.captain === null ? '—' : (byCode.get(week.captain)?.name ?? '—'),
+      name: week.captain === null ? '·' : (byCode.get(week.captain)?.name ?? '·'),
       points: best?.points ?? 0,
       margin: (best?.points ?? 0) - (next?.points ?? 0),
     };
@@ -379,9 +379,9 @@ export function Spend({
         ))}
         <tr className={styles.total}>
           <td>Bank</td>
-          <td className={`num ${styles.right}`}>—</td>
+          <td className={`num ${styles.right}`}>·</td>
           <td className={`num ${styles.right}`}>{formatPrice(bank)}</td>
-          <td className={`num ${styles.right}`}>—</td>
+          <td className={`num ${styles.right}`}>·</td>
         </tr>
       </tbody>
     </table>

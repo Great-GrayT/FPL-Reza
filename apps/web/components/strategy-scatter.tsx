@@ -80,6 +80,7 @@ export function StrategyScatter({
       (HEIGHT - PAD.top - PAD.bottom);
 
   const shown = hovered ?? selected;
+  const cursor = shown;
 
   return (
     <div className={styles.wrap}>
@@ -135,40 +136,66 @@ export function StrategyScatter({
           />
         )}
 
-        {space.dots.map((dot) => (
-          <circle
-            key={dot.id}
-            className={styles.dot}
-            data-selected={selected?.id === dot.id ? 'true' : undefined}
-            cx={x(dot.risk)}
-            cy={y(dot.expected)}
-            r={selected?.id === dot.id ? 4 : 2.2}
-            tabIndex={0}
-            role="button"
-            aria-label={`Strategy ${String(dot.id)}: ${dot.expected.toFixed(1)} points, risk ${dot.risk.toFixed(1)}`}
-            onMouseEnter={() => {
-              setHovered(dot);
-            }}
-            onMouseLeave={() => {
-              setHovered(null);
-            }}
-            onFocus={() => {
-              setHovered(dot);
-            }}
-            onBlur={() => {
-              setHovered(null);
-            }}
-            onClick={() => {
-              onSelect(dot);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
+        {/* One stop in the tab order, not two hundred.
+            Every dot being focusable turned this panel into a corridor a
+            keyboard user had to walk the whole length of to reach the next
+            control. It is a listbox instead: one stop, then arrow keys move
+            along the cloud, which is the pattern for a set of options where
+            only one is chosen at a time. */}
+        <g
+          role="listbox"
+          tabIndex={space.dots.length === 0 ? -1 : 0}
+          aria-label="Strategies, ordered by risk. Use the arrow keys to move along the cloud."
+          aria-activedescendant={cursor === null ? undefined : `strategy-${String(cursor.id)}`}
+          className={styles.cloud}
+          onKeyDown={(event) => {
+            const step =
+              event.key === 'ArrowRight' || event.key === 'ArrowUp'
+                ? 1
+                : event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+                  ? -1
+                  : 0;
+            if (step !== 0) {
+              event.preventDefault();
+              const at = cursor === null ? -1 : space.dots.findIndex((dot) => dot.id === cursor.id);
+              const next = space.dots[Math.min(space.dots.length - 1, Math.max(0, at + step))];
+              if (next !== undefined) setHovered(next);
+              return;
+            }
+            if ((event.key === 'Enter' || event.key === ' ') && cursor !== null) {
+              event.preventDefault();
+              onSelect(cursor);
+            }
+          }}
+          onBlur={() => {
+            setHovered(null);
+          }}
+        >
+          {space.dots.map((dot) => (
+            <circle
+              key={dot.id}
+              id={`strategy-${String(dot.id)}`}
+              className={styles.dot}
+              role="option"
+              aria-selected={selected?.id === dot.id}
+              aria-label={`${dot.expected.toFixed(1)} points, risk ${dot.risk.toFixed(1)}, Sharpe ${dot.sharpe.toFixed(2)}`}
+              data-selected={selected?.id === dot.id ? 'true' : undefined}
+              data-cursor={cursor?.id === dot.id ? 'true' : undefined}
+              cx={x(dot.risk)}
+              cy={y(dot.expected)}
+              r={selected?.id === dot.id ? 4 : cursor?.id === dot.id ? 3.4 : 2.2}
+              onMouseEnter={() => {
+                setHovered(dot);
+              }}
+              onMouseLeave={() => {
+                setHovered(null);
+              }}
+              onClick={() => {
                 onSelect(dot);
-              }
-            }}
-          />
-        ))}
+              }}
+            />
+          ))}
+        </g>
 
         {space.tangency !== null && (
           <circle
@@ -217,7 +244,7 @@ export function StrategyScatter({
         </div>
         <div>
           <dt>Best Sharpe</dt>
-          <dd className="num">{space.tangency?.sharpe.toFixed(2) ?? '—'}</dd>
+          <dd className="num">{space.tangency?.sharpe.toFixed(2) ?? '·'}</dd>
         </div>
         {shown !== null && (
           <>

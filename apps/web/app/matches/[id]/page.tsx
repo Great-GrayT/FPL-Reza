@@ -2,13 +2,13 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  congestionBetween,
   describeWeatherCode,
   headToHead,
   recentForm,
   refereeRecord,
   teamRecord,
   type Match,
-  type MatchDetail,
   type Player,
 } from '@fpl/core';
 import { estimateStrength, explainForecast, forecastMatch, projectPoints } from '@fpl/analytics';
@@ -30,13 +30,14 @@ import {
   getGroundImages,
   getOdds,
   getOfficialByFixture,
+  getClubFixtures,
   getPlayers,
   getPlayersByCode,
   getTeamsById,
   getWeatherByMatch,
   season,
 } from '@/lib/lake';
-import { confirmedSheet, likelyEleven } from '@/lib/lineups';
+import { confirmedSheet, likelyEleven, selectionHistory } from '@/lib/lineups';
 import { kickoff, matchDay, price } from '@/lib/display';
 import styles from './page.module.css';
 
@@ -90,12 +91,13 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const official = officialByFixture.get(fixtureId) ?? null;
   const week = gameweeks.find((entry) => (entry.id as number) === fixture.gameweek);
 
-  const [grounds, groundImages, weatherByMatch, allDetails, odds] = await Promise.all([
+  const [grounds, groundImages, weatherByMatch, allDetails, odds, calendar] = await Promise.all([
     getGroundsById(),
     getGroundImages(),
     getWeatherByMatch(),
     getAllMatchDetailsById(),
     getOdds(),
+    getClubFixtures(),
   ]);
 
   const detail = official === null ? undefined : (allDetails.get(official.matchId) ?? undefined);
@@ -146,21 +148,47 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
   const played = official?.status === 'completed' || fixture.finished;
 
-  // Before kickoff there is no teamsheet to print, so the page prints the last
-  // one each club used and says exactly that.
-  const lastFor = (teamCode: number): { detail: MatchDetail; match: Match } | null => {
+  // Before kickoff there is no teamsheet to print, so the page predicts one
+  // from the club's recent record rather than from its last sheet: the last
+  // sheet is frequently a cup side, and predicting that for a month was the
+  // single worst thing this page did.
+  const newestFor = (teamCode: number): Match | null => {
     const candidates = allMatches
       .filter(
         (match) =>
           (match.homeTeamCode === teamCode || match.awayTeamCode === teamCode) &&
           match.status === 'completed' &&
-          allDetails.has(match.matchId as number),
+          (fixture.kickoff === null ||
+            (match.kickoff !== null && match.kickoff < fixture.kickoff)) &&
+          allDetails.has(match.matchId),
       )
       .sort((a, b) => (b.kickoff?.getTime() ?? 0) - (a.kickoff?.getTime() ?? 0));
-    const newest = candidates[0];
-    if (newest === undefined) return null;
-    const found = allDetails.get(newest.matchId);
-    return found === undefined ? null : { detail: found, match: newest };
+    return candidates[0] ?? null;
+  };
+
+  /**
+   * How much football a club is about to play, as a rotation risk from 0 to 1.
+   *
+   * Two matches in the ten days around this one is a normal week and scores
+   * nothing; four is a squad that will be rested somewhere. It does not reorder
+   * the eleven, because which player gets the rest is not something the record
+   * knows: it lowers the confidence the page prints beside it.
+   */
+  const rotationFor = (teamCode: number): number => {
+    const at = fixture.kickoff ?? new Date();
+    // Seven days either side, so the count and the threshold describe the same
+    // fortnight. At ten days either side a league only club plays about three
+    // matches and scored a third of a rotation for nothing, which pushed a
+    // settled side below the threshold and printed that it rotates.
+    const window = congestionBetween(
+      calendar,
+      teamCode,
+      new Date(at.getTime() - 7 * 86_400_000),
+      new Date(at.getTime() + 7 * 86_400_000),
+    );
+    const busy = Math.max(0, window.matches - 2) / 3;
+    const tight = window.shortestGap !== null && window.shortestGap < 4 ? 0.3 : 0;
+    return Math.min(1, busy + tight);
   };
 
   const squadOf = (teamId: number): Player[] =>
@@ -178,10 +206,26 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       ? confirmedSheet(detail, away.code, away.name, playersByCode)
       : null;
 
-  const homeLikely =
-    homeSheet === null ? likelyEleven(home.code, home.name, homeSquad, lastFor(home.code)) : null;
-  const awayLikely =
-    awaySheet === null ? likelyEleven(away.code, away.name, awaySquad, lastFor(away.code)) : null;
+  const predict = (
+    club: { code: number; name: string },
+    squad: Player[],
+  ): ReturnType<typeof likelyEleven> =>
+    likelyEleven(
+      club.code,
+      club.name,
+      squad,
+      // Bounded by this fixture's own kickoff: a past fixture whose teamsheet
+      // was never stored would otherwise be "predicted" from matches played
+      // after it, which is not a prediction.
+      selectionHistory(club.code, allMatches, allDetails, { before: fixture.kickoff }),
+      {
+        basis: newestFor(club.code),
+        rotationRisk: rotationFor(club.code),
+      },
+    );
+
+  const homeLikely = homeSheet === null ? predict(home, homeSquad) : null;
+  const awayLikely = awaySheet === null ? predict(away, awaySquad) : null;
 
   // Who is worth owning in this fixture, from the same projection the scout
   // page and the builder use, so three pages cannot disagree about a player.
@@ -377,9 +421,10 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         </h2>
         {!played && (
           <p className={styles.lede}>
-            No teamsheet exists before the referee receives it. This is the last eleven each club
-            actually started, in the shape they started in, with anyone who has left or is
-            unavailable replaced by the next player at that position by minutes played.
+            No teamsheet exists before the referee receives it. This is built from how often each
+            player has started recently, weighted towards the most recent matches, in the shape the
+            club names most often, with anyone unavailable replaced or reported. Each side says
+            underneath how many matches it read and how settled that club has been.
           </p>
         )}
 
@@ -396,19 +441,50 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                 </header>
                 <TeamSheetPitch sheet={entry.sheet} mirrored={entry.mirrored} />
                 <TeamSheetList sheet={entry.sheet} />
-                {entry.likely?.basis != null && (
+                {entry.likely !== null && (
                   <p className={styles.basis}>
-                    Shape from {entry.likely.basis.homeTeamName}{' '}
-                    {entry.likely.basis.homeScore ?? ''}
-                    &ndash;{entry.likely.basis.awayScore ?? ''} {entry.likely.basis.awayTeamName},{' '}
-                    {matchDay(entry.likely.basis.kickoff)}.
+                    {entry.likely.read === 0 ? (
+                      <>
+                        No league teamsheet is stored for this club yet, so this is minutes played
+                        alone. It is a guess, and a weak one.
+                      </>
+                    ) : (
+                      <>
+                        From how often each player started their last {entry.likely.read} league{' '}
+                        {entry.likely.read === 1 ? 'match' : 'matches'}, weighted towards the recent
+                        ones, in the shape the club names most often.{' '}
+                        {entry.likely.basis != null && (
+                          <>Newest read: {matchDay(entry.likely.basis.kickoff)}. </>
+                        )}
+                        {/* The number is the point of the sentence: an eleven
+                            offered without a measure of how settled the club is
+                            invites the reader to trust it equally everywhere.
+                            Null is not a low score, it is no measurement, and
+                            one match affords none. */}
+                        {entry.likely.confidence === null
+                          ? 'One match is not enough to say how settled this club is, so treat the eleven as a starting point.'
+                          : entry.likely.confidence >= 0.8
+                            ? 'This club names a settled side, so the eleven is worth something.'
+                            : entry.likely.confidence >= 0.6
+                              ? 'This club rotates a little, so treat the last two or three names as open.'
+                              : 'This club rotates heavily, or plays too often to be predictable: treat this as a shortlist rather than an eleven.'}
+                      </>
+                    )}
                   </p>
                 )}
                 {entry.likely !== null && entry.likely.replacements.length > 0 && (
                   <ul className={styles.replacements}>
                     {entry.likely.replacements.map((swap) => (
                       <li key={swap.out}>
-                        <strong>{swap.in}</strong> for {swap.out}: {swap.reason}
+                        {swap.in === null ? (
+                          <>
+                            <strong>{swap.out}</strong> is out: {swap.reason}
+                          </>
+                        ) : (
+                          <>
+                            <strong>{swap.in}</strong> for {swap.out}: {swap.reason}
+                          </>
+                        )}
                       </li>
                     ))}
                   </ul>

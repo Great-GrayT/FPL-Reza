@@ -25,6 +25,9 @@
   --bonus-ink: #8a6108;
   --chalk: #ffffff;
 
+  /* Text on the amber. It stays dark in both themes, because the amber does:
+     using --ink here would turn the label white on yellow after dark. */
+  --on-bonus: #14181c;
   --rule: color-mix(in srgb, var(--ink) 14%, transparent);
   --rule-strong: color-mix(in srgb, var(--ink) 30%, transparent);
 
