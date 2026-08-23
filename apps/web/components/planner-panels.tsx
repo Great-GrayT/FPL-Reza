@@ -23,6 +23,14 @@ const POSITIONS: Position[] = ['GKP', 'DEF', 'MID', 'FWD'];
 
 export interface WeekRow extends WeekPlan {
   spread: number;
+  /**
+   * True where the gameweek's deadline has passed.
+   *
+   * A settled week is not a forecast: its squad could not be changed and its
+   * points are scored rather than expected. Drawing the two the same way asks a
+   * reader to treat a fact and a guess as the same kind of number.
+   */
+  accrued?: boolean;
 }
 
 /** A panel: a label, an optional figure in the corner, and the instrument. */
@@ -92,6 +100,19 @@ export function PointsSeries({ weeks }: { weeks: readonly WeekRow[] }) {
       >
         <polygon className={styles.band} points={[...upper, ...lower].join(' ')} />
         <polyline className={styles.line} points={mid.join(' ')} fill="none" />
+        {/* A settled week carries no band, because there is nothing left to be
+            uncertain about: the mark is the score. */}
+        {weeks.map((week, index) =>
+          week.accrued === true ? (
+            <circle
+              key={week.gameweek}
+              className={styles.scored}
+              cx={x(index)}
+              cy={y(week.expectedPoints)}
+              r={2.4}
+            />
+          ) : null,
+        )}
       </svg>
       <ol className={styles.weekScale}>
         {weeks.map((week) => (
@@ -221,6 +242,7 @@ export function Captaincy({
     const next = scored[1];
     return {
       gameweek: week.gameweek,
+      accrued: week.accrued,
       name: week.captain === null ? '·' : (byCode.get(week.captain)?.name ?? '·'),
       points: best?.points ?? 0,
       margin: (best?.points ?? 0) - (next?.points ?? 0),
@@ -243,7 +265,11 @@ export function Captaincy({
       </thead>
       <tbody>
         {rows.map((row) => (
-          <tr key={row.gameweek} data-close={row.margin < 0.5 ? 'true' : undefined}>
+          <tr
+            key={row.gameweek}
+            data-accrued={row.accrued === true ? 'true' : undefined}
+            data-close={row.margin < 0.5 ? 'true' : undefined}
+          >
             <td className="num">{row.gameweek}</td>
             <td>{row.name}</td>
             <td className={`num ${styles.right}`}>{row.points.toFixed(1)}</td>
@@ -283,6 +309,7 @@ export function Exposure({
     for (const club of clubs) counts.set(club, (counts.get(club) ?? 0) + 1);
     return {
       gameweek: week.gameweek,
+      accrued: week.accrued,
       blanking: clubs.filter((club) => (entry?.blanks ?? []).includes(club)).length,
       doubling: clubs.filter((club) => (entry?.doubles ?? []).includes(club)).length,
       heaviest: Math.max(0, ...counts.values()),
@@ -311,7 +338,11 @@ export function Exposure({
       </thead>
       <tbody>
         {rows.map((row) => (
-          <tr key={row.gameweek} data-warn={row.blanking >= 3 ? 'true' : undefined}>
+          <tr
+            key={row.gameweek}
+            data-accrued={row.accrued === true ? 'true' : undefined}
+            data-warn={row.blanking >= 3 ? 'true' : undefined}
+          >
             <td className="num">{row.gameweek}</td>
             <td className={`num ${styles.right}`}>{row.blanking === 0 ? '·' : row.blanking}</td>
             <td className={`num ${styles.right}`}>{row.doubling === 0 ? '·' : row.doubling}</td>

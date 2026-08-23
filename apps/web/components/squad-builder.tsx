@@ -156,6 +156,7 @@ export function SquadBuilder({
   players,
   teams,
   gameweek,
+  lockedGameweek,
   deadline,
   horizon,
   pool,
@@ -163,6 +164,8 @@ export function SquadBuilder({
   players: readonly BuilderPlayer[];
   teams: readonly BuilderTeam[];
   gameweek: number;
+  /** The gameweek in progress, past its deadline: never part of a search. */
+  lockedGameweek: number | null;
   /**
    * Already formatted, on the server. Formatting an instant here instead would
    * hydrate differently from the HTML it replaces: Node and the browser ship
@@ -733,6 +736,9 @@ export function SquadBuilder({
         <p className={styles.eyebrow}>
           Gameweek {gameweek}
           {deadline !== null && <> · deadline {deadline}</>}
+          {/* A squad chosen now cannot play in a week whose deadline has gone,
+              so the page says which week it is actually building for. */}
+          {lockedGameweek !== null && <> · GW {lockedGameweek} is locked</>}
         </p>
         <h1 className={styles.title}>Team sheet</h1>
         <p className={styles.standfirst}>

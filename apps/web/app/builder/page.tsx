@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import {
   GAMEWEEKS_PER_SEASON,
   asGameweekId,
-  currentGameweek,
   nextGameweek,
+  planningWindow,
   type Player,
   type PlayerGameweek,
 } from '@fpl/core';
@@ -30,8 +30,23 @@ export default async function BuilderPage() {
     getGameweeks(),
   ]);
 
-  const week = currentGameweek(gameweeks) ?? nextGameweek(gameweeks) ?? gameweeks[0];
+  /**
+   * A plan opens at the first gameweek that can still be changed.
+   *
+   * FPL keeps a gameweek "current" from its deadline until its last match is
+   * settled, so `currentGameweek` returns a week whose squad is already locked,
+   * whose transfers are already spent, and whose points are being scored rather
+   * than predicted. Planning it produced suggestions nobody could enter.
+   */
+  const window = planningWindow(gameweeks, new Date());
+  const week = window.from ?? nextGameweek(gameweeks) ?? gameweeks[0];
   const fromGameweek = week?.id ?? 1;
+  /** The week in progress, if there is one: shown as accrued, never planned. */
+  const locked = window.locked ?? null;
+  /** Every gameweek already settled or in progress, whose returns are real. */
+  const settled = [...window.played, ...(locked === null ? [] : [locked])].map((entry) =>
+    Number(entry.id),
+  );
 
   // Read every history once. The display rows need it for form, and the search
   // pool needs it for a projection per gameweek, and reading it twice would
@@ -97,6 +112,7 @@ export default async function BuilderPage() {
   const pool = buildPool(players, teams, fixtures, (id: number) => histories.get(id) ?? [], {
     fromGameweek: Number(fromGameweek),
     horizon: remaining,
+    locked: settled,
   });
 
   const clubs: BuilderTeam[] = teams.map((team) => ({
@@ -111,6 +127,7 @@ export default async function BuilderPage() {
       players={rows}
       teams={clubs}
       gameweek={fromGameweek}
+      lockedGameweek={locked === null ? null : Number(locked.id)}
       deadline={week === undefined ? null : kickoff(week.deadline)}
       horizon={HORIZON}
       pool={pool}

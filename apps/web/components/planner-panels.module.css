@@ -243,3 +243,21 @@
   text-transform: uppercase;
   fill: var(--ink-soft);
 }
+
+/* A week already scored. Marked rather than shaded, and marked the same way in
+   every panel, so "this number is a fact" reads identically wherever it
+   appears. */
+.scored {
+  fill: var(--flare);
+  stroke: var(--paper);
+  stroke-width: 0.6;
+}
+
+.table tr[data-accrued='true'] td {
+  background: color-mix(in srgb, var(--flare) 8%, transparent);
+}
+
+.table tr[data-accrued='true'] td:first-child {
+  box-shadow: inset 2px 0 0 var(--flare);
+  font-weight: 700;
+}

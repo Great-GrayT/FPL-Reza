@@ -89,12 +89,18 @@ export function Planner({
   clubs,
   deadlines,
   fromGameweek,
+  lockedGameweek,
   horizon,
 }: {
   pool: PlannerPool;
   clubs: PlannerClub[];
   deadlines: { gameweek: number; deadline: string }[];
   fromGameweek: number;
+  /**
+   * The gameweek in progress, if there is one: past its deadline, not yet
+   * settled. It is never planned, because nothing about it can be entered.
+   */
+  lockedGameweek: number | null;
   horizon: number;
 }) {
   /** The pitch itself, so the corner panel knows when it has left the screen. */
@@ -407,6 +413,14 @@ export function Planner({
         <p className={styles.railNote}>
           Decided on the <a href="/builder">builder</a>, explained here.
         </p>
+        {/* Where the reader stands. A plan that opened on the gameweek in
+            progress was offering transfers nobody could make, and saying so is
+            cheaper than a reader working it out from a date. */}
+        {lockedGameweek !== null && (
+          <p className={styles.railLocked}>
+            GW {lockedGameweek} is locked, so this plans from GW {fromGameweek}
+          </p>
+        )}
         <p className={`num ${styles.railCode}`}>
           {strategy === null
             ? 'no strategy loaded'

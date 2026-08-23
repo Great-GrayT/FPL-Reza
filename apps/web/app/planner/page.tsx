@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { GAMEWEEKS_PER_SEASON, congestionBetween, currentGameweek, nextGameweek } from '@fpl/core';
+import { GAMEWEEKS_PER_SEASON, congestionBetween, nextGameweek, planningWindow } from '@fpl/core';
 import { Planner, type PlannerClub } from '@/components/planner';
 import { buildPool } from '@/lib/planner/projections';
 import {
@@ -27,8 +27,23 @@ export default async function PlannerPage() {
     getClubFixtures(),
   ]);
 
-  const week = currentGameweek(gameweeks) ?? nextGameweek(gameweeks) ?? gameweeks[0];
+  /**
+   * A plan opens at the first gameweek that can still be changed.
+   *
+   * FPL keeps a gameweek "current" from its deadline until its last match is
+   * settled, so `currentGameweek` returns a week whose squad is already locked,
+   * whose transfers are already spent, and whose points are being scored rather
+   * than predicted. Planning it produced suggestions nobody could enter.
+   */
+  const window = planningWindow(gameweeks, new Date());
+  const week = window.from ?? nextGameweek(gameweeks) ?? gameweeks[0];
   const fromGameweek = week?.id ?? 1;
+  /** The week in progress, if there is one: shown as accrued, never planned. */
+  const locked = window.locked ?? null;
+  /** Every gameweek already settled or in progress, whose returns are real. */
+  const settled = [...window.played, ...(locked === null ? [] : [locked])].map((entry) =>
+    Number(entry.id),
+  );
   // The plan can only reach the end of the season, so the horizon is what is
   // left rather than a fixed number the interface would then have to explain.
   const horizon = Math.max(1, GAMEWEEKS_PER_SEASON - fromGameweek + 1);
@@ -43,6 +58,7 @@ export default async function PlannerPage() {
   const pool = buildPool(players, teams, fixtures, (playerId) => histories.get(playerId) ?? [], {
     fromGameweek,
     horizon,
+    locked: settled,
   });
 
   /**
@@ -81,6 +97,7 @@ export default async function PlannerPage() {
         clubs={clubs}
         deadlines={deadlines}
         fromGameweek={fromGameweek}
+        lockedGameweek={locked === null ? null : Number(locked.id)}
         horizon={horizon}
       />
     </Suspense>

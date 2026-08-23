@@ -34,6 +34,13 @@ export interface ProjectionOptions {
   fromGameweek: number;
   /** How many gameweeks to project. */
   horizon: number;
+  /**
+   * Gameweeks whose deadline has passed, oldest first.
+   *
+   * Their returns are read from the record rather than projected, because they
+   * are no longer a question: the squad is locked and the points are scored.
+   */
+  locked?: readonly number[];
 }
 
 const clamp = (value: number, low: number, high: number): number =>
@@ -153,6 +160,17 @@ export interface PlannerPool {
   calendar: { gameweek: number; blanks: number[]; doubles: number[] }[];
   /** Matches per club per gameweek, in `gameweeks` order: 0 is a blank, 2 a double. */
   matches: Record<string, number[]>;
+  /**
+   * What players actually scored, per gameweek, for the weeks already locked.
+   *
+   * A gameweek past its deadline is not a forecast any more: the squad cannot
+   * change and the points are being scored. Carrying the real returns lets a
+   * page print what a strategy accrued rather than what it expected, which are
+   * different numbers and only one of them is now true.
+   */
+  actual: Record<string, Record<string, number>>;
+  /** Gameweeks whose deadline has passed, so a page knows which are settled. */
+  locked: number[];
 }
 
 /** Turn the wire shape back into what the planner reads. */
@@ -287,5 +305,25 @@ export function buildPool(
     );
   }
 
-  return { players: rows, gameweeks: weeks, calendar, matches };
+  // What the locked weeks actually returned, by player code. Read from the
+  // same per gameweek history the projection is built from, so a page can print
+  // the accrued number beside the expected one without a second source.
+  const actual: Record<string, Record<string, number>> = {};
+  for (const week of options.locked ?? []) {
+    const scored: Record<string, number> = {};
+    for (const player of players) {
+      const row = historyOf(Number(player.id)).find((entry) => entry.gameweek === week);
+      if (row !== undefined) scored[String(player.code)] = row.totalPoints;
+    }
+    actual[String(week)] = scored;
+  }
+
+  return {
+    players: rows,
+    gameweeks: weeks,
+    calendar,
+    matches,
+    actual,
+    locked: [...(options.locked ?? [])],
+  };
 }

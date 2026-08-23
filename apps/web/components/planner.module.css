@@ -894,3 +894,17 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* The gameweek in progress: named, because a plan that skips it silently looks
+   like a plan that forgot it. */
+.railLocked {
+  margin: 0;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-2);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}

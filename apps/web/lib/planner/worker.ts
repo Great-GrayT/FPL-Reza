@@ -37,6 +37,10 @@ function cachePool(request: Request): void {
     gameweeks,
     calendar: [],
     matches: request.matches ?? {},
+    // The worker plans; the accrued weeks are the page's to print, and sending
+    // them across would be sending numbers the search must never use.
+    actual: {},
+    locked: [],
   });
   generation = request.poolGeneration;
 }
