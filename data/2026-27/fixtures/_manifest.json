@@ -50,6 +50,116 @@
       "bytes": 73560,
       "format": "jsonl",
       "file": "2026-27/fixtures/_all/2026-08-20T03-10-17-140Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-21T03:15:58.714Z",
+      "rows": 380,
+      "bytes": 73560,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-21T03-15-58-714Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-21T19:41:10.964Z",
+      "rows": 380,
+      "bytes": 73553,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-21T19-41-10-964Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-21T20:43:57.167Z",
+      "rows": 380,
+      "bytes": 73553,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-21T20-43-57-167Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-22T03:07:08.104Z",
+      "rows": 380,
+      "bytes": 73553,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-22T03-07-08-104Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-22T11:39:42.339Z",
+      "rows": 380,
+      "bytes": 73546,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-22T11-39-42-339Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-22T13:04:02.540Z",
+      "rows": 380,
+      "bytes": 73546,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-22T13-04-02-540Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-22T14:42:20.004Z",
+      "rows": 380,
+      "bytes": 73525,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-22T14-42-20-004Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-22T15:39:40.829Z",
+      "rows": 380,
+      "bytes": 73525,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-22T15-39-40-829Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-22T16:43:51.326Z",
+      "rows": 380,
+      "bytes": 73518,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-22T16-43-51-326Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-22T17:40:39.087Z",
+      "rows": 380,
+      "bytes": 73518,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-22T17-40-39-087Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-08-23T03:15:11.016Z",
+      "rows": 380,
+      "bytes": 73518,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-08-23T03-15-11-016Z.jsonl"
     }
   ]
 }
