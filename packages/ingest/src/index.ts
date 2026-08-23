@@ -24,6 +24,7 @@ export * from './pl/schemas.js';
 export * from './pl/client.js';
 export * from './pl/map.js';
 export * from './pl/source.js';
+export * from './pl/calendar.js';
 export * from './weather/source.js';
 export * from './grounds/wikimedia.js';
 export * from './managers/wikidata.js';

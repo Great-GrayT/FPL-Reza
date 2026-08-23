@@ -20,6 +20,8 @@ Also owns the Sofascore spatial adapter (spatial/sofascore/): its own fetch tran
 
 Also owns the Premier League official record (`pl/`): a typed client over its keyless API (`client.ts`, `schemas.ts`), the raw to domain mapping including the Opta id extraction that makes the join exact (`map.ts`), and the `pl-official` Source (`source.ts`) which produces the matches, match-details, managers, and grounds datasets.
 
+Also owns the congestion calendar (`pl/calendar.ts`): `plCalendarSource` reads every fixture a Premier League club plays across the five competitions the Premier League API publishes (the league, both European competitions, the FA Cup, the League Cup) into the club-fixtures dataset, partitioned by the fixture's own season.
+
 Also owns match conditions (`weather/source.ts`): `weatherSource` reads Open-Meteo for every match inside the forecast horizon, one request per ground per matchday, choosing between the forecast and the archive endpoints by kickoff date.
 
 Also owns ground photographs (`grounds/wikimedia.ts`): `groundImagesSource` resolves a licensed photograph per ground through Wikipedia search, Wikidata coordinates, and the Commons `imageinfo` API, and refuses any file whose credit cannot be read.
@@ -66,6 +68,9 @@ Does not own: config loading (packages/config), snapshot storage mechanics (pack
 - `sofascoreSpatialSource` takes a `backfillSeason`, which resolves fixtures from the official `matches` dataset instead of FPL's live `fixtures`, and partitions as `{season}-gw{n}`. Two seasons of gameweek 3 are not the same partition, and writing both to `gw3` would silently replace one with the other.
 
 - refreshFixtures writes only when the diff reports a change, unless `always` is set. A fixture list polled every few minutes would otherwise fill the lake with identical snapshots.
+
+- `plCalendarSource` partitions by the fixture's own season, never the run's. Europe and the FA Cup publish a season only once it is drawn, so a run in August legitimately returns last season's ties for three of the five competitions, and filing those under this season would be a claim nobody made.
+- The calendar is a separate dataset from matches on purpose. `estimateStrength` reads every row of `matches`, and a cup tie against a fourth tier club would rate a side on opposition it never meets in the league. The calendar answers one question, how much football a squad is playing, and nothing else reads it.
 
 ## Related
 

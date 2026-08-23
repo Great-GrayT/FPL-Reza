@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "club-fixtures",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-23T11:34:40.236Z",
+      "rows": 440,
+      "bytes": 110139,
+      "format": "jsonl",
+      "file": "2026-27/club-fixtures/2026-27/2026-08-23T11-34-40-236Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "club-fixtures",
+      "partition": "2025-26",
+      "capturedAt": "2026-08-23T11:34:40.236Z",
+      "rows": 501,
+      "bytes": 127328,
+      "format": "jsonl",
+      "file": "2026-27/club-fixtures/2025-26/2026-08-23T11-34-40-236Z.jsonl"
+    }
+  ]
+}

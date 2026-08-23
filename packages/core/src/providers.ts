@@ -249,6 +249,17 @@ export const PROVIDERS: readonly ProviderInfo[] = [
 /** Sources probed and rejected, kept so nobody rediscovers them. */
 export const REJECTED_PROVIDERS: readonly ProviderInfo[] = [
   {
+    id: 'fotmob',
+    name: 'FotMob',
+    url: 'https://www.fotmob.com',
+    access: 'public',
+    coverage: ['match_results', 'lineups', 'aggregated_stats', 'shot_locations', 'injuries'],
+    verdict: 'refused_by_terms',
+    probedAt: '2026-08-22',
+    notes:
+      'Live, finished, and pre match data across every competition, which is more than any source in this lake carries. Refused on two independent grounds, both stated by the provider itself. Its robots.txt reads "Disallow: /api/*" for "User-agent: *" and allows that path only to Googlebot, Qwantbot, Bingbot, and AmazonAdBot, so the JSON endpoints behind every page are closed to us; no request was made to one. Its site terms then say, verbatim, "The use of automatic services (robots, crawler, indexing etc.) as well as other methods for systematic or regular use is not permitted", which covers the HTML pages robots.txt does allow. Ingesting into a lake is systematic use by definition. Nothing here is a technical obstacle to route around: the answer is no. What was wanted from it, fixtures across every competition a Premier League club plays, comes from the Premier League API instead, which publishes competition ids 1 to 5 and needs no key.',
+  },
+  {
     id: 'understat',
     name: 'Understat',
     url: 'https://understat.com',

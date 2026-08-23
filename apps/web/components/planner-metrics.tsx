@@ -293,3 +293,87 @@ export function Relation({
     </figure>
   );
 }
+
+/**
+ * How much football the squad's clubs are playing, and how little rest they get.
+ *
+ * This is the one thing FPL's own feed cannot see: it carries the Premier
+ * League and nothing else, so a club playing Thursday in Milan and Sunday at
+ * lunchtime looks exactly like a club that has not played in a week. The
+ * difference is rotation, and rotation is most of why a projection built on
+ * recent minutes goes wrong in February.
+ *
+ * The measure is deliberately two numbers rather than one. A count says how
+ * many matches a squad's clubs play in the window; the shortest turnaround says
+ * whether any of them is the two day kind that gets a striker rested. Three
+ * matches in fourteen days is a normal fortnight; three in eight is a different
+ * proposition and only the second changes a team sheet.
+ */
+export function Congestion({
+  clubs,
+}: {
+  clubs: readonly {
+    code: number;
+    name: string;
+    held: number;
+    matches: number;
+    extra: number;
+    shortestGap: number | null;
+    competitions: string[];
+  }[];
+}) {
+  if (clubs.length === 0) return null;
+  const anyExtra = clubs.some((club) => club.extra > 0);
+
+  return (
+    <table className={styles.table}>
+      <thead>
+        <tr>
+          <th scope="col">Club</th>
+          <th scope="col" className={styles.right}>
+            Held
+          </th>
+          <th scope="col" className={styles.right}>
+            Games
+          </th>
+          <th scope="col" className={styles.right}>
+            Extra
+          </th>
+          <th scope="col" className={styles.right}>
+            Rest
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...clubs]
+          .sort((a, b) => b.extra - a.extra || b.matches - a.matches)
+          .map((club) => (
+            <tr
+              key={club.code}
+              data-warn={
+                club.shortestGap !== null && club.shortestGap < 4 && club.held > 0
+                  ? 'true'
+                  : undefined
+              }
+            >
+              <td title={club.competitions.join(', ')}>{club.name}</td>
+              <td className={`num ${styles.right}`}>{club.held}</td>
+              <td className={`num ${styles.right}`}>{club.matches}</td>
+              <td className={`num ${styles.right}`}>{club.extra === 0 ? '·' : club.extra}</td>
+              <td className={`num ${styles.right}`}>
+                {club.shortestGap === null ? '·' : `${club.shortestGap.toFixed(1)}d`}
+              </td>
+            </tr>
+          ))}
+      </tbody>
+      <caption className={styles.caption}>
+        Matches each club plays over the horizon across every competition, how many of those are
+        outside the league, and the shortest gap between two of them. A row is marked where that gap
+        is under four days, which is the turnaround that gets a starter rested.{' '}
+        {anyExtra
+          ? 'The projection does not yet price this: it is shown so a reader can discount a player their own way.'
+          : 'No club in this squad has a fixture outside the league in this window yet. Europe and the FA Cup publish their draws later, and this fills in when they do.'}
+      </caption>
+    </table>
+  );
+}

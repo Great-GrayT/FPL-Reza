@@ -436,3 +436,126 @@ export function recentForm(
       return scored > conceded ? 'W' : scored === conceded ? 'D' : 'L';
     });
 }
+
+/**
+ * The competitions a Premier League club can be drawn into, as the Premier
+ * League's own API numbers them.
+ *
+ * This exists because congestion is a real effect on a projection and FPL
+ * cannot see it: its feed carries the Premier League and nothing else, so a
+ * club playing Thursday in Europe and Sunday at lunchtime looks, to FPL,
+ * exactly like a club that has not played since last weekend. Rotation and
+ * fatigue are the difference, and they are the difference between a projection
+ * that knows why a striker was rested and one that calls it noise.
+ */
+export const COMPETITIONS = {
+  1: 'Premier League',
+  2: 'UEFA Champions League',
+  3: 'UEFA Europa League',
+  4: 'FA Cup',
+  5: 'EFL Cup',
+} as const;
+
+export type CompetitionId = keyof typeof COMPETITIONS;
+
+/** The five a Premier League squad's calendar is actually made of. */
+export const CONGESTION_COMPETITIONS: readonly CompetitionId[] = [1, 2, 3, 4, 5];
+
+/**
+ * One fixture a club plays, in any competition.
+ *
+ * Deliberately a separate dataset from `matches` rather than a column on it.
+ * `matches` is the Premier League record, and `estimateStrength` reads every
+ * row of it: folding a cup tie against a fourth tier side into that would
+ * quietly rate a club on opposition it will never meet in the league. This
+ * dataset answers one question instead, how much football a squad is playing,
+ * and nothing else reads it.
+ */
+export const clubFixtureSchema = z.object({
+  /** The provider's fixture id, unique across competitions. */
+  fixtureId: z.number().int().positive(),
+  competitionId: z.number().int().positive(),
+  competition: z.string().min(1),
+  season: seasonSchema,
+  kickoff: z.coerce.date().nullable(),
+  /** FPL's permanent club code, where the club is one FPL knows. */
+  homeTeamCode: z.number().int().positive().nullable(),
+  awayTeamCode: z.number().int().positive().nullable(),
+  homeTeamName: z.string().min(1),
+  awayTeamName: z.string().min(1),
+  /** Round or stage as the provider labels it: "Quarter-final", "Matchday 3". */
+  round: z.string().nullable(),
+  finished: z.boolean(),
+});
+
+export type ClubFixture = z.infer<typeof clubFixtureSchema>;
+
+export interface CongestionWindow {
+  /** Matches the club plays inside the window, across every competition. */
+  matches: number;
+  /** Matches outside the Premier League, which are the ones FPL cannot see. */
+  extra: number;
+  /** Days between the last match before the window and the first inside it. */
+  restBefore: number | null;
+  /** The shortest gap between two consecutive matches inside the window. */
+  shortestGap: number | null;
+  competitions: string[];
+}
+
+const DAY = 86_400_000;
+
+/**
+ * How much football a club plays between two instants.
+ *
+ * The measure a projection wants is not "did they play in Europe" but "how
+ * little rest did this squad get", so the gaps are reported rather than only
+ * the count: three matches in eight days with a two day turnaround is a
+ * different proposition from three in fourteen, and only the second is normal.
+ *
+ * A fixture with no kickoff is counted but cannot contribute a gap, because a
+ * date to be confirmed is exactly the case where nobody knows the rest yet.
+ */
+export function congestionBetween(
+  fixtures: readonly ClubFixture[],
+  teamCode: number,
+  from: Date,
+  to: Date,
+): CongestionWindow {
+  const played = fixtures.filter(
+    (fixture) => fixture.homeTeamCode === teamCode || fixture.awayTeamCode === teamCode,
+  );
+
+  const inside = played
+    .filter((fixture) => {
+      if (fixture.kickoff === null) return false;
+      return fixture.kickoff >= from && fixture.kickoff <= to;
+    })
+    .sort((a, b) => (a.kickoff?.getTime() ?? 0) - (b.kickoff?.getTime() ?? 0));
+
+  const before = played
+    .filter((fixture) => fixture.kickoff !== null && fixture.kickoff < from)
+    .sort((a, b) => (b.kickoff?.getTime() ?? 0) - (a.kickoff?.getTime() ?? 0))[0];
+
+  const first = inside[0]?.kickoff ?? null;
+  const restBefore =
+    before?.kickoff == null || first === null
+      ? null
+      : Math.round(((first.getTime() - before.kickoff.getTime()) / DAY) * 10) / 10;
+
+  let shortestGap: number | null = null;
+  for (let index = 1; index < inside.length; index += 1) {
+    const previous = inside[index - 1]?.kickoff;
+    const current = inside[index]?.kickoff;
+    if (previous == null || current == null) continue;
+    const gap = Math.round(((current.getTime() - previous.getTime()) / DAY) * 10) / 10;
+    if (shortestGap === null || gap < shortestGap) shortestGap = gap;
+  }
+
+  return {
+    matches: inside.length,
+    extra: inside.filter((fixture) => fixture.competitionId !== 1).length,
+    restBefore,
+    shortestGap,
+    competitions: [...new Set(inside.map((fixture) => fixture.competition))],
+  };
+}

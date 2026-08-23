@@ -11,6 +11,8 @@ import {
   teamRecord,
   type Match,
   type MatchDetail,
+  congestionBetween,
+  type ClubFixture,
 } from './matches.js';
 
 const ARSENAL = 3;
@@ -254,5 +256,78 @@ describe('describeWeatherCode', () => {
 
   it('is null for an absent reading rather than inventing clear skies', () => {
     assert.equal(describeWeatherCode(null), null);
+  });
+});
+
+describe('congestion across every competition', () => {
+  const fixture = (over: Partial<ClubFixture>): ClubFixture => ({
+    fixtureId: 1,
+    competitionId: 1,
+    competition: 'Premier League',
+    season: asSeason('2026/27'),
+    kickoff: new Date('2026-09-12T14:00:00Z'),
+    homeTeamCode: 3,
+    awayTeamCode: 8,
+    homeTeamName: 'Arsenal',
+    awayTeamName: 'Chelsea',
+    round: null,
+    finished: false,
+    ...over,
+  });
+
+  const window = { from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-24T00:00:00Z') };
+
+  it('counts every competition, and names the ones outside the league', () => {
+    const fixtures = [
+      fixture({ fixtureId: 1, kickoff: new Date('2026-09-12T14:00:00Z') }),
+      fixture({
+        fixtureId: 2,
+        competitionId: 2,
+        competition: 'UEFA Champions League',
+        kickoff: new Date('2026-09-16T19:00:00Z'),
+        awayTeamCode: 999,
+        awayTeamName: 'Bayern',
+      }),
+      fixture({ fixtureId: 3, kickoff: new Date('2026-09-20T14:00:00Z') }),
+    ];
+    const congestion = congestionBetween(fixtures, 3, window.from, window.to);
+    assert.equal(congestion.matches, 3);
+    assert.equal(congestion.extra, 1, 'the European tie is the one FPL cannot see');
+    assert.deepEqual(congestion.competitions, ['Premier League', 'UEFA Champions League']);
+  });
+
+  it('reports the shortest turnaround, which is what fatigue actually is', () => {
+    const fixtures = [
+      fixture({ fixtureId: 1, kickoff: new Date('2026-09-12T14:00:00Z') }),
+      fixture({
+        fixtureId: 2,
+        competitionId: 5,
+        competition: 'EFL Cup',
+        kickoff: new Date('2026-09-15T19:00:00Z'),
+      }),
+      fixture({ fixtureId: 3, kickoff: new Date('2026-09-20T14:00:00Z') }),
+    ];
+    const congestion = congestionBetween(fixtures, 3, window.from, window.to);
+    assert.equal(congestion.shortestGap, 3.2);
+  });
+
+  it('measures the rest a club arrived with', () => {
+    const fixtures = [
+      fixture({ fixtureId: 0, kickoff: new Date('2026-09-08T19:00:00Z') }),
+      fixture({ fixtureId: 1, kickoff: new Date('2026-09-12T14:00:00Z') }),
+    ];
+    assert.equal(congestionBetween(fixtures, 3, window.from, window.to).restBefore, 3.8);
+  });
+
+  it('ignores a club that is not in the fixture', () => {
+    const congestion = congestionBetween([fixture({})], 11, window.from, window.to);
+    assert.equal(congestion.matches, 0);
+    assert.equal(congestion.restBefore, null);
+    assert.equal(congestion.shortestGap, null);
+  });
+
+  it('counts a fixture with no kickoff nowhere, since nobody knows the rest yet', () => {
+    const congestion = congestionBetween([fixture({ kickoff: null })], 3, window.from, window.to);
+    assert.equal(congestion.matches, 0);
   });
 });

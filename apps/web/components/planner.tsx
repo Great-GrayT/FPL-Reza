@@ -19,7 +19,7 @@ import { classes } from '@/lib/classes';
 import { CompareLineups, codeForCandidate, type Candidate } from './compare-lineups';
 import { Frontier, RiskShare } from './frontier';
 import { StrategyScatter } from './strategy-scatter';
-import { CashFlow, Output, Relation } from './planner-metrics';
+import { CashFlow, Congestion, Output, Relation } from './planner-metrics';
 import {
   Captaincy,
   CumulativeSeries,
@@ -60,6 +60,11 @@ export interface PlannerClub {
   code: number;
   name: string;
   shortName: string;
+  /** Matches over the horizon across every competition, and the rest between. */
+  matches: number;
+  extra: number;
+  shortestGap: number | null;
+  competitions: string[];
 }
 
 const RISKS = [
@@ -611,6 +616,28 @@ export function Planner({
                 <Panel title="Captaincy" span={5}>
                   <Captaincy weeks={weekRows} byCode={byCode} fromGameweek={fromGameweek} />
                 </Panel>
+                <Panel
+                  title="Fixture congestion"
+                  span={6}
+                  note="every competition, not just the league"
+                >
+                  <Congestion
+                    clubs={clubs
+                      .map((club) => ({
+                        code: club.code,
+                        name: club.shortName,
+                        held: (week?.picks ?? []).filter(
+                          (code) => byCode.get(code)?.teamCode === club.code,
+                        ).length,
+                        matches: club.matches,
+                        extra: club.extra,
+                        shortestGap: club.shortestGap,
+                        competitions: club.competitions,
+                      }))
+                      .filter((club) => club.held > 0)}
+                  />
+                </Panel>
+
                 <Panel title="Exposure" span={6}>
                   <Exposure weeks={weekRows} byCode={byCode} calendar={pool.calendar} />
                 </Panel>

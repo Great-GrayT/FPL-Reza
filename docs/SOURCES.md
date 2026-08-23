@@ -2,9 +2,22 @@
 title: Source catalogue, probed
 type: spec
 module: root
-updated: 2026-08-18
+updated: 2026-08-22
 status: active
 ---
+
+## FotMob, refused on its own terms (2026-08-22)
+
+Live, finished, and pre match data across every competition a club plays, which is more than any source in this lake carries: it was worth probing properly.
+
+Two independent bars, both raised by FotMob itself.
+
+1. `robots.txt` reads `Disallow: /api/*` under `User-agent: *`, and grants that path only to Googlebot, Qwantbot, Bingbot, and AmazonAdBot. Every page on the site is drawn by those endpoints, so the data is behind the one path we are asked not to take. No request was made to `/api/*`: discovering the rule and then breaking it is worse than not having looked.
+2. The site's own legal text says, verbatim: "The use of automatic services (robots, crawler, indexing etc.) as well as other methods for systematic or regular use is not permitted." That covers the HTML pages `robots.txt` does allow, and ingesting into a lake is systematic use by definition.
+
+Neither is a technical obstacle, so neither is something to route around. Recorded in `REJECTED_PROVIDERS` so nobody rediscovers it as a good idea.
+
+What was actually wanted from it, every fixture a Premier League club plays rather than only its league games, turned out to be published by a source already in the lake: the Premier League's own API numbers its competitions 1 (Premier League), 2 (Champions League), 3 (Europa League), 4 (FA Cup) and 5 (League Cup), needs no key, and carries the same Opta ids everything else here joins on.
 
 ## Purpose
 

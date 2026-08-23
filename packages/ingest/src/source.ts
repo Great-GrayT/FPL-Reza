@@ -20,6 +20,8 @@ export const DATASETS = {
   playerMatchSpatial: 'player-match-spatial',
   matchEvents: 'match-events',
   matches: 'matches',
+  /** Every fixture a club plays, in every competition: the congestion calendar. */
+  clubFixtures: 'club-fixtures',
   matchDetails: 'match-details',
   managers: 'managers',
   managerSpells: 'manager-spells',

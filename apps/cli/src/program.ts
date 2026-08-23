@@ -40,7 +40,9 @@ import {
   sofascoreHttp,
   sofascoreSpatialSource,
   plHttp,
+  plCalendarSource,
   plMatchesSource,
+  PremierLeagueClient,
   openMeteoHttp,
   weatherSource,
   wikimediaHttp,
@@ -745,6 +747,33 @@ ${String(report.written.length)} artifacts written in ${String(Math.round(report
               ? {}
               : { detailSeasons: options.detailSeasons }),
             ...(options.maxDetail === undefined ? {} : { maxDetail: options.maxDetail }),
+          }),
+        ],
+        { season, store: deps.store, logger: deps.logger, capturedAt: now() },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+      if (report.failed > 0) process.exitCode = 1;
+    });
+
+  official
+    .command('calendar')
+    .description('Every fixture a Premier League club plays, in every competition')
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option('--seasons <n>', 'seasons per competition, newest first', parseIntOption)
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: { season?: string; seasons?: number; json?: boolean }) => {
+      const season = resolveSeason(options.season, deps.config);
+      const http = plHttp({ logger: deps.logger });
+
+      const report = await runSync(
+        [
+          plCalendarSource(new PremierLeagueClient(http), {
+            ...(options.seasons === undefined ? {} : { seasons: options.seasons }),
           }),
         ],
         { season, store: deps.store, logger: deps.logger, capturedAt: now() },

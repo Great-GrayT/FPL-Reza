@@ -22,6 +22,7 @@ import {
   managerSpellSchema,
   currentManager as currentManagerSpell,
   matchSchema,
+  clubFixtureSchema,
   matchDetailSchema,
   matchWeatherSchema,
   playerMatchSpatialSchema,
@@ -41,6 +42,7 @@ import {
   type Manager,
   type ManagerSpell,
   type Match,
+  type ClubFixture,
   type MatchDetail,
   type MatchWeather,
   type PlayerMatchSpatial,
@@ -385,6 +387,23 @@ export const getMatchesForSeason = cache(async (label: string): Promise<Match[]>
 export const getAllMatches = cache(async (): Promise<Match[]> => {
   const labels = await getMatchSeasons();
   const perSeason = await Promise.all(labels.map((label) => getMatchesForSeason(label)));
+  return perSeason.flat();
+});
+
+/**
+ * Every fixture this season's clubs play, in every competition.
+ *
+ * The congestion calendar. FPL's own feed is the Premier League and nothing
+ * else, so without this a club playing Thursday in Europe looks identical to
+ * one that has not played in a week, and rotation is invisible. Read across
+ * every stored season, because a window can straddle one and because the
+ * European competitions publish a season only once it is drawn.
+ */
+export const getClubFixtures = cache(async (): Promise<ClubFixture[]> => {
+  const labels = await store.partitions({ season: asSeason(season), dataset: 'club-fixtures' });
+  const perSeason = await Promise.all(
+    labels.map((label) => readOrEmpty<ClubFixture>('club-fixtures', clubFixtureSchema, label)),
+  );
   return perSeason.flat();
 });
 

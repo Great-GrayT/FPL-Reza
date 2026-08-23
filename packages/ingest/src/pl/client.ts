@@ -69,9 +69,9 @@ export class PremierLeagueClient {
   }
 
   /** Every season the competition has, newest first. */
-  async compSeasons(): Promise<PlCompSeason[]> {
+  async compSeasons(competition = PREMIER_LEAGUE_COMPETITION): Promise<PlCompSeason[]> {
     const payload = await this.http.getJson(
-      `/competitions/${String(PREMIER_LEAGUE_COMPETITION)}/compseasons?pageSize=100&page=0`,
+      `/competitions/${String(competition)}/compseasons?pageSize=100&page=0`,
     );
     return parse(plCompSeasonsSchema, payload, 'season list').content;
   }
@@ -92,9 +92,10 @@ export class PremierLeagueClient {
     compSeasonId: number,
     page: number,
     pageSize = 100,
+    competition = PREMIER_LEAGUE_COMPETITION,
   ): Promise<{ fixtures: PlFixture[]; numPages: number }> {
     const payload = await this.http.getJson(
-      `/fixtures?comps=${String(PREMIER_LEAGUE_COMPETITION)}&compSeasons=${String(compSeasonId)}` +
+      `/fixtures?comps=${String(competition)}&compSeasons=${String(compSeasonId)}` +
         `&pageSize=${String(pageSize)}&page=${String(page)}&sort=asc&altIds=true`,
     );
     const parsed = parse(plFixturesPageSchema, payload, 'fixture page');
@@ -102,11 +103,14 @@ export class PremierLeagueClient {
   }
 
   /** Every fixture of a season, in kickoff order. */
-  async allFixtures(compSeasonId: number): Promise<PlFixture[]> {
-    const first = await this.fixturesPage(compSeasonId, 0);
+  async allFixtures(
+    compSeasonId: number,
+    competition = PREMIER_LEAGUE_COMPETITION,
+  ): Promise<PlFixture[]> {
+    const first = await this.fixturesPage(compSeasonId, 0, 100, competition);
     const fixtures = [...first.fixtures];
     for (let page = 1; page < first.numPages; page += 1) {
-      const next = await this.fixturesPage(compSeasonId, page);
+      const next = await this.fixturesPage(compSeasonId, page, 100, competition);
       fixtures.push(...next.fixtures);
     }
     return fixtures;
