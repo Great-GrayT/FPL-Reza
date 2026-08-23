@@ -12,7 +12,10 @@ import {
   type Match,
   type MatchDetail,
   congestionBetween,
+  statSeries,
+  statAverage,
   type ClubFixture,
+  type MatchTeamStats,
 } from './matches.js';
 
 const ARSENAL = 3;
@@ -329,5 +332,61 @@ describe('congestion across every competition', () => {
   it('counts a fixture with no kickoff nowhere, since nobody knows the rest yet', () => {
     const congestion = congestionBetween([fixture({ kickoff: null })], 3, window.from, window.to);
     assert.equal(congestion.matches, 0);
+  });
+});
+
+describe('match statistics', () => {
+  const row = (over: Partial<MatchTeamStats>): MatchTeamStats => ({
+    fixtureId: 1,
+    competitionId: 1,
+    competition: 'Premier League',
+    season: asSeason('2026/27'),
+    kickoff: new Date('2026-09-12T14:00:00Z'),
+    teamId: 38,
+    teamCode: 39,
+    teamName: 'Wolves',
+    opponentCode: 50,
+    opponentName: 'Port Vale',
+    home: true,
+    stats: { ppda: 9.7, possession_percentage: 68.6 },
+    ...over,
+  });
+
+  it('reads one measure across a club, newest first', () => {
+    const rows = [
+      row({ fixtureId: 1, kickoff: new Date('2026-09-12T14:00:00Z'), stats: { ppda: 9.7 } }),
+      row({ fixtureId: 2, kickoff: new Date('2026-09-19T14:00:00Z'), stats: { ppda: 12.1 } }),
+    ];
+    assert.deepEqual(
+      statSeries(rows, 39, 'ppda').map((entry) => entry.value),
+      [12.1, 9.7],
+    );
+  });
+
+  it('skips a match that did not produce the measure, rather than reading it as zero', () => {
+    const rows = [
+      row({ fixtureId: 1, stats: { penalty_save: 1 } }),
+      row({ fixtureId: 2, stats: { ppda: 8 } }),
+    ];
+    // A match with no penalty has no penalty save: it is absent, not zero, and
+    // averaging a zero in would report a keeper who faced none as having failed.
+    assert.equal(statSeries(rows, 39, 'penalty_save').length, 1);
+    assert.equal(statAverage(rows, 39, 'penalty_save'), 1);
+  });
+
+  it('averages over the most recent matches only', () => {
+    const rows = Array.from({ length: 10 }, (_, index) =>
+      row({
+        fixtureId: index + 1,
+        kickoff: new Date(2026, 8, index + 1),
+        stats: { ppda: index + 1 },
+      }),
+    );
+    // Newest six are 10 down to 5, which average 7.5.
+    assert.equal(statAverage(rows, 39, 'ppda', 6), 7.5);
+  });
+
+  it('has no average for a club with nothing stored', () => {
+    assert.equal(statAverage([row({})], 99, 'ppda'), null);
   });
 });

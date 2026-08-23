@@ -22,6 +22,8 @@ export const DATASETS = {
   matches: 'matches',
   /** Every fixture a club plays, in every competition: the congestion calendar. */
   clubFixtures: 'club-fixtures',
+  /** 181 Opta measures per club per match, every competition. */
+  matchTeamStats: 'match-team-stats',
   matchDetails: 'match-details',
   managers: 'managers',
   managerSpells: 'manager-spells',

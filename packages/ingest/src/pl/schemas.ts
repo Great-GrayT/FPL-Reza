@@ -217,3 +217,38 @@ export type PlStaff = z.infer<typeof plStaffSchema>;
 export const plTeamsPageSchema = z.object({
   content: z.array(plTeamSchema),
 });
+
+/**
+ * The provider's match statistics payload.
+ *
+ * `data` is keyed by the club's own id and each side carries an `M` array of
+ * named measures. The set of names varies by match, so nothing here enumerates
+ * them: a schema listing 181 fields would fail the first time a match produced
+ * a 182nd, and that is the day it would matter most.
+ */
+export const plMatchStatsSchema = z.object({
+  entity: z.object({
+    id: z.number(),
+    kickoff: z.object({ millis: z.number().optional() }).partial().optional(),
+    teams: z
+      .array(
+        z.object({
+          team: z.object({
+            id: z.number(),
+            name: z.string(),
+            shortName: z.string().optional(),
+            altIds: z.object({ opta: z.string().optional() }).optional(),
+          }),
+        }),
+      )
+      .default([]),
+  }),
+  data: z.record(
+    z.string(),
+    z.object({
+      M: z.array(z.object({ name: z.string(), value: z.number() })).default([]),
+    }),
+  ),
+});
+
+export type PlMatchStats = z.infer<typeof plMatchStatsSchema>;

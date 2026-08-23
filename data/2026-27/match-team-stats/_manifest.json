@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "season": "2026/27",
+      "dataset": "match-team-stats",
+      "partition": "2025-26",
+      "capturedAt": "2026-08-23T12:20:54.442Z",
+      "rows": 20,
+      "bytes": 69903,
+      "format": "jsonl",
+      "file": "2026-27/match-team-stats/2025-26/2026-08-23T12-20-54-442Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-team-stats",
+      "partition": "2026-27",
+      "capturedAt": "2026-08-23T12:20:54.442Z",
+      "rows": 20,
+      "bytes": 73565,
+      "format": "jsonl",
+      "file": "2026-27/match-team-stats/2026-27/2026-08-23T12-20-54-442Z.jsonl"
+    }
+  ]
+}

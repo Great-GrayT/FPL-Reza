@@ -3,12 +3,14 @@ import { HttpClient, type HttpClientOptions } from '../http.js';
 import {
   plCompSeasonsSchema,
   plFixtureDetailSchema,
+  plMatchStatsSchema,
   plFixturesPageSchema,
   plStaffSchema,
   plTeamsPageSchema,
   type PlCompSeason,
   type PlFixture,
   type PlFixtureDetail,
+  type PlMatchStats,
   type PlStaff,
   type PlTeam,
 } from './schemas.js';
@@ -114,6 +116,17 @@ export class PremierLeagueClient {
       fixtures.push(...next.fixtures);
     }
     return fixtures;
+  }
+
+  /**
+   * One match's statistics: 181 measures per club, which is the analysis
+   * underneath the dozen columns FPL publishes.
+   */
+  async matchStats(fixtureId: number): Promise<PlMatchStats> {
+    // altIds or the payload names the clubs and identifies neither: the Opta
+    // id is the whole join to FPL, and without it these rows are anonymous.
+    const payload = await this.http.getJson(`/stats/match/${String(fixtureId)}?altIds=true`);
+    return parse(plMatchStatsSchema, payload, 'match statistics');
   }
 
   async fixtureDetail(fixtureId: number): Promise<PlFixtureDetail> {

@@ -559,3 +559,73 @@ export function congestionBetween(
     competitions: [...new Set(inside.map((fixture) => fixture.competition))],
   };
 }
+
+/**
+ * One club's statistical record of one match, as the provider's own analysis
+ * publishes it.
+ *
+ * A hundred and eighty one measures per club per match: possession and passing,
+ * PPDA and pressing, carries and progressive carries, entries into the final
+ * third and the penalty area, big chances created and missed, duels, errors
+ * leading to a shot, and shots broken down by placement and body part. FPL
+ * publishes a dozen columns; this is the analysis underneath them.
+ *
+ * The measures are stored as a map rather than as columns because the set is
+ * not fixed: a match with no penalty has no penalty save, and inventing a zero
+ * for it would be recording a save nobody had the chance to make. A caller asks
+ * for what it wants and gets undefined where the match did not produce it,
+ * which is the same "null is not zero" rule the rest of this lake keeps.
+ */
+export const matchTeamStatsSchema = z.object({
+  fixtureId: z.number().int().positive(),
+  competitionId: z.number().int().positive(),
+  competition: z.string().min(1),
+  season: seasonSchema,
+  kickoff: z.coerce.date().nullable(),
+  /** The provider's own club id, which is what its stats payload keys on. */
+  teamId: z.number().int().positive(),
+  /** FPL's permanent club code, where the club is one FPL knows. */
+  teamCode: z.number().int().positive().nullable(),
+  teamName: z.string().min(1),
+  opponentCode: z.number().int().positive().nullable(),
+  opponentName: z.string().min(1),
+  home: z.boolean(),
+  /** Measure name to value. Absent means the match did not produce it. */
+  stats: z.record(z.string(), z.number()),
+});
+
+export type MatchTeamStats = z.infer<typeof matchTeamStatsSchema>;
+
+/** One measure across a club's matches, newest first, skipping the matches that lack it. */
+export function statSeries(
+  rows: readonly MatchTeamStats[],
+  teamCode: number,
+  measure: string,
+): { fixtureId: number; kickoff: Date | null; value: number }[] {
+  return rows
+    .filter((row) => row.teamCode === teamCode && row.stats[measure] !== undefined)
+    .sort((a, b) => (b.kickoff?.getTime() ?? 0) - (a.kickoff?.getTime() ?? 0))
+    .map((row) => ({
+      fixtureId: row.fixtureId,
+      kickoff: row.kickoff,
+      value: row.stats[measure] ?? 0,
+    }));
+}
+
+/**
+ * A club's average for one measure over its most recent matches.
+ *
+ * Null rather than zero where nothing was measured, because a club with no
+ * stored matches has no average and reporting one as zero would put it bottom
+ * of every ranking it appears in.
+ */
+export function statAverage(
+  rows: readonly MatchTeamStats[],
+  teamCode: number,
+  measure: string,
+  matches = 6,
+): number | null {
+  const series = statSeries(rows, teamCode, measure).slice(0, matches);
+  if (series.length === 0) return null;
+  return series.reduce((total, entry) => total + entry.value, 0) / series.length;
+}

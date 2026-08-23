@@ -41,6 +41,7 @@ import {
   sofascoreSpatialSource,
   plHttp,
   plCalendarSource,
+  plMatchStatsSource,
   plMatchesSource,
   PremierLeagueClient,
   openMeteoHttp,
@@ -774,6 +775,33 @@ ${String(report.written.length)} artifacts written in ${String(Math.round(report
         [
           plCalendarSource(new PremierLeagueClient(http), {
             ...(options.seasons === undefined ? {} : { seasons: options.seasons }),
+          }),
+        ],
+        { season, store: deps.store, logger: deps.logger, capturedAt: now() },
+      );
+
+      if (options.json === true) {
+        writeJson(streams, report);
+        return;
+      }
+      writeSyncTable(streams, report);
+      if (report.failed > 0) process.exitCode = 1;
+    });
+
+  official
+    .command('stats')
+    .description('181 Opta measures per club per match, for every competition')
+    .option('--season <season>', 'season the snapshots are filed under, e.g. 2026/27')
+    .option('--max-matches <n>', 'cap the per match requests, for a bounded run', parseIntOption)
+    .option('--json', 'print machine readable JSON instead of a summary')
+    .action(async (options: { season?: string; maxMatches?: number; json?: boolean }) => {
+      const season = resolveSeason(options.season, deps.config);
+      const http = plHttp({ logger: deps.logger });
+
+      const report = await runSync(
+        [
+          plMatchStatsSource(new PremierLeagueClient(http), {
+            ...(options.maxMatches === undefined ? {} : { maxMatches: options.maxMatches }),
           }),
         ],
         { season, store: deps.store, logger: deps.logger, capturedAt: now() },
