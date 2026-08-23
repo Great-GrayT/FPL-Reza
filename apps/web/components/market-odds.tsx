@@ -28,20 +28,29 @@ export function MarketOdds({
   homeLabel,
   awayLabel,
   model,
+  outcome,
 }: {
   market: MarketView;
   homeLabel: string;
   awayLabel: string;
   /** The model's own probabilities, so the two can be read against each other. */
   model: { home: number; draw: number; away: number; over: number };
+  /**
+   * Which outcome actually occurred, once the match is played.
+   *
+   * The market and the model are two opinions, and a page that prints both and
+   * never says which was right is asking a reader to arbitrate with no
+   * evidence. This is the evidence.
+   */
+  outcome?: 'home' | 'draw' | 'away';
 }) {
   const { consensus } = market;
   if (consensus === null) return null;
 
   const gaps = [
-    { label: homeLabel, market: consensus.home, model: model.home },
-    { label: 'Draw', market: consensus.draw, model: model.draw },
-    { label: awayLabel, market: consensus.away, model: model.away },
+    { key: 'home' as const, label: homeLabel, market: consensus.home, model: model.home },
+    { key: 'draw' as const, label: 'Draw', market: consensus.draw, model: model.draw },
+    { key: 'away' as const, label: awayLabel, market: consensus.away, model: model.away },
   ];
   const widest = [...gaps].sort(
     (a, b) => Math.abs(b.market - b.model) - Math.abs(a.market - a.model),
@@ -69,8 +78,16 @@ export function MarketOdds({
 
       <dl className={styles.gaps}>
         {gaps.map((gap) => (
-          <div key={gap.label}>
-            <dt>{gap.label}</dt>
+          <div key={gap.label} data-happened={outcome === gap.key ? 'true' : undefined}>
+            <dt>
+              {gap.label}
+              {outcome === gap.key && (
+                <>
+                  {' '}
+                  <span className={styles.won}>happened</span>
+                </>
+              )}
+            </dt>
             <dd>
               <span className={`num ${styles.value}`}>{percent(gap.market)}</span>
               <span className={styles.against}>

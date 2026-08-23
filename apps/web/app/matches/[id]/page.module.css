@@ -514,3 +514,57 @@
     padding-left: 0;
   }
 }
+
+/* ------------------------------------------------------- the result, scored
+
+   Once a match is played every prediction on this page has an answer, and the
+   answer is printed beside the claim rather than left at the top of the page
+   for the reader to carry down. */
+
+.verdict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3) var(--s5);
+  margin: var(--s4) 0 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--rule);
+}
+
+.verdict div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.verdict dt {
+  font-family: var(--font-display), sans-serif;
+  font-size: var(--step--2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.verdict dd {
+  margin: 0;
+  font-size: var(--step-1);
+}
+
+.verdictScore {
+  font-weight: 700;
+}
+
+/* The score that actually happened, in the list of the ones the model liked.
+   Marked with a rule as well as weight, so it survives a greyscale print. */
+.scores li[data-happened='true'] {
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--flare);
+  padding-inline-start: var(--s2);
+}
+
+.actual {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.actual strong {
+  color: var(--ink);
+}

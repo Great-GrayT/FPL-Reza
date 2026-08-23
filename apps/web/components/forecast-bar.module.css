@@ -100,3 +100,22 @@
     grid-row: 2;
   }
 }
+
+/* Once a match is played, each line says whether it came in. A tick and a
+   cross rather than colour alone, since a reader who cannot separate green
+   from red would otherwise be reading an unmarked list. */
+.outcome {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--1);
+  inline-size: 1rem;
+  text-align: center;
+}
+
+.likelihood[data-happened='true'] .outcome {
+  color: var(--bonus-ink, var(--ink));
+  font-weight: 700;
+}
+
+.likelihood[data-happened='false'] {
+  opacity: 0.55;
+}

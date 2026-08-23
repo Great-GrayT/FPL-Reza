@@ -48,14 +48,35 @@ export function ForecastBar({
 }
 
 /** One probability as a labelled meter, for a clean sheet or an over under. */
-export function Likelihood({ label, value }: { label: string; value: number }) {
+export function Likelihood({
+  label,
+  value,
+  happened,
+}: {
+  label: string;
+  value: number;
+  /**
+   * Whether it actually happened, once the match is played.
+   *
+   * Undefined before kickoff, which is not the same as false: a bet that has
+   * not been settled and one that lost look nothing alike, and marking an
+   * unplayed match with a cross would be the page inventing a result.
+   */
+  happened?: boolean;
+}) {
   return (
-    <div className={styles.likelihood}>
+    <div className={styles.likelihood} data-happened={happened ?? undefined}>
       <span className={styles.likelihoodLabel}>{label}</span>
       <span className={styles.meter} aria-hidden>
         <span className={styles.meterFill} style={{ width: `${String(value * 100)}%` }} />
       </span>
       <span className={`num ${styles.likelihoodValue}`}>{(value * 100).toFixed(0)}%</span>
+      {happened !== undefined && (
+        <span className={styles.outcome}>
+          <span aria-hidden="true">{happened ? '✓' : '✗'}</span>
+          <span className="visually-hidden">{happened ? 'happened' : 'did not happen'}</span>
+        </span>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {
   congestionBetween,
   describeWeatherCode,
+  poissonPmf,
   headToHead,
   recentForm,
   refereeRecord,
@@ -30,6 +31,7 @@ import {
   getGroundImages,
   getOdds,
   getOfficialByFixture,
+  getAllPlayerGameweeks,
   getClubFixtures,
   getPlayers,
   getPlayersByCode,
@@ -227,6 +229,68 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const homeLikely = homeSheet === null ? predict(home, homeSquad) : null;
   const awayLikely = awaySheet === null ? predict(away, awaySquad) : null;
 
+  /**
+   * What actually happened, beside what was predicted.
+   *
+   * A forecast nobody scores is a forecast nobody can argue with. Once a match
+   * is played every claim on this page has an answer, so the page prints the
+   * answer next to the claim: the probability the model gave the outcome that
+   * occurred, the probability it gave that exact scoreline, the goals it
+   * expected against the goals scored, and which of the four side bets came in.
+   *
+   * Null before kickoff, which is when the predictions are all this page has.
+   */
+  const result =
+    played && official?.homeScore != null && official.awayScore != null
+      ? (() => {
+          const homeScore = official.homeScore;
+          const awayScore = official.awayScore;
+          const outcome: 'home' | 'draw' | 'away' =
+            homeScore > awayScore ? 'home' : homeScore < awayScore ? 'away' : 'draw';
+          return {
+            homeScore,
+            awayScore,
+            outcome,
+            /** What the model gave the outcome that happened. */
+            modelGave:
+              outcome === 'home'
+                ? forecast.homeWin
+                : outcome === 'away'
+                  ? forecast.awayWin
+                  : forecast.draw,
+            /**
+             * What it gave this exact scoreline. The two goal counts are
+             * independent draws in this model, so the scoreline is the product,
+             * which is the same arithmetic the grid behind `likelyScores` uses.
+             */
+            exactScore:
+              poissonPmf(homeScore, forecast.homeExpectedGoals) *
+              poissonPmf(awayScore, forecast.awayExpectedGoals),
+            homeCleanSheet: awayScore === 0,
+            awayCleanSheet: homeScore === 0,
+            bothScored: homeScore > 0 && awayScore > 0,
+            overTwoPointFive: homeScore + awayScore > 2,
+          };
+        })()
+      : null;
+
+  /**
+   * What the players in this fixture actually scored, once it is played.
+   *
+   * "Worth owning" ranks by a projection, and a projection for a match that
+   * finished two weeks ago is a claim nobody can act on and nobody checked.
+   * The gameweek's own returns are stored, so the list prints them beside the
+   * projection: the ranking stays, and the reader can see what it was worth.
+   */
+  const scored =
+    played && fixture.gameweek !== null
+      ? new Map(
+          (await getAllPlayerGameweeks())
+            .filter((row) => row.gameweek === fixture.gameweek)
+            .map((row) => [row.playerId as number, row]),
+        )
+      : null;
+
   // Who is worth owning in this fixture, from the same projection the scout
   // page and the builder use, so three pages cannot disagree about a player.
   const watchList = [...homeSquad, ...awaySquad]
@@ -315,7 +379,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
       <section className={styles.block} aria-labelledby="forecast">
         <h2 id="forecast" className={styles.h2}>
-          What is likely
+          {result === null ? 'What is likely' : 'What was likely, and what happened'}
         </h2>
         <p className={styles.lede}>
           Where these numbers come from: a Poisson model fitted to nothing, stated in full below. It
@@ -334,6 +398,40 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           awayLabel={away.shortName}
         />
 
+        {/* The model is scored rather than left to stand. A probability it gave
+            the thing that happened is the only number that tells a reader
+            whether any of the rest was worth reading. */}
+        {result !== null && (
+          <dl className={styles.verdict}>
+            <div>
+              <dt>It finished</dt>
+              <dd className={`num ${styles.verdictScore}`}>
+                {result.homeScore}&ndash;{result.awayScore}
+              </dd>
+            </div>
+            <div>
+              <dt>
+                The model gave{' '}
+                {result.outcome === 'draw'
+                  ? 'the draw'
+                  : `${result.outcome === 'home' ? home.shortName : away.shortName} to win`}
+              </dt>
+              <dd className="num">{percent(result.modelGave)}</dd>
+            </div>
+            <div>
+              <dt>and that exact score</dt>
+              <dd className="num">{percent(result.exactScore)}</dd>
+            </div>
+            <div>
+              <dt>Goals expected against scored</dt>
+              <dd className="num">
+                {(forecast.homeExpectedGoals + forecast.awayExpectedGoals).toFixed(2)}{' '}
+                <span className={styles.dim}>v</span> {result.homeScore + result.awayScore}
+              </dd>
+            </div>
+          </dl>
+        )}
+
         <div className={styles.forecastGrid}>
           <div>
             <p className="eyebrow">Goals expected</p>
@@ -342,23 +440,63 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               <span className={styles.dim}> v </span>
               {forecast.awayExpectedGoals.toFixed(2)}
             </p>
-            <Likelihood label={`${home.shortName} clean sheet`} value={forecast.homeCleanSheet} />
-            <Likelihood label={`${away.shortName} clean sheet`} value={forecast.awayCleanSheet} />
-            <Likelihood label="Both to score" value={forecast.bothToScore} />
-            <Likelihood label="Over 2.5 goals" value={forecast.overTwoPointFive} />
+            <Likelihood
+              label={`${home.shortName} clean sheet`}
+              value={forecast.homeCleanSheet}
+              {...(result === null ? {} : { happened: result.homeCleanSheet })}
+            />
+            <Likelihood
+              label={`${away.shortName} clean sheet`}
+              value={forecast.awayCleanSheet}
+              {...(result === null ? {} : { happened: result.awayCleanSheet })}
+            />
+            <Likelihood
+              label="Both to score"
+              value={forecast.bothToScore}
+              {...(result === null ? {} : { happened: result.bothScored })}
+            />
+            <Likelihood
+              label="Over 2.5 goals"
+              value={forecast.overTwoPointFive}
+              {...(result === null ? {} : { happened: result.overTwoPointFive })}
+            />
           </div>
 
           <div>
             <p className="eyebrow">Likeliest scores</p>
             <ol className={styles.scores}>
               {forecast.likelyScores.map((entry) => (
-                <li key={`${String(entry.home)}-${String(entry.away)}`}>
+                <li
+                  key={`${String(entry.home)}-${String(entry.away)}`}
+                  data-happened={
+                    result !== null &&
+                    entry.home === result.homeScore &&
+                    entry.away === result.awayScore
+                      ? 'true'
+                      : undefined
+                  }
+                >
                   <span className="num">
                     {entry.home}&ndash;{entry.away}
                   </span>
                   <span className={`num ${styles.dim}`}>{percent(entry.probability)}</span>
                 </li>
               ))}
+              {/* A score the model never had in its top five is the most
+                  informative row on the page, so it is added rather than left
+                  out: the list would otherwise only ever show the model
+                  agreeing with itself. */}
+              {result !== null &&
+                !forecast.likelyScores.some(
+                  (entry) => entry.home === result.homeScore && entry.away === result.awayScore,
+                ) && (
+                  <li data-happened="true">
+                    <span className="num">
+                      {result.homeScore}&ndash;{result.awayScore}
+                    </span>
+                    <span className={`num ${styles.dim}`}>{percent(result.exactScore)}</span>
+                  </li>
+                )}
             </ol>
             <p className="eyebrow">FPL difficulty</p>
             <p className={styles.fdrRow}>
@@ -412,6 +550,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             away: forecast.awayWin,
             over: forecast.overTwoPointFive,
           }}
+          {...(result === null ? {} : { outcome: result.outcome })}
         />
       )}
 
@@ -713,6 +852,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         <p className={styles.lede}>
           Ranked by the same <MetricTip id="projected-points">projection</MetricTip> the scout and
           the builder use, for this fixture only.
+          {scored !== null &&
+            ' The match has been played, so what each of them actually returned is printed beside it.'}
         </p>
         <ul className={styles.watch}>
           {watchList.map(({ player, projection }) => {
@@ -727,7 +868,28 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   size="md"
                   href={`/players/${String(player.id)}`}
                 />
-                <span className={`num ${styles.projected}`}>{projection.points.toFixed(1)}</span>
+                <span className={`num ${styles.projected}`}>
+                  {projection.points.toFixed(1)}
+                  {scored !== null && (
+                    <span className={styles.actual}>
+                      {(() => {
+                        const row = scored.get(player.id);
+                        // A player absent from the gameweek's rows did not
+                        // feature, which is a different fact from scoring none.
+                        if (row === undefined)
+                          return <span className={styles.dim}> did not play</span>;
+                        return (
+                          <>
+                            {' '}
+                            <span aria-hidden="true">&rarr;</span>{' '}
+                            <strong>{row.totalPoints}</strong>
+                            <span className="visually-hidden"> points scored</span>
+                          </>
+                        );
+                      })()}
+                    </span>
+                  )}
+                </span>
               </li>
             );
           })}

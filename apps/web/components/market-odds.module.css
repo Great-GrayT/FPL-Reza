@@ -142,3 +142,18 @@
   background: var(--paper-2);
   padding: 0.05em 0.3em;
 }
+
+/* The outcome that occurred, named rather than left for the reader to work out
+   from the scoreline at the top of the page. */
+.gaps div[data-happened='true'] {
+  box-shadow: inset 3px 0 0 var(--flare);
+  padding-inline-start: var(--s2);
+}
+
+.won {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--flare-ink, var(--ink));
+}
