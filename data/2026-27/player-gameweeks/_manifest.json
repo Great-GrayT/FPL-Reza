@@ -30,6 +30,16 @@
       "bytes": 131514,
       "format": "jsonl",
       "file": "2026-27/player-gameweeks/gw1/2026-08-24T03-16-22-699Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks",
+      "partition": "gw1",
+      "capturedAt": "2026-08-25T03:12:24.244Z",
+      "rows": 310,
+      "bytes": 146183,
+      "format": "jsonl",
+      "file": "2026-27/player-gameweeks/gw1/2026-08-25T03-12-24-244Z.jsonl"
     }
   ]
 }
