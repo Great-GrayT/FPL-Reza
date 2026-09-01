@@ -400,6 +400,16 @@
       "bytes": 73410,
       "format": "jsonl",
       "file": "2026-27/fixtures/_all/2026-09-01T07-48-55-585Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "fixtures",
+      "partition": null,
+      "capturedAt": "2026-09-01T10:15:02.089Z",
+      "rows": 380,
+      "bytes": 73400,
+      "format": "jsonl",
+      "file": "2026-27/fixtures/_all/2026-09-01T10-15-02-089Z.jsonl"
     }
   ]
 }
