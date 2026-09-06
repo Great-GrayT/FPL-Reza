@@ -210,6 +210,16 @@
       "bytes": 4283,
       "format": "jsonl",
       "file": "2026-27/teams/_all/2026-09-05T06-55-56-426Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "teams",
+      "partition": null,
+      "capturedAt": "2026-09-06T07:07:20.824Z",
+      "rows": 20,
+      "bytes": 4283,
+      "format": "jsonl",
+      "file": "2026-27/teams/_all/2026-09-06T07-07-20-824Z.jsonl"
     }
   ]
 }
