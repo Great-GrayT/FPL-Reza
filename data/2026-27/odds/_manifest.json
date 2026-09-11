@@ -1100,6 +1100,16 @@
       "bytes": 156687,
       "format": "jsonl",
       "file": "2026-27/odds/football-data-2026-27/2026-09-11T11-36-18-395Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "odds",
+      "partition": "football-data-2026-27",
+      "capturedAt": "2026-09-11T16:34:25.757Z",
+      "rows": 540,
+      "bytes": 156687,
+      "format": "jsonl",
+      "file": "2026-27/odds/football-data-2026-27/2026-09-11T16-34-25-757Z.jsonl"
     }
   ]
 }
