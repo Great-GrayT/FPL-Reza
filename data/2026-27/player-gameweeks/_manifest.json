@@ -490,6 +490,46 @@
       "bytes": 188070,
       "format": "jsonl",
       "file": "2026-27/player-gameweeks/gw4/2026-09-13T07-27-53-085Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks",
+      "partition": "gw1",
+      "capturedAt": "2026-09-14T07:53:28.936Z",
+      "rows": 382,
+      "bytes": 181508,
+      "format": "jsonl",
+      "file": "2026-27/player-gameweeks/gw1/2026-09-14T07-53-28-936Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks",
+      "partition": "gw2",
+      "capturedAt": "2026-09-14T07:53:28.936Z",
+      "rows": 389,
+      "bytes": 185086,
+      "format": "jsonl",
+      "file": "2026-27/player-gameweeks/gw2/2026-09-14T07-53-28-936Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks",
+      "partition": "gw3",
+      "capturedAt": "2026-09-14T07:53:28.936Z",
+      "rows": 405,
+      "bytes": 192488,
+      "format": "jsonl",
+      "file": "2026-27/player-gameweeks/gw3/2026-09-14T07-53-28-936Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "player-gameweeks",
+      "partition": "gw4",
+      "capturedAt": "2026-09-14T07:53:28.936Z",
+      "rows": 405,
+      "bytes": 190368,
+      "format": "jsonl",
+      "file": "2026-27/player-gameweeks/gw4/2026-09-14T07-53-28-936Z.jsonl"
     }
   ]
 }
