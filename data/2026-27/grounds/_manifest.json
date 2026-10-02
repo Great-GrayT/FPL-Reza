@@ -460,6 +460,16 @@
       "bytes": 2634,
       "format": "jsonl",
       "file": "2026-27/grounds/_all/2026-10-01T08-57-24-564Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "grounds",
+      "partition": null,
+      "capturedAt": "2026-10-02T08:32:29.270Z",
+      "rows": 20,
+      "bytes": 2634,
+      "format": "jsonl",
+      "file": "2026-27/grounds/_all/2026-10-02T08-32-29-270Z.jsonl"
     }
   ]
 }
