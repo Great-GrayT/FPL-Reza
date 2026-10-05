@@ -3800,6 +3800,16 @@
       "bytes": 3823,
       "format": "jsonl",
       "file": "2026-27/match-weather/2026-27/2026-10-04T21-35-44-380Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-weather",
+      "partition": "2026-27",
+      "capturedAt": "2026-10-05T01:01:15.235Z",
+      "rows": 16,
+      "bytes": 3823,
+      "format": "jsonl",
+      "file": "2026-27/match-weather/2026-27/2026-10-05T01-01-15-235Z.jsonl"
     }
   ]
 }
