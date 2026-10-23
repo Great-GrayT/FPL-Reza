@@ -690,6 +690,16 @@
       "bytes": 921696,
       "format": "jsonl",
       "file": "2026-27/match-details/2026-27/2026-10-22T07-35-39-843Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "match-details",
+      "partition": "2026-27",
+      "capturedAt": "2026-10-23T07:32:19.397Z",
+      "rows": 70,
+      "bytes": 921696,
+      "format": "jsonl",
+      "file": "2026-27/match-details/2026-27/2026-10-23T07-32-19-397Z.jsonl"
     }
   ]
 }
