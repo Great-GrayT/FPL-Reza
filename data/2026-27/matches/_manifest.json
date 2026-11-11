@@ -1240,6 +1240,16 @@
       "bytes": 9460,
       "format": "parquet",
       "file": "2026-27/matches/2026-27/2026-11-10T09-49-25-881Z.parquet"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "matches",
+      "partition": "2026-27",
+      "capturedAt": "2026-11-11T09:25:23.582Z",
+      "rows": 380,
+      "bytes": 9460,
+      "format": "parquet",
+      "file": "2026-27/matches/2026-27/2026-11-11T09-25-23-582Z.parquet"
     }
   ]
 }
