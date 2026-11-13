@@ -890,6 +890,16 @@
       "bytes": 8111,
       "format": "jsonl",
       "file": "2026-27/gameweeks/_all/2026-11-12T09-49-00-851Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "gameweeks",
+      "partition": null,
+      "capturedAt": "2026-11-13T09:29:58.276Z",
+      "rows": 38,
+      "bytes": 8111,
+      "format": "jsonl",
+      "file": "2026-27/gameweeks/_all/2026-11-13T09-29-58-276Z.jsonl"
     }
   ]
 }
