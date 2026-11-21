@@ -960,6 +960,16 @@
       "bytes": 10546,
       "format": "jsonl",
       "file": "2026-27/managers/_all/2026-11-20T10-02-07-476Z.jsonl"
+    },
+    {
+      "season": "2026/27",
+      "dataset": "managers",
+      "partition": null,
+      "capturedAt": "2026-11-21T09:49:31.269Z",
+      "rows": 50,
+      "bytes": 10546,
+      "format": "jsonl",
+      "file": "2026-27/managers/_all/2026-11-21T09-49-31-269Z.jsonl"
     }
   ]
 }
